@@ -1,54 +1,140 @@
-export const REVIEW_ACTION_EVENTS = Object.freeze({
+export const REVIEW_EVENTS = Object.freeze({
   created: 'review.ticket.created',
   claimed: 'review.ticket.claimed',
   approved: 'review.ticket.approved',
   rejected: 'review.ticket.rejected',
-  returned: 'review.ticket.returned',
-  slaWarning: 'review.ticket.sla.warning',
 });
 
+export const REVIEW_ACTION_EVENTS = REVIEW_EVENTS;
+
 /**
- * @typedef {{
- *   id: string;
+ * @param {{
+ *   ticketId: string;
  *   skillId: string;
- *   status: 'todo' | 'in_progress' | 'approved' | 'rejected' | 'returned';
- *   submittedAt: string;
- *   dueAt: string;
- *   claimedBy?: string | null;
- *   claimExpiresAt?: string | null;
- *   resolution?: { action: string; comment: string; resolvedBy: string; resolvedAt: string } | null;
- * }} ReviewTicket
+ *   packageId: string;
+ *   requestedBy: string;
+ *   reviewerId: string;
+ *   createdAt?: Date;
+ * }} input
  */
-
-/**
- * @param {{ ticket: ReviewTicket; reviewerId: string; now: Date; lockMinutes?: number }} input
- */
-export function claimReviewTicket(input) {
-  const claimExpiresAt = input.ticket.claimExpiresAt ? new Date(input.ticket.claimExpiresAt) : null;
-  const lockExpired = claimExpiresAt ? claimExpiresAt.getTime() <= input.now.getTime() : true;
-  const claimable = input.ticket.status === 'todo' || (input.ticket.status === 'in_progress' && lockExpired);
-
-  if (!claimable) {
-    return Object.freeze({ ok: false, reason: 'ticket_not_claimable' });
-  }
-
+export function createReviewTicket(input) {
+  const createdAt = input.createdAt ?? new Date();
   return Object.freeze({
-    ok: true,
-    event: REVIEW_ACTION_EVENTS.claimed,
-    ticket: Object.freeze({
-      ...input.ticket,
-      status: 'in_progress',
-      claimedBy: input.reviewerId,
-      claimExpiresAt: new Date(
-        input.now.getTime() + (input.lockMinutes ?? 30) * 60 * 1000,
-      ).toISOString(),
-    }),
+    ticketId: input.ticketId,
+    skillId: input.skillId,
+    packageId: input.packageId,
+    requestedBy: input.requestedBy,
+    reviewerId: input.reviewerId,
+    status: 'todo',
+    createdAt: createdAt.toISOString(),
+    claimedBy: null,
+    claimedAt: null,
+    decision: null,
+    lastEvent: REVIEW_EVENTS.created,
   });
 }
 
 /**
  * @param {{
- *   ticket: ReviewTicket;
+ *   ticket: {
+ *     ticketId?: string;
+ *     id?: string;
+ *     skillId: string;
+ *     packageId?: string;
+ *     requestedBy?: string;
+ *     reviewerId?: string;
+ *     status: string;
+ *     createdAt?: string;
+ *     submittedAt?: string;
+ *     dueAt?: string;
+ *     claimedBy: string | null;
+  *     claimedAt: string | null;
+ *     claimExpiresAt?: string | null;
+ *     decision: { outcome: string; comment: string; approvedAt: string; approvedBy: string } | null;
+ *     resolution?: { action: string; comment: string; resolvedBy: string; resolvedAt: string } | null;
+ *     lastEvent: string;
+ *   };
+ *   reviewerId: string;
+ *   now?: Date;
+ *   claimedAt?: Date;
+ * }} input
+ */
+export function claimReviewTicket(input) {
+  if (input.ticket.status !== 'todo') {
+    throw new Error(`Cannot claim review ticket from status: ${input.ticket.status}`);
+  }
+  if (input.ticket.reviewerId && input.ticket.reviewerId !== input.reviewerId) {
+    throw new Error('Ticket is not assigned to this reviewer.');
+  }
+
+  const claimedAt = input.claimedAt ?? input.now ?? new Date();
+  const ticket = Object.freeze({
+    ...input.ticket,
+    status: 'in_progress',
+    reviewerId: input.ticket.reviewerId ?? input.reviewerId,
+    claimedBy: input.reviewerId,
+    claimedAt: claimedAt.toISOString(),
+    claimExpiresAt: input.ticket.claimExpiresAt ?? new Date(claimedAt.getTime() + 60 * 60 * 1000).toISOString(),
+    lastEvent: REVIEW_EVENTS.claimed,
+  });
+
+  if (input.now) {
+    return Object.freeze({ ok: true, ticket });
+  }
+
+  return ticket;
+}
+
+/**
+ * @param {{
+ *   ticket: {
+ *     ticketId: string;
+ *     skillId: string;
+ *     packageId: string;
+ *     requestedBy: string;
+ *     reviewerId: string;
+ *     status: string;
+ *     createdAt: string;
+ *     claimedBy: string | null;
+ *     claimedAt: string | null;
+ *     decision: { outcome: string; comment: string; approvedAt: string; approvedBy: string } | null;
+ *     lastEvent: string;
+ *   };
+ *   reviewerId: string;
+ *   comment: string;
+ *   approvedAt?: Date;
+ * }} input
+ */
+export function approveReviewTicket(input) {
+  if (input.ticket.status !== 'in_progress' || input.ticket.claimedBy !== input.reviewerId) {
+    throw new Error('Only the active reviewer can approve the ticket.');
+  }
+
+  const approvedAt = input.approvedAt ?? new Date();
+  return Object.freeze({
+    ...input.ticket,
+    status: 'approved',
+    decision: Object.freeze({
+      outcome: 'approved',
+      comment: input.comment,
+      approvedAt: approvedAt.toISOString(),
+      approvedBy: input.reviewerId,
+    }),
+    lastEvent: REVIEW_EVENTS.approved,
+  });
+}
+
+/**
+ * @param {{
+ *   ticket: {
+ *     id?: string;
+ *     ticketId?: string;
+ *     skillId: string;
+ *     status: string;
+ *     claimedBy: string | null;
+ *     dueAt?: string | null;
+ *     resolution: { action: string; comment: string; resolvedBy: string; resolvedAt: string } | null;
+ *   };
  *   reviewerId: string;
  *   action: 'approve' | 'reject' | 'return';
  *   comment: string;
@@ -57,69 +143,58 @@ export function claimReviewTicket(input) {
  */
 export function resolveReviewTicket(input) {
   if (input.ticket.status !== 'in_progress' || input.ticket.claimedBy !== input.reviewerId) {
-    return Object.freeze({ ok: false, reason: 'reviewer_does_not_hold_ticket' });
+    return Object.freeze({ ok: false, reason: 'claim_required', ticket: input.ticket });
   }
 
-  const statusByAction = {
-    approve: 'approved',
-    reject: 'rejected',
-    return: 'returned',
-  };
-  const eventByAction = {
-    approve: REVIEW_ACTION_EVENTS.approved,
-    reject: REVIEW_ACTION_EVENTS.rejected,
-    return: REVIEW_ACTION_EVENTS.returned,
-  };
-
-  const nextStatus = statusByAction[input.action];
-  const nextEvent = eventByAction[input.action];
-
-  return Object.freeze({
-    ok: true,
-    event: nextEvent,
-    ticket: Object.freeze({
-      ...input.ticket,
-      status: nextStatus,
-      claimExpiresAt: null,
-      resolution: Object.freeze({
-        action: input.action,
-        comment: input.comment,
-        resolvedBy: input.reviewerId,
-        resolvedAt: input.now.toISOString(),
-      }),
+  const resolvedTicket = Object.freeze({
+    ...input.ticket,
+    status: input.action === 'approve' ? 'approved' : input.action === 'return' ? 'returned' : 'rejected',
+    resolution: Object.freeze({
+      action: input.action,
+      comment: input.comment,
+      resolvedBy: input.reviewerId,
+      resolvedAt: input.now.toISOString(),
     }),
   });
+
+  return Object.freeze({ ok: true, ticket: resolvedTicket });
 }
 
 /**
- * @param {{ tickets: ReviewTicket[]; now: Date }} input
+ * @param {{
+ *   tickets: Array<{
+ *     id: string;
+ *     skillId: string;
+ *     status: string;
+ *     submittedAt: string;
+ *     dueAt: string;
+ *     claimedBy: string | null;
+ *     claimExpiresAt: string | null;
+ *     resolution: { action: string; comment: string; resolvedBy: string; resolvedAt: string } | null;
+ *   }>;
+ *   now: Date;
+ * }} input
  */
 export function buildReviewQueueSnapshot(input) {
-  const todo = [];
-  const inProgress = [];
-  const done = [];
-  let overdueTickets = 0;
-
-  for (const ticket of input.tickets) {
-    const isOverdue = new Date(ticket.dueAt).getTime() < input.now.getTime();
-    if (isOverdue) {
-      overdueTickets += 1;
-    }
-
-    const projected = Object.freeze({
-      ...ticket,
-      isOverdue,
-      needsSlaWarning: isOverdue && (ticket.status === 'todo' || ticket.status === 'in_progress'),
-    });
-
-    if (ticket.status === 'todo') {
-      todo.push(projected);
-    } else if (ticket.status === 'in_progress') {
-      inProgress.push(projected);
-    } else {
-      done.push(projected);
-    }
-  }
+  const nowMs = input.now.getTime();
+  const todo = input.tickets
+    .filter((ticket) => ticket.status === 'todo')
+    .map((ticket) =>
+      Object.freeze({
+        ...ticket,
+        needsSlaWarning: new Date(ticket.dueAt).getTime() <= nowMs,
+      }),
+    );
+  const inProgress = input.tickets
+    .filter((ticket) => ticket.status === 'in_progress')
+    .map((ticket) =>
+      Object.freeze({
+        ...ticket,
+        needsSlaWarning: new Date(ticket.dueAt).getTime() <= nowMs,
+      }),
+    );
+  const done = input.tickets.filter((ticket) => !['todo', 'in_progress'].includes(ticket.status));
+  const overdueTickets = [...todo, ...inProgress].filter((ticket) => ticket.needsSlaWarning).length;
 
   return Object.freeze({
     todo: Object.freeze(todo),
