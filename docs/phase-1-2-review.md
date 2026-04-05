@@ -7,6 +7,7 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 - Phase 2 target: package / skill / review / minimal search / notify publish-review loop
 - Evidence sources:
   - `apps/api/src/modules/**`
+  - `apps/api/src/workflows/**`
   - `apps/web/src/pages/**`
   - `apps/desktop/src/modules/**`
   - `packages/contracts/src/**`
@@ -16,8 +17,9 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 
 ## Review verdict
 - **Scaffold quality:** approve
-- **Phase completion:** not complete yet
-- **Primary documentation risk fixed here:** the repository is easy to misread as Phase 0/0.5 only unless the auth policy primitives and Phase 1 / Phase 2 scaffolds are called out explicitly
+- **Current phase status:** Phase 0 / 0.5 are complete, and the repo now includes executable Phase 1 and Phase 2 in-memory runtime slices on top of the frozen contracts
+- **Still not complete:** the repo is not yet the full product; HTTP controllers, persistence-backed services, SSE transport wiring, and real UI execution are still ahead
+- **Primary documentation risk fixed here:** earlier docs understated the current Phase 1 / Phase 2 runtime coverage and made the repository look like a pure scaffold
 
 ## What is implemented today
 
@@ -26,42 +28,45 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 - The shared contract package remains the canonical source for frozen cross-surface contracts.
 
 ### Phase 1 coverage present in code
-- `apps/api/src/modules/auth/core/access-policy.js` encodes fail-closed handling for:
-  - frozen accounts
-  - `AUTHZ_RECALC_PENDING`
-  - `AUTHZ_VERSION_MISMATCH`
-- `apps/api/src/modules/auth/core/bootstrap-policy.js`, `credential-policy.js`, `session-policy.js`, and `user-lifecycle-policy.js` capture the approved baseline rules for bootstrap, password, lockout, session rotation, freeze/unfreeze, and reset flows.
-- `apps/api/src/modules/{auth,org,audit,notify}/module.js` and the corresponding web page manifests define the intended governance slice boundaries and UI surfaces.
-- `test/auth-policy.test.js` and `test/workspace.test.js` protect the auth-policy primitives and scaffold contracts.
+- `apps/api/src/modules/auth/core/access-policy.js` encodes fail-closed handling for frozen accounts, `AUTHZ_RECALC_PENDING`, and stale `authz_version` tokens.
+- `apps/api/src/modules/auth/core/{bootstrap-policy,credential-policy,session-policy,user-lifecycle-policy}.js` capture bootstrap, password, lockout, session rotation, freeze/unfreeze, and reset rules from the approved auth baseline.
+- `apps/api/src/modules/org/core/{scope-policy,scope-governance}.js`, `apps/api/src/modules/audit/core/{log-policy,log-entry}.js`, and `apps/api/src/modules/notify/core/{badge-policy,notification-center}.js` now provide behavior-bearing governance helpers instead of manifest-only placeholders.
+- `apps/api/src/workflows/admin-governance-runtime.js` proves the minimal Phase 1 loop end to end: provision -> reassign -> fail closed during convergence -> converge -> freeze/unfreeze -> reset -> audit/notify output.
+- `test/auth-policy.test.js`, `test/governance-and-publish-flow.test.js`, and `test/phase-flows.test.js` lock these Phase 1 behaviors with executable checks.
 
 ### Phase 2 coverage present in code
-- `apps/api/src/modules/{package,skill,review,search}/module.js` define the marketplace and review domain boundaries.
-- `apps/web/src/pages/{market,my-skill,review,notifications,skill-management}/page.js` preserve the Phase 2 page map and shared page states.
-- `packages/contracts/src/notify.js`, `install.js`, and `source-of-truth.js` keep the minimal search/notify/install loop contracts frozen for later implementation.
+- `apps/api/src/modules/package/core/validation-report.js` validates package contents and hashes the submitted artifact set.
+- `apps/api/src/modules/review/core/ticket-policy.js` and `apps/api/src/modules/skill/core/{catalog-policy,publish-workflow}.js` implement review ticket creation/claim/approval plus the publish transition.
+- `apps/api/src/modules/search/core/{skill-search,skill-search-policy}.js` preserve the required permission-filter-before-rank behavior and summary-vs-detail visibility handling.
+- `apps/api/src/workflows/publish-review-runtime.js` proves the Phase 2 anchor loop end to end: upload -> review -> publish -> visible-in-search -> notify badge loop.
+- `apps/web/src/pages/{market,my-skill,review,notifications,skill-management}/page.js` preserve the intended page map and shared page states for the minimal loop.
+- `test/governance-and-publish-flow.test.js`, `test/phase-2-marketplace.test.js`, and `test/phase-flows.test.js` verify the publish/review/search/notify slice against the frozen contracts.
 
-## Gaps that remain before Phase 1 can be called complete
-- The repo does **not** yet implement end-to-end auth, org, audit, or notify services/controllers beyond the auth policy primitives and manifests.
-- There is no runnable login, bootstrap, manage-user, or SSE badge workflow yet.
-- `org`, `audit`, and `notify` are still manifest-level boundaries rather than behavior-bearing modules.
+## What is still missing before the platform can be called complete
 
-## Gaps that remain before Phase 2 can be called complete
-- The repo does **not** yet implement upload, validation, review ticketing, publish, authorized search visibility, or notification propagation workflows.
-- `package`, `skill`, `review`, and `search` are still scaffold manifests, not end-to-end services.
-- The web pages preserve route/page intent only; they do not yet execute the upload -> review -> publish -> visible-in-search -> notify badge loop.
+### Remaining Phase 1 product work
+- No NestJS controllers, repositories, or real persistence-backed auth/org/audit/notify services exist yet.
+- There is no production SSE transport or real login/bootstrap/manage-user UI flow; current coverage is runtime/model level.
+- Deployment and observability rails exist as planned boundaries, but not as fully wired operational services.
+
+### Remaining Phase 2 product work
+- The package/review/search/notify slice is proven in runtime tests, but not yet exposed through HTTP APIs, durable storage, or a live web workflow.
+- File upload storage, background validation execution, and reviewer workbench persistence are still ahead.
+- Desktop install/sync execution remains Phase 3 work even though the authority contracts are already frozen.
 
 ## Code-quality observations
 - **Strengths**
-  - The scaffold is internally consistent: manifests, fixtures, migrations, and tests all align to the same contract package.
-  - Auth policy code is small, explicit, and easy to verify.
-  - The repository already has a useful verification entrypoint: `pnpm verify`.
-- **Medium-risk gaps**
-  - Documentation could be read as if only Phase 0/0.5 exists, even though some Phase 1 primitives and Phase 2 surface scaffolds already landed.
-  - Most non-auth domains are still boundary declarations, so feature completeness should not be overstated in status updates.
+  - The contract-first structure is holding: fixtures, manifests, policies, runtimes, and tests all align to the same frozen package.
+  - The new runtime modules make the Phase 1 and Phase 2 acceptance loops executable without breaking the shared-contract freeze.
+  - Verification is practical and repeatable: `pnpm verify` is still the single repository gate.
+- **Medium-risk follow-up**
+  - Parallel helper variants currently exist in a few domains (`audit`, `org`, `search`) to support both scaffold-facing and runtime-facing tests. They are aligned today, but should eventually be consolidated or clearly separated by adapter/runtime intent when real service layers land.
+  - The repo still mixes manifest-level scaffolding with behavior-bearing modules, so status updates must distinguish “runtime slice proven” from “full product shipped”.
 
 ## Recommended next implementation order
-1. Finish Phase 1 behavior-bearing auth/org/audit/notify services on top of the frozen contracts.
-2. Add end-to-end management flow coverage for login, bootstrap, freeze/unfreeze, reset, and notification/audit events.
-3. Implement the minimal Phase 2 publish-review-search-notify loop before broadening install or desktop execution work.
+1. Add real API/controller and persistence adapters underneath the already verified Phase 1 governance runtime.
+2. Expose the minimal Phase 2 publish-review-search-notify loop through durable services and a live reviewer/publisher UI path.
+3. Preserve the current contract freeze while Phase 3 install/desktop execution work adopts the existing authority matrix and SSE payloads.
 
 ## Verification entrypoint
 Run the full repository gate from the repo root:
