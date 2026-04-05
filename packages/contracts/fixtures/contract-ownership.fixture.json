@@ -1,0 +1,49 @@
+[
+  {
+    "contract": "auth-error-envelope",
+    "canonicalSource": "packages/contracts/src/auth.js",
+    "fixture": "packages/contracts/fixtures/auth-error-envelope.fixture.json",
+    "consumers": [
+      "apps/api",
+      "apps/web",
+      "apps/desktop"
+    ]
+  },
+  {
+    "contract": "auth-org-convergence",
+    "canonicalSource": "packages/contracts/src/convergence.js",
+    "fixture": "packages/contracts/fixtures/auth-org-convergence.fixture.json",
+    "consumers": [
+      "apps/api",
+      "apps/web"
+    ]
+  },
+  {
+    "contract": "install-reconcile-status",
+    "canonicalSource": "packages/contracts/src/install.js",
+    "fixture": "packages/contracts/fixtures/install-reconcile-status.fixture.json",
+    "consumers": [
+      "apps/api",
+      "apps/desktop"
+    ]
+  },
+  {
+    "contract": "sse-payload",
+    "canonicalSource": "packages/contracts/src/notify.js",
+    "fixture": "packages/contracts/fixtures/sse-payload.fixture.json",
+    "consumers": [
+      "apps/api",
+      "apps/web",
+      "apps/desktop"
+    ]
+  },
+  {
+    "contract": "source-of-truth-matrix",
+    "canonicalSource": "packages/contracts/src/source-of-truth.js",
+    "fixture": "packages/contracts/fixtures/source-of-truth-matrix.fixture.json",
+    "consumers": [
+      "apps/api",
+      "apps/desktop"
+    ]
+  }
+]

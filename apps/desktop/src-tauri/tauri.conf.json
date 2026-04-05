@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Enterprise Agent Hub Desktop",
+  "version": "0.1.0",
+  "identifier": "com.enterprise-agent-hub.desktop",
+  "app": {
+    "windows": [
+      {
+        "title": "Enterprise Agent Hub Desktop",
+        "width": 1440,
+        "height": 960
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

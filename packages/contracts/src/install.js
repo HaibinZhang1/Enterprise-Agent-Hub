@@ -1,0 +1,11 @@
+export const INSTALL_RECONCILE_STATUS_FIXTURE = Object.freeze({
+  version: 1,
+  serverInstallStates: ['requested', 'installed', 'active', 'inactive', 'uninstalled', 'blocked'],
+  desktopLocalStates: ['queued', 'downloading', 'extracting', 'applying', 'applied', 'rollback_required'],
+  derivedReconcileStates: ['in_sync', 'desktop_drift', 'permission_narrowed', 'repair_required', 'offline_blocked'],
+  rules: [
+    'server states remain authoritative for entitlement, visibility, and install permission',
+    'desktop states remain authoritative for file execution progress and local rollback checkpoints',
+    'derived reconcile states explain mismatches but never overwrite server facts',
+  ],
+});

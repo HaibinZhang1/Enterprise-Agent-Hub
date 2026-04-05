@@ -1,0 +1,42 @@
+export const SOURCE_OF_TRUTH_MATRIX_FIXTURE = Object.freeze([
+  {
+    fact: 'skill visibility and install entitlement',
+    authority: 'server',
+    writers: ['review service', 'skill service', 'org permission convergence'],
+  },
+  {
+    fact: 'user install request lifecycle',
+    authority: 'server',
+    writers: ['install service'],
+  },
+  {
+    fact: 'download progress and extraction rollback checkpoints',
+    authority: 'desktop',
+    writers: ['skill-sync module'],
+  },
+  {
+    fact: 'tool discovery cache',
+    authority: 'desktop',
+    writers: ['tool-scanner module'],
+  },
+  {
+    fact: 'project path health',
+    authority: 'desktop',
+    writers: ['project-manager module'],
+  },
+  {
+    fact: 'desktop/server drift summary',
+    authority: 'derived',
+    writers: ['reconcile projection'],
+  },
+  {
+    fact: 'offline blocked state for network-dependent install/update work',
+    authority: 'derived',
+    writers: ['desktop connectivity guard'],
+  },
+  {
+    fact: 'notification unread badge',
+    authority: 'server',
+    writers: ['notify service'],
+  },
+]);

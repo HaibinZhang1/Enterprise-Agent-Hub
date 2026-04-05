@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "error": {
+    "domain": "auth",
+    "code": "AUTHZ_RECALC_PENDING",
+    "httpStatus": 409,
+    "retryable": false,
+    "userMessage": "Permissions are being recalculated. Please sign in again after convergence finishes.",
+    "action": "prompt_relogin_after_convergence"
+  },
+  "metadata": {
+    "requiresFreshLogin": true,
+    "clearSession": true,
+    "authority": "server",
+    "allowedClientFallbacks": [
+      "show-blocking-banner",
+      "redirect-to-login"
+    ]
+  }
+}

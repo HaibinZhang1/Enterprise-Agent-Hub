@@ -1,0 +1,37 @@
+export const SSE_PAYLOAD_FIXTURE = Object.freeze({
+  version: 1,
+  streams: {
+    badge: {
+      event: 'notify.badge.updated',
+      payload: {
+        unreadCount: 3,
+        reviewTodoCount: 2,
+        updateAvailableCount: 1,
+        generatedAt: '2026-04-05T13:00:00.000Z',
+      },
+    },
+    reviewQueue: {
+      event: 'review.queue.updated',
+      payload: {
+        openTickets: 12,
+        overdueTickets: 1,
+        generatedAt: '2026-04-05T13:00:00.000Z',
+      },
+    },
+    installUpdate: {
+      event: 'install.update-available',
+      payload: {
+        skillId: 'skill-example',
+        version: '1.2.0',
+        severity: 'normal',
+      },
+    },
+    reconnect: {
+      event: 'sse.reconnect-required',
+      payload: {
+        retryAfterSeconds: 30,
+        fallback: 'polling',
+      },
+    },
+  },
+});

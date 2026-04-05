@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "apps/**/*.js",
+    "packages/**/*.js",
+    "scripts/**/*.js"
+  ]
+}

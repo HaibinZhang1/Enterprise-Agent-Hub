@@ -1,0 +1,33 @@
+services:
+  nginx:
+    image: nginx:1.29-alpine
+    ports:
+      - '8080:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+
+  api:
+    image: node:24-alpine
+    working_dir: /workspace
+    command: ['sh', '-lc', 'node -e "console.log('api skeleton ready')"']
+    volumes:
+      - ..:/workspace
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: enterprise_agent_hub
+      POSTGRES_PASSWORD: enterprise_agent_hub
+      POSTGRES_DB: enterprise_agent_hub
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backup-agent:
+    image: alpine:3.22
+    command: ['sh', '-lc', 'echo backup-agent placeholder']
+    profiles: ['ops']
+
+volumes:
+  postgres_data:
