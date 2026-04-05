@@ -12,6 +12,7 @@ class WorkspaceScaffoldTests(unittest.TestCase):
             "package.json",
             "pnpm-workspace.yaml",
             "tsconfig.json",
+            "docs/phase-1-2-review.md",
             "apps/api/src/manifest.js",
             "apps/web/src/manifest.js",
             "apps/desktop/src/manifest.js",
@@ -51,6 +52,22 @@ class WorkspaceScaffoldTests(unittest.TestCase):
                 self.assertTrue(entry["canonicalSource"].startswith("packages/contracts/src/"))
                 self.assertTrue(entry["fixture"].startswith("packages/contracts/fixtures/"))
                 self.assertGreater(len(entry["consumers"]), 0)
+
+    def test_phase_review_doc_tracks_current_scaffold_and_verification_entrypoint(self) -> None:
+        review_doc = (REPO_ROOT / "docs" / "phase-1-2-review.md").read_text(encoding="utf-8")
+        readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+        for required_snippet in (
+            "Phase 1",
+            "Phase 2",
+            "AUTHZ_RECALC_PENDING",
+            "pnpm verify",
+            "upload -> review -> publish -> visible-in-search -> notify badge loop",
+        ):
+            with self.subTest(required_snippet=required_snippet):
+                self.assertIn(required_snippet, review_doc)
+
+        self.assertIn("docs/phase-1-2-review.md", readme)
 
 
 if __name__ == "__main__":
