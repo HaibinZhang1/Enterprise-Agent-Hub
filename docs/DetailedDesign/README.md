@@ -1,0 +1,57 @@
+# Enterprise Agent Hub 详细设计文档
+
+## 设计包说明
+本目录基于需求文档、deep-interview 规格与已批准的 auth 方案，沉淀准实施级详细设计。
+
+## 目录总览
+- [实施交接说明](./00_execution_handoff.md)
+- [总体架构](./architecture/01_system_architecture.md)
+- [服务端模块设计](./backend/README.md)
+- [桌面端模块设计](./desktop/README.md)
+- [前端页面设计](./frontend-pages/README.md)
+- [数据层设计](./data/01_data_architecture.md)
+- [部署层设计](./deployment/01_deployment_architecture.md)
+- [Auth 模块专用设计](./auth/README.md)
+
+## 设计边界
+- 覆盖：模块职责、关键流程、API、数据模型、事件、错误反馈、部署与备份策略
+- 不覆盖：具体代码实现、CI/CD 细节、二期功能全量展开、外部 LDAP/AD 一期实现
+
+## 建议实施入口
+- 阅读顺序：总体架构 -> Auth -> 服务端/桌面端/前端 -> 数据/部署 -> [实施交接说明](./00_execution_handoff.md)
+- 进入编码前，先冻结共享契约（Auth 错误码与收敛语义、install/reconcile 状态、SSE payload、事实权威矩阵），再拆分并行开发任务
+- 若仓库中尚无工程骨架，应优先完成 Phase 0/0.5，而不是直接从业务模块横向铺开
+
+## 模块范围
+### 服务端
+- auth
+- org
+- skill
+- package
+- review
+- install
+- search
+- notify
+- audit
+
+### 桌面端
+- tool-scanner
+- project-manager
+- skill-sync
+- conflict-resolver
+- local-state
+- desktop-notify
+- updater
+
+### 前端页面
+- home
+- market
+- my-skill
+- review
+- department management
+- user management
+- skill management
+- tools
+- projects
+- notifications
+- settings
