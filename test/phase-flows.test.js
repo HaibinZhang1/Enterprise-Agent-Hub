@@ -157,12 +157,36 @@ test('phase 2 publish-review runtime drives package validation through approved 
     updateAvailableCount: 0,
     generatedAt: '2026-04-06T01:01:00.000Z',
   });
+  assert.deepEqual(runtime.search({
+    viewer: { userId: 'consumer-before-publish', departmentIds: ['dept-2'] },
+    query: 'search assistant',
+  }), []);
+  assert.deepEqual(runtime.listNotifications(reviewer.userId), [
+    {
+      id: 'reviewer-1-1',
+      category: 'review',
+      title: 'New review ticket assigned',
+      body: 'Dept Search Assistant is ready for review.',
+      readAt: null,
+      createdAt: '2026-04-06T01:01:00.000Z',
+      metadata: {
+        ticketId: submission.ticket.ticketId,
+        skillId: 'skill-1',
+      },
+    },
+  ]);
 
   runtime.claimReview({
     requestId: 'req-phase2-claim',
     actor: reviewer,
     ticketId: submission.ticket.ticketId,
     now: new Date('2026-04-06T01:02:00.000Z'),
+  });
+  assert.deepEqual(runtime.getBadges(reviewer.userId), {
+    unreadCount: 1,
+    reviewTodoCount: 0,
+    updateAvailableCount: 0,
+    generatedAt: '2026-04-06T01:02:00.000Z',
   });
 
   const approval = runtime.approveReview({
@@ -177,6 +201,20 @@ test('phase 2 publish-review runtime drives package validation through approved 
   assert.equal(approval.skill.publishedVersion, '1.0.0');
   assert.equal(runtime.getBadges(reviewer.userId).reviewTodoCount, 0);
   assert.equal(runtime.getBadges(publisher.userId).unreadCount, 1);
+  assert.deepEqual(runtime.listNotifications(publisher.userId), [
+    {
+      id: 'publisher-1-1',
+      category: 'review',
+      title: 'Skill published',
+      body: 'Dept Search Assistant passed review and is now searchable.',
+      readAt: null,
+      createdAt: '2026-04-06T01:03:00.000Z',
+      metadata: {
+        ticketId: submission.ticket.ticketId,
+        version: '1.0.0',
+      },
+    },
+  ]);
 
   assert.deepEqual(runtime.search({
     viewer: { userId: 'consumer-allowed', departmentIds: ['dept-2'] },
