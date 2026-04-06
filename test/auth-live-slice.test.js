@@ -152,6 +152,21 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
     now: new Date('2026-04-06T00:04:00.000Z'),
   });
 
+  const postUnfreezeLogin = slice.authController.login({
+    requestId: 'req-live-login-3',
+    username: 'lisi',
+    password: provisioned.temporaryCredential,
+    clientType: 'web',
+    deviceLabel: 'Chrome on macOS',
+    now: new Date('2026-04-06T00:04:20.000Z'),
+  });
+
+  assert.equal(postUnfreezeLogin.ok, true);
+  if (!postUnfreezeLogin.ok) {
+    throw new Error('expected post-unfreeze login success');
+  }
+  assert.equal(postUnfreezeLogin.accessToken.authzVersion, 4);
+
   const reset = slice.authAdminController.resetPassword({
     requestId: 'req-live-reset',
     actor: admin,
@@ -163,6 +178,47 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
   assert.equal(reset.user.mustChangePassword, true);
   assert.match(reset.temporaryCredential, /^reset-user-1-/);
   assert.equal(slice.getUser('user-1').authzVersion, 5);
+  assert.deepEqual(
+    slice.authController.authorize({
+      requestId: 'req-live-authorize-reset-revoked',
+      userId: 'user-1',
+      sessionId: postUnfreezeLogin.session.sessionId,
+      tokenAuthzVersion: 4,
+    }),
+    {
+      ok: false,
+      code: 'AUTH_SESSION_REVOKED',
+      reason: 'session_revoked',
+    },
+  );
+  assert.deepEqual(
+    slice.authController.login({
+      requestId: 'req-live-login-stale-credential',
+      username: 'lisi',
+      password: provisioned.temporaryCredential,
+      clientType: 'web',
+      deviceLabel: 'Chrome on macOS',
+      now: new Date('2026-04-06T00:05:10.000Z'),
+    }),
+    {
+      ok: false,
+      code: 'AUTH_INVALID_CREDENTIALS',
+      reason: 'invalid_credentials',
+    },
+  );
+  const loginWithResetCredential = slice.authController.login({
+    requestId: 'req-live-login-4',
+    username: 'lisi',
+    password: reset.temporaryCredential,
+    clientType: 'web',
+    deviceLabel: 'Chrome on macOS',
+    now: new Date('2026-04-06T00:05:20.000Z'),
+  });
+  assert.equal(loginWithResetCredential.ok, true);
+  if (!loginWithResetCredential.ok) {
+    throw new Error('expected reset credential login success');
+  }
+  assert.equal(loginWithResetCredential.accessToken.authzVersion, 5);
   assert.equal(slice.getBadges('user-1').unreadCount, 6);
   assert.deepEqual(
     slice.getAuditTrail().map((entry) => entry.action),
@@ -174,10 +230,15 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
       'AUTH_LOGIN_SUCCEEDED',
       'AUTH_USER_FROZEN',
       'AUTH_USER_UNFROZEN',
+      'AUTH_LOGIN_SUCCEEDED',
       'AUTH_PASSWORD_RESET',
+      'AUTH_LOGIN_SUCCEEDED',
     ],
   );
-  assert.deepEqual(slice.getAuditTrail().at(-1), {
+  const resetAuditEntry = slice
+    .getAuditTrail()
+    .find((entry) => entry.requestId === 'req-live-reset');
+  assert.deepEqual(resetAuditEntry, {
     requestId: 'req-live-reset',
     actorSnapshot: admin,
     targetType: 'user',

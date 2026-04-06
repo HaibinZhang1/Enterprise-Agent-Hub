@@ -206,6 +206,74 @@ test('phase 2 publish flow creates a review ticket, publishes approved skills, a
   assert.equal(leaderboard[0]?.skillId, 'skill-1');
 });
 
+test('phase 2 review return/reject decisions stay non-searchable and preserve remediation state', () => {
+  const submission = createPackageReviewSubmission({
+    packageReport: {
+      packageId: 'pkg-return-1',
+      structureValid: true,
+      findings: [],
+    },
+    skillDraft: {
+      skillId: 'skill-return-1',
+      version: '1.2.0',
+      title: 'Needs Revision',
+      summary: 'Regression coverage for non-approved review outcomes.',
+      description: 'Ensure return/reject decisions do not leak to search.',
+      allowedDepartmentIds: ['dept-a'],
+      accessLevel: 'install',
+    },
+    submittedBy: 'publisher-1',
+    submittedAt: new Date('2026-04-06T04:00:00.000Z'),
+  });
+
+  assert.equal(submission.accepted, true);
+
+  const claimed = claimReviewTicket({
+    ticket: submission.reviewTicket,
+    reviewerId: 'reviewer-1',
+    now: new Date('2026-04-06T04:10:00.000Z'),
+  });
+  assert.equal(claimed.ok, true);
+
+  const returned = resolveReviewTicket({
+    ticket: claimed.ticket,
+    reviewerId: 'reviewer-1',
+    action: 'return',
+    comment: 'Please add remediation notes before publish.',
+    now: new Date('2026-04-06T04:20:00.000Z'),
+  });
+  assert.equal(returned.ok, true);
+
+  const returnedPublication = applyReviewDecisionToSkill({
+    skillVersion: submission.skillVersion,
+    searchDocumentDraft: submission.searchDocumentDraft,
+    resolvedTicket: returned.ticket,
+  });
+  assert.equal(returnedPublication.published, false);
+  assert.equal(returnedPublication.skillVersion.status, 'changes_requested');
+  assert.equal(returnedPublication.searchDocument, null);
+  assert.equal(returnedPublication.notifyEvent, null);
+
+  const rejected = resolveReviewTicket({
+    ticket: claimed.ticket,
+    reviewerId: 'reviewer-1',
+    action: 'reject',
+    comment: 'Package violates publish policy.',
+    now: new Date('2026-04-06T04:21:00.000Z'),
+  });
+  assert.equal(rejected.ok, true);
+
+  const rejectedPublication = applyReviewDecisionToSkill({
+    skillVersion: submission.skillVersion,
+    searchDocumentDraft: submission.searchDocumentDraft,
+    resolvedTicket: rejected.ticket,
+  });
+  assert.equal(rejectedPublication.published, false);
+  assert.equal(rejectedPublication.skillVersion.status, 'rejected');
+  assert.equal(rejectedPublication.searchDocument, null);
+  assert.equal(rejectedPublication.notifyEvent, null);
+});
+
 test('notify and review queue policies keep badge counts, read state, and sla warnings aligned', () => {
   const queue = buildReviewQueueSnapshot({
     tickets: [
