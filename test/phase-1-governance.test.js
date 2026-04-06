@@ -25,6 +25,7 @@ test('phase 1 governance scaffold keeps auth/org/audit/notify rails wired across
   const audit = findById(apiSkeletonManifest.domains, 'audit');
   const notify = findById(apiSkeletonManifest.domains, 'notify');
 
+  assert.deepEqual(apiSkeletonManifest.layers, ['controllers', 'services', 'repositories', 'events']);
   assert.deepEqual(auth.controllers, ['auth.controller', 'auth-admin.controller', 'bootstrap.controller']);
   assert.deepEqual(auth.services, [
     'auth.service',

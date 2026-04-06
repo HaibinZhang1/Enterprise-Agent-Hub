@@ -60,7 +60,17 @@ export function planUserAssignmentChange(input) {
 
 /**
  * @param {{
- *   scopeChangeJob: { jobId: string; userId: string; targetAuthzVersion: number };
+ *   scopeChangeJob: {
+ *     jobId: string;
+ *     userId: string;
+ *     requestedBy: string;
+ *     requestedAt: string;
+ *     targetAuthzVersion: number;
+ *     status: 'pending' | 'completed';
+ *     reason: string;
+ *     completedAt?: string;
+ *     event?: { type: string; userId: string; targetAuthzVersion: number; completedAt: string };
+ *   };
  *   completedAt?: Date;
  * }} input
  */
