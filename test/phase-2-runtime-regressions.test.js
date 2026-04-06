@@ -161,6 +161,103 @@ test('phase 2 runtime keeps reviewer and publisher notification payloads aligned
   });
 });
 
+test('phase 2 runtime fails closed when review actions come from the wrong authority path', () => {
+  const runtime = createPublishReviewRuntime();
+  const publisher = {
+    userId: 'publisher-1',
+    username: 'publisher',
+    roleCode: 'employee_lv6',
+    departmentId: 'dept-2',
+  };
+  const reviewer = {
+    userId: 'reviewer-1',
+    username: 'reviewer',
+    roleCode: 'review_admin_lv3',
+    departmentId: 'dept-1',
+  };
+  const otherReviewer = {
+    userId: 'reviewer-2',
+    username: 'reviewer-two',
+    roleCode: 'review_admin_lv3',
+    departmentId: 'dept-1',
+  };
+
+  const submission = runtime.submitSkillForReview({
+    requestId: 'req-phase2-submit-authority',
+    actor: publisher,
+    skillId: 'skill-authority',
+    packageId: runtime.uploadPackage({
+      requestId: 'req-phase2-upload-authority',
+      actor: publisher,
+      packageId: 'pkg-authority',
+      files: [
+        { path: 'README.md', size: 128 },
+        { path: 'SKILL.md', size: 256 },
+      ],
+      manifest: {
+        skillId: 'skill-authority',
+        version: '1.0.0',
+        title: 'Authority Guard',
+        summary: 'Fail closed when the wrong reviewer acts on a ticket.',
+      },
+      now: new Date('2026-04-06T03:10:00.000Z'),
+    }).packageId,
+    reviewerId: reviewer.userId,
+    visibility: 'department',
+    allowedDepartmentIds: ['dept-2'],
+    now: new Date('2026-04-06T03:11:00.000Z'),
+  });
+
+  assert.throws(
+    () =>
+      runtime.claimReview({
+        requestId: 'req-phase2-claim-wrong-reviewer',
+        actor: otherReviewer,
+        ticketId: submission.ticket.ticketId,
+        now: new Date('2026-04-06T03:12:00.000Z'),
+      }),
+    /not assigned to this reviewer/i,
+  );
+
+  assert.throws(
+    () =>
+      runtime.approveReview({
+        requestId: 'req-phase2-approve-before-claim',
+        actor: reviewer,
+        ticketId: submission.ticket.ticketId,
+        comment: 'Trying to skip the claim requirement.',
+        now: new Date('2026-04-06T03:13:00.000Z'),
+      }),
+    /only the active reviewer can approve the ticket/i,
+  );
+
+  runtime.claimReview({
+    requestId: 'req-phase2-claim-correct-reviewer',
+    actor: reviewer,
+    ticketId: submission.ticket.ticketId,
+    now: new Date('2026-04-06T03:14:00.000Z'),
+  });
+
+  assert.throws(
+    () =>
+      runtime.approveReview({
+        requestId: 'req-phase2-approve-wrong-reviewer',
+        actor: otherReviewer,
+        ticketId: submission.ticket.ticketId,
+        comment: 'Wrong reviewer should not be able to approve.',
+        now: new Date('2026-04-06T03:15:00.000Z'),
+      }),
+    /only the active reviewer can approve the ticket/i,
+  );
+
+  assert.deepEqual(runtime.search({
+    viewer: { userId: 'consumer-1', departmentIds: ['dept-2'] },
+    query: 'authority guard',
+  }), []);
+  assert.equal(runtime.getBadges(reviewer.userId).reviewTodoCount, 0);
+  assert.equal(runtime.getBadges(otherReviewer.userId).reviewTodoCount, 0);
+});
+
 test('notification center preserves unread badge transitions when reading notifications', () => {
   const center = createNotificationCenter();
 
