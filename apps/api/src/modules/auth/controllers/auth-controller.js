@@ -16,5 +16,12 @@ export function createAuthController(input) {
     authorize(authorizeInput) {
       return input.authService.authorize(authorizeInput);
     },
+
+    /**
+     * @param {{ requestId: string; userId: string; currentPassword: string; nextPassword: string; now?: Date }} changePasswordInput
+     */
+    changePassword(changePasswordInput) {
+      return input.authService.changePassword(changePasswordInput);
+    },
   });
 }

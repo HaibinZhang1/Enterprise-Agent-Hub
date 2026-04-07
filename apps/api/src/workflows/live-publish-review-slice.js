@@ -70,7 +70,7 @@ export function createLivePublishReviewSlice() {
         return Object.freeze({
           todo: runtime.listReviewTickets({ reviewerId: input.actor.userId, status: 'todo' }),
           inProgress: runtime.listReviewTickets({ reviewerId: input.actor.userId, status: 'in_progress' }),
-          done: runtime.listReviewTickets({ reviewerId: input.actor.userId }).filter((ticket) =>
+          done: runtime.listReviewTickets({ reviewerId: input.actor.userId }).filter((/** @param {any} ticket */ ticket) =>
             !['todo', 'in_progress'].includes(ticket.status),
           ),
         });

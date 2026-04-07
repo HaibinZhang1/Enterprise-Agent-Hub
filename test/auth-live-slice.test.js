@@ -51,6 +51,63 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
   assert.equal(login.refreshToken.sessionFamilyId, login.session.sessionFamilyId);
   assert.equal(slice.listSessions('user-1').length, 1);
 
+  const changedPassword = slice.authController.changePassword({
+    requestId: 'req-live-change-password',
+    userId: 'user-1',
+    currentPassword: provisioned.temporaryCredential,
+    nextPassword: 'brand-new-passphrase-1',
+    now: new Date('2026-04-06T00:00:30.000Z'),
+  });
+
+  assert.equal(changedPassword.ok, true);
+  if (!changedPassword.ok) {
+    throw new Error('expected password change success');
+  }
+  assert.equal(changedPassword.user.mustChangePassword, false);
+  assert.deepEqual(
+    slice.authController.authorize({
+      requestId: 'req-live-authorize-after-password-change',
+      userId: 'user-1',
+      sessionId: login.session.sessionId,
+      tokenAuthzVersion: 1,
+    }),
+    {
+      ok: false,
+      code: 'AUTH_SESSION_REVOKED',
+      reason: 'session_revoked',
+    },
+  );
+  assert.deepEqual(
+    slice.authController.login({
+      requestId: 'req-live-login-stale-after-password-change',
+      username: 'lisi',
+      password: provisioned.temporaryCredential,
+      clientType: 'web',
+      deviceLabel: 'Chrome on macOS',
+      now: new Date('2026-04-06T00:00:40.000Z'),
+    }),
+    {
+      ok: false,
+      code: 'AUTH_INVALID_CREDENTIALS',
+      reason: 'invalid_credentials',
+    },
+  );
+
+  const postPasswordChangeLogin = slice.authController.login({
+    requestId: 'req-live-login-after-password-change',
+    username: 'lisi',
+    password: 'brand-new-passphrase-1',
+    clientType: 'web',
+    deviceLabel: 'Chrome on macOS',
+    now: new Date('2026-04-06T00:00:50.000Z'),
+  });
+
+  assert.equal(postPasswordChangeLogin.ok, true);
+  if (!postPasswordChangeLogin.ok) {
+    throw new Error('expected login success after password change');
+  }
+  assert.equal(postPasswordChangeLogin.user.mustChangePassword, false);
+
   slice.orgAdminController.reassignUser({
     requestId: 'req-live-org',
     actor: admin,
@@ -64,7 +121,7 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
     slice.authController.authorize({
       requestId: 'req-live-authorize-pending',
       userId: 'user-1',
-      sessionId: login.session.sessionId,
+      sessionId: postPasswordChangeLogin.session.sessionId,
       tokenAuthzVersion: 1,
     }),
     {
@@ -85,7 +142,7 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
     slice.authController.authorize({
       requestId: 'req-live-authorize-stale',
       userId: 'user-1',
-      sessionId: login.session.sessionId,
+      sessionId: postPasswordChangeLogin.session.sessionId,
       tokenAuthzVersion: 1,
     }),
     {
@@ -98,7 +155,7 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
   const relogin = slice.authController.login({
     requestId: 'req-live-login-2',
     username: 'lisi',
-    password: provisioned.temporaryCredential,
+    password: 'brand-new-passphrase-1',
     clientType: 'web',
     deviceLabel: 'Chrome on macOS',
     now: new Date('2026-04-06T00:02:10.000Z'),
@@ -155,7 +212,7 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
   const postUnfreezeLogin = slice.authController.login({
     requestId: 'req-live-login-3',
     username: 'lisi',
-    password: provisioned.temporaryCredential,
+    password: 'brand-new-passphrase-1',
     clientType: 'web',
     deviceLabel: 'Chrome on macOS',
     now: new Date('2026-04-06T00:04:20.000Z'),
@@ -195,7 +252,7 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
     slice.authController.login({
       requestId: 'req-live-login-stale-credential',
       username: 'lisi',
-      password: provisioned.temporaryCredential,
+      password: 'brand-new-passphrase-1',
       clientType: 'web',
       deviceLabel: 'Chrome on macOS',
       now: new Date('2026-04-06T00:05:10.000Z'),
@@ -224,6 +281,8 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
     slice.getAuditTrail().map((entry) => entry.action),
     [
       'AUTH_USER_CREATED',
+      'AUTH_LOGIN_SUCCEEDED',
+      'AUTH_PASSWORD_CHANGED',
       'AUTH_LOGIN_SUCCEEDED',
       'org.user.assignment.changed',
       'org.scope.recalc.completed',
@@ -254,5 +313,69 @@ test('phase 1 live governance controllers issue sessions and preserve frozen aut
   assert.equal(
     slice.drainEvents('user-1').some((entry) => entry.event === 'sse.reconnect-required'),
     true,
+  );
+});
+
+test('phase 1 bootstrap controller only allows one admin bootstrap during the init window', () => {
+  const slice = createLiveAuthGovernanceSlice();
+
+  const issuedTicket = slice.bootstrapController.issueTicket({
+    requestId: 'req-bootstrap-ticket',
+    now: new Date('2026-04-06T01:00:00.000Z'),
+  });
+
+  assert.equal(issuedTicket.ok, true);
+  if (!issuedTicket.ok) {
+    throw new Error('expected bootstrap ticket issuance');
+  }
+
+  const bootstrapped = slice.bootstrapController.bootstrapAdmin({
+    requestId: 'req-bootstrap-admin',
+    bootstrapTicket: issuedTicket.ticket.value,
+    userId: 'bootstrap-admin-1',
+    username: 'bootstrap-admin',
+    displayName: 'Bootstrap Admin',
+    departmentId: null,
+    now: new Date('2026-04-06T01:02:00.000Z'),
+  });
+
+  assert.equal(bootstrapped.ok, true);
+  if (!bootstrapped.ok) {
+    throw new Error('expected bootstrap success');
+  }
+  assert.equal(bootstrapped.user.roleCode, 'system_admin_lv1');
+  assert.equal(bootstrapped.user.mustChangePassword, true);
+  assert.match(bootstrapped.temporaryCredential, /^bootstrap-bootstrap-admin-1-/);
+
+  assert.deepEqual(
+    slice.bootstrapController.issueTicket({
+      requestId: 'req-bootstrap-ticket-after-init',
+      now: new Date('2026-04-06T01:03:00.000Z'),
+    }),
+    {
+      ok: false,
+      code: 'AUTH_BOOTSTRAP_DISABLED',
+      reason: 'system_initialized',
+    },
+  );
+  assert.deepEqual(
+    slice.bootstrapController.bootstrapAdmin({
+      requestId: 'req-bootstrap-admin-repeat',
+      bootstrapTicket: issuedTicket.ticket.value,
+      userId: 'bootstrap-admin-2',
+      username: 'bootstrap-admin-2',
+      displayName: 'Bootstrap Admin 2',
+      departmentId: null,
+      now: new Date('2026-04-06T01:04:00.000Z'),
+    }),
+    {
+      ok: false,
+      code: 'AUTH_BOOTSTRAP_DISABLED',
+      reason: 'system_initialized',
+    },
+  );
+  assert.deepEqual(
+    slice.getAuditTrail().map((entry) => entry.action),
+    ['AUTH_BOOTSTRAP_ADMIN'],
   );
 });

@@ -1,19 +1,23 @@
 import { createAuthController } from './controllers/auth-controller.js';
 import { createAuthAdminController } from './controllers/auth-admin-controller.js';
+import { createBootstrapController } from './controllers/bootstrap-controller.js';
 import { createMemoryAuditLogRepository } from '../audit/repositories/memory-audit-log-repository.js';
 import { createAuditService } from '../audit/services/audit-service.js';
 import { createNotificationCenterRepository } from '../notify/repositories/notification-center-repository.js';
 import { createNotifyService } from '../notify/services/notify-service.js';
 import { createOrgAdminController } from '../org/controllers/org-admin-controller.js';
+import { createMemoryBootstrapTicketRepository } from './repositories/memory-bootstrap-ticket-repository.js';
 import { createMemoryScopeJobRepository } from '../org/repositories/memory-scope-job-repository.js';
 import { createOrgGovernanceService } from '../org/services/org-governance-service.js';
 import { createMemoryAuthRepository } from './repositories/memory-auth-repository.js';
 import { createAuthAdminService } from './services/auth-admin-service.js';
 import { createAuthService } from './services/auth-service.js';
+import { createBootstrapService } from './services/bootstrap-service.js';
 
 export function createLiveAuthGovernanceSlice() {
   const authRepository = createMemoryAuthRepository();
   const auditRepository = createMemoryAuditLogRepository();
+  const bootstrapTicketRepository = createMemoryBootstrapTicketRepository();
   const notificationRepository = createNotificationCenterRepository();
   const scopeJobRepository = createMemoryScopeJobRepository();
 
@@ -21,6 +25,12 @@ export function createLiveAuthGovernanceSlice() {
   const notifyService = createNotifyService({ notificationRepository });
   const authService = createAuthService({ authRepository, auditService });
   const authAdminService = createAuthAdminService({ authRepository, auditService, notifyService });
+  const bootstrapService = createBootstrapService({
+    authRepository,
+    bootstrapTicketRepository,
+    auditService,
+    notifyService,
+  });
   const orgGovernanceService = createOrgGovernanceService({
     authRepository,
     scopeJobRepository,
@@ -30,11 +40,13 @@ export function createLiveAuthGovernanceSlice() {
 
   const authController = createAuthController({ authService });
   const authAdminController = createAuthAdminController({ authAdminService });
+  const bootstrapController = createBootstrapController({ bootstrapService });
   const orgAdminController = createOrgAdminController({ orgGovernanceService });
 
   return Object.freeze({
     authController,
     authAdminController,
+    bootstrapController,
     orgAdminController,
 
     /**

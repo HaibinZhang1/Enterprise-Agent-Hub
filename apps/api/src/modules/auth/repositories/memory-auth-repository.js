@@ -19,7 +19,7 @@
  *   userId: string;
  *   password: string;
  *   passwordHistory: readonly string[];
- *   temporaryCredentialMode: 'temporary-password' | 'reset-ticket' | 'bootstrap-ticket';
+ *   temporaryCredentialMode: 'temporary-password' | 'reset-ticket' | 'bootstrap-ticket' | 'permanent';
  *   failedAttemptCount: number;
  *   lockedUntil: string | null;
  *   passwordChangedAt: string;

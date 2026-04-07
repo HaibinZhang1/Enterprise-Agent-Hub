@@ -1,84 +1,30 @@
-import { createAuditLogEntry } from '../modules/audit/core/log-entry.js';
-import { createNotificationCenter } from '../modules/notify/core/notification-center.js';
-import { createPackageValidationReport } from '../modules/package/core/validation-report.js';
-import { createReviewTicket, claimReviewTicket, approveReviewTicket } from '../modules/review/core/ticket-policy.js';
-import { buildSkillSearchDocument, searchSkillDocuments } from '../modules/search/core/skill-search.js';
-import { createSkillDraft, publishApprovedSkill, submitSkillVersion } from '../modules/skill/core/catalog-policy.js';
+import { createMemoryAuditLogRepository } from '../modules/audit/repositories/memory-audit-log-repository.js';
+import { createAuditService } from '../modules/audit/services/audit-service.js';
+import { createNotificationCenterRepository } from '../modules/notify/repositories/notification-center-repository.js';
+import { createNotifyService } from '../modules/notify/services/notify-service.js';
+import { createMemoryPackageReportRepository } from '../modules/package/repositories/memory-package-report-repository.js';
+import { createPackageService } from '../modules/package/services/package-service.js';
+import { createMemoryReviewTicketRepository } from '../modules/review/repositories/memory-review-ticket-repository.js';
+import { createReviewService } from '../modules/review/services/review-service.js';
+import { createMemorySearchDocumentRepository } from '../modules/search/repositories/memory-search-document-repository.js';
+import { createSearchService } from '../modules/search/services/search-service.js';
+import { createMemorySkillCatalogRepository } from '../modules/skill/repositories/memory-skill-catalog-repository.js';
+import { createSkillCatalogService } from '../modules/skill/services/skill-catalog-service.js';
 
 export function createPublishReviewRuntime() {
-  const packageReports = new Map();
-  const skills = new Map();
-  const reviewTickets = new Map();
-  /** @type {ReturnType<typeof createAuditLogEntry>[]} */
-  const auditLogs = [];
-  /** @type {ReturnType<typeof buildSkillSearchDocument>[]} */
-  const searchDocuments = [];
-  const notifications = createNotificationCenter();
+  const auditRepository = createMemoryAuditLogRepository();
+  const notificationRepository = createNotificationCenterRepository();
+  const packageReportRepository = createMemoryPackageReportRepository();
+  const reviewTicketRepository = createMemoryReviewTicketRepository();
+  const skillCatalogRepository = createMemorySkillCatalogRepository();
+  const searchDocumentRepository = createMemorySearchDocumentRepository();
 
-  /**
-   * @param {string} ticketId
-   */
-  function requireTicket(ticketId) {
-    const ticket = reviewTickets.get(ticketId);
-    if (!ticket) {
-      throw new Error(`Unknown review ticket: ${ticketId}`);
-    }
-    return ticket;
-  }
-
-  /**
-   * @param {string} skillId
-   */
-  function requireSkill(skillId) {
-    const skill = skills.get(skillId);
-    if (!skill) {
-      throw new Error(`Unknown skill: ${skillId}`);
-    }
-    return skill;
-  }
-
-  /**
-   * @param {string} packageId
-   */
-  function requirePackageReport(packageId) {
-    const report = packageReports.get(packageId);
-    if (!report) {
-      throw new Error(`Unknown package report: ${packageId}`);
-    }
-    return report;
-  }
-
-  /**
-   * @param {string} reviewerId
-   * @param {Date | undefined} now
-   */
-  function syncReviewerQueue(reviewerId, now) {
-    const todoCount = [...reviewTickets.values()].filter(
-      (ticket) => ticket.reviewerId === reviewerId && ticket.status === 'todo',
-    ).length;
-    return notifications.setReviewTodoCount({ userId: reviewerId, reviewTodoCount: todoCount, now });
-  }
-
-  /**
-   * @param {ReturnType<typeof createAuditLogEntry>} entry
-   */
-  function appendAudit(entry) {
-    auditLogs.push(entry);
-    return entry;
-  }
-
-  /**
-   * @param {ReturnType<typeof buildSkillSearchDocument>} document
-   */
-  function upsertSearchDocument(document) {
-    const index = searchDocuments.findIndex((entry) => entry.skillId === document.skillId);
-    if (index === -1) {
-      searchDocuments.push(document);
-      return document;
-    }
-    searchDocuments.splice(index, 1, document);
-    return document;
-  }
+  const auditService = createAuditService({ auditRepository });
+  const notifyService = createNotifyService({ notificationRepository });
+  const packageService = createPackageService({ packageReportRepository, auditService });
+  const reviewService = createReviewService({ reviewTicketRepository, notifyService, auditService });
+  const skillCatalogService = createSkillCatalogService({ skillCatalogRepository, auditService });
+  const searchService = createSearchService({ searchDocumentRepository });
 
   return Object.freeze({
     /**
@@ -92,24 +38,7 @@ export function createPublishReviewRuntime() {
      * }} input
      */
     uploadPackage(input) {
-      const report = createPackageValidationReport({
-        packageId: input.packageId,
-        files: input.files,
-        manifest: input.manifest,
-      });
-      packageReports.set(input.packageId, report);
-      appendAudit(
-        createAuditLogEntry({
-          requestId: input.requestId,
-          actor: input.actor,
-          targetType: 'package',
-          targetId: input.packageId,
-          action: 'package.uploaded',
-          details: { valid: report.valid, findings: report.findings.length },
-          occurredAt: input.now,
-        }),
-      );
-      return report;
+      return packageService.upload(input);
     },
 
     /**
@@ -125,52 +54,26 @@ export function createPublishReviewRuntime() {
      * }} input
      */
     submitSkillForReview(input) {
-      const report = requirePackageReport(input.packageId);
-      const existingSkill = skills.get(input.skillId) ??
-        createSkillDraft({
-          skillId: input.skillId,
-          ownerUserId: input.actor.userId,
-          title: report.manifest.title,
-          summary: report.manifest.summary,
-          visibility: input.visibility,
-          allowedDepartmentIds: input.allowedDepartmentIds,
-        });
-      const submittedSkill = submitSkillVersion({
-        skill: existingSkill,
+      const report = packageService.getReport(input.packageId);
+      const submittedSkill = skillCatalogService.submitVersion({
+        requestId: input.requestId,
+        actor: input.actor,
+        skillId: input.skillId,
         packageReport: report,
-        submittedAt: input.now,
+        visibility: input.visibility,
+        allowedDepartmentIds: input.allowedDepartmentIds,
+        now: input.now,
       });
-      skills.set(input.skillId, submittedSkill);
-
-      const ticket = createReviewTicket({
+      const ticket = reviewService.createTicket({
+        requestId: input.requestId,
+        actor: input.actor,
         ticketId: `review-${input.skillId}-${submittedSkill.versions.length}`,
         skillId: input.skillId,
+        skillTitle: submittedSkill.title,
         packageId: input.packageId,
-        requestedBy: input.actor.userId,
         reviewerId: input.reviewerId,
-        createdAt: input.now,
-      });
-      reviewTickets.set(ticket.ticketId, ticket);
-      syncReviewerQueue(input.reviewerId, input.now);
-      notifications.notify({
-        userId: input.reviewerId,
-        category: 'review',
-        title: 'New review ticket assigned',
-        body: `${submittedSkill.title} is ready for review.`,
         now: input.now,
-        metadata: { ticketId: ticket.ticketId, skillId: input.skillId },
       });
-      appendAudit(
-        createAuditLogEntry({
-          requestId: input.requestId,
-          actor: input.actor,
-          targetType: 'skill',
-          targetId: input.skillId,
-          action: 'skill.version.submitted',
-          details: { ticketId: ticket.ticketId, packageId: input.packageId },
-          occurredAt: input.now,
-        }),
-      );
 
       return Object.freeze({ skill: submittedSkill, ticket });
     },
@@ -184,26 +87,7 @@ export function createPublishReviewRuntime() {
      * }} input
      */
     claimReview(input) {
-      const ticket = requireTicket(input.ticketId);
-      const claimedTicket = claimReviewTicket({
-        ticket,
-        reviewerId: input.actor.userId,
-        claimedAt: input.now,
-      });
-      reviewTickets.set(input.ticketId, claimedTicket);
-      syncReviewerQueue(input.actor.userId, input.now);
-      appendAudit(
-        createAuditLogEntry({
-          requestId: input.requestId,
-          actor: input.actor,
-          targetType: 'review_ticket',
-          targetId: input.ticketId,
-          action: 'review.ticket.claimed',
-          details: { skillId: ticket.skillId },
-          occurredAt: input.now,
-        }),
-      );
-      return claimedTicket;
+      return reviewService.claimTicket(input);
     },
 
     /**
@@ -216,33 +100,24 @@ export function createPublishReviewRuntime() {
      * }} input
      */
     approveReview(input) {
-      const ticket = requireTicket(input.ticketId);
-      const approvedTicket = approveReviewTicket({
-        ticket,
-        reviewerId: input.actor.userId,
-        comment: input.comment,
-        approvedAt: input.now,
+      const approvedTicket = reviewService.approveTicket(input);
+      const publishedSkill = skillCatalogService.publishApproved({
+        requestId: input.requestId,
+        actor: input.actor,
+        skillId: approvedTicket.skillId,
+        now: input.now,
       });
-      reviewTickets.set(input.ticketId, approvedTicket);
-
-      const skill = requireSkill(ticket.skillId);
-      const publishedSkill = publishApprovedSkill({ skill, approvedAt: input.now });
-      skills.set(ticket.skillId, publishedSkill);
-      upsertSearchDocument(
-        buildSkillSearchDocument({
-          skillId: publishedSkill.skillId,
-          title: publishedSkill.title,
-          summary: publishedSkill.summary,
-          ownerUserId: publishedSkill.ownerUserId,
-          publishedVersion: publishedSkill.publishedVersion,
-          visibility: publishedSkill.visibility,
-          allowedDepartmentIds: publishedSkill.allowedDepartmentIds,
-          tags: [],
-        }),
-      );
-
-      syncReviewerQueue(input.actor.userId, input.now);
-      notifications.notify({
+      searchService.upsertSkill({
+        skillId: publishedSkill.skillId,
+        title: publishedSkill.title,
+        summary: publishedSkill.summary,
+        ownerUserId: publishedSkill.ownerUserId,
+        publishedVersion: publishedSkill.publishedVersion,
+        visibility: publishedSkill.visibility,
+        allowedDepartmentIds: publishedSkill.allowedDepartmentIds,
+        tags: [],
+      });
+      notifyService.notify({
         userId: publishedSkill.ownerUserId,
         category: 'review',
         title: 'Skill published',
@@ -250,17 +125,6 @@ export function createPublishReviewRuntime() {
         now: input.now,
         metadata: { ticketId: input.ticketId, version: publishedSkill.publishedVersion },
       });
-      appendAudit(
-        createAuditLogEntry({
-          requestId: input.requestId,
-          actor: input.actor,
-          targetType: 'review_ticket',
-          targetId: input.ticketId,
-          action: 'review.ticket.approved',
-          details: { skillId: publishedSkill.skillId, version: publishedSkill.publishedVersion },
-          occurredAt: input.now,
-        }),
-      );
 
       return Object.freeze({ ticket: approvedTicket, skill: publishedSkill });
     },
@@ -269,99 +133,74 @@ export function createPublishReviewRuntime() {
      * @param {{ viewer: { userId: string; departmentIds?: string[] }; query: string }} input
      */
     search(input) {
-      return searchSkillDocuments({
-        documents: searchDocuments,
-        viewer: input.viewer,
-        query: input.query,
-      });
+      return searchService.search(input);
     },
 
     /**
      * @param {string} ownerUserId
      */
     listOwnedSkills(ownerUserId) {
-      return Object.freeze([...skills.values()].filter((skill) => skill.ownerUserId === ownerUserId));
+      return skillCatalogService.listOwnedSkills(ownerUserId);
     },
 
     /**
      * @param {{ actor: { roleCode: string; departmentId?: string | null } }} input
      */
     listManageableSkills(input) {
-      const isGlobalAdmin = input.actor.roleCode.startsWith('system_admin');
-      return Object.freeze(
-        [...skills.values()].filter((skill) => {
-          if (isGlobalAdmin) {
-            return true;
-          }
-          if (input.actor.departmentId === null || input.actor.departmentId === undefined) {
-            return false;
-          }
-          return skill.allowedDepartmentIds.includes(input.actor.departmentId);
-        }),
-      );
+      return skillCatalogService.listManageableSkills(input);
     },
 
     /**
      * @param {{ reviewerId?: string; status?: string }} input
      */
     listReviewTickets(input = {}) {
-      return Object.freeze(
-        [...reviewTickets.values()].filter((ticket) => {
-          if (input.reviewerId && ticket.reviewerId !== input.reviewerId) {
-            return false;
-          }
-          if (input.status && ticket.status !== input.status) {
-            return false;
-          }
-          return true;
-        }),
-      );
+      return reviewService.listTickets(input);
     },
 
     /**
      * @param {string} skillId
      */
     getSkill(skillId) {
-      return requireSkill(skillId);
+      return skillCatalogService.getSkill(skillId);
     },
 
     /**
      * @param {{ userId: string; notificationId: string; now?: Date }} input
      */
     markNotificationRead(input) {
-      return notifications.markRead(input);
+      return notificationRepository.markRead(input);
     },
 
     /**
      * @param {{ userId: string; now?: Date }} input
      */
     readAllNotifications(input) {
-      return notifications.readAll(input);
+      return notificationRepository.readAll(input);
     },
 
     /**
      * @param {string} userId
      */
     getBadges(userId) {
-      return notifications.getBadges({ userId });
+      return notifyService.getBadges(userId);
     },
 
     /**
      * @param {string} userId
      */
     listNotifications(userId) {
-      return notifications.listNotifications({ userId });
+      return notifyService.listNotifications(userId);
     },
 
     /**
      * @param {string} userId
      */
     drainEvents(userId) {
-      return notifications.drainEvents({ userId, includeReconnect: true });
+      return notifyService.drainEvents(userId);
     },
 
     getAuditTrail() {
-      return Object.freeze([...auditLogs]);
+      return auditService.list();
     },
   });
 }

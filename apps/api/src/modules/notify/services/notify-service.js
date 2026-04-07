@@ -11,6 +11,20 @@ export function createNotifyService(input) {
     },
 
     /**
+     * @param {{ userId: string; reviewTodoCount: number; overdueTickets?: number; now?: Date }} inputValue
+     */
+    setReviewTodoCount(inputValue) {
+      return input.notificationRepository.setReviewTodoCount(inputValue);
+    },
+
+    /**
+     * @param {{ userId: string; updateAvailableCount: number; now?: Date }} inputValue
+     */
+    setUpdateAvailableCount(inputValue) {
+      return input.notificationRepository.setUpdateAvailableCount(inputValue);
+    },
+
+    /**
      * @param {string} userId
      */
     getBadges(userId) {

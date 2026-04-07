@@ -1,10 +1,11 @@
 import { AUTH_PENDING_CODE } from '@enterprise-agent-hub/contracts';
 
 import { evaluateProtectedRequest } from '../core/access-policy.js';
-import { evaluateAccountLockState, registerFailedLoginAttempt } from '../core/credential-policy.js';
+import { evaluateAccountLockState, PASSWORD_POLICY, registerFailedLoginAttempt, validatePasswordCandidate } from '../core/credential-policy.js';
 import { buildSessionSchedule } from '../core/session-policy.js';
 
 const LOGIN_SUCCESS_AUDIT_EVENT = 'AUTH_LOGIN_SUCCEEDED';
+const PASSWORD_CHANGED_AUDIT_EVENT = 'AUTH_PASSWORD_CHANGED';
 
 /**
  * @param {string} code
@@ -186,6 +187,98 @@ export function createAuthService(input) {
       });
 
       return decision.allowed ? Object.freeze({ ok: true, user }) : deny(decision.code, decision.reason);
+    },
+
+    /**
+     * @param {{
+     *   requestId: string;
+     *   userId: string;
+     *   currentPassword: string;
+     *   nextPassword: string;
+     *   now?: Date;
+     * }} changePasswordInput
+     */
+    changePassword(changePasswordInput) {
+      const now = changePasswordInput.now ?? new Date();
+      const user = input.authRepository.findUserById(changePasswordInput.userId);
+      if (!user) {
+        throw new Error(`Unknown user: ${changePasswordInput.userId}`);
+      }
+
+      const credential = input.authRepository.getCredential(changePasswordInput.userId);
+      if (!credential) {
+        throw new Error(`Missing credential record for user: ${changePasswordInput.userId}`);
+      }
+
+      const lockState = evaluateAccountLockState({
+        now,
+        lockedUntil: credential.lockedUntil ? new Date(credential.lockedUntil) : null,
+      });
+      if (lockState.locked) {
+        return deny('AUTH_ACCOUNT_LOCKED', 'account_locked');
+      }
+
+      if (credential.password !== changePasswordInput.currentPassword) {
+        const nextFailure = registerFailedLoginAttempt({
+          failedAttemptCount: credential.failedAttemptCount,
+          now,
+        });
+        input.authRepository.saveCredential({
+          ...credential,
+          failedAttemptCount: nextFailure.nextFailedAttemptCount,
+          lockedUntil: nextFailure.lockedUntil ? nextFailure.lockedUntil.toISOString() : null,
+        });
+        return deny(
+          nextFailure.lockedUntil ? 'AUTH_ACCOUNT_LOCKED' : 'AUTH_INVALID_CREDENTIALS',
+          nextFailure.lockedUntil ? 'account_locked' : 'invalid_credentials',
+        );
+      }
+
+      const nextPasswordPolicy = validatePasswordCandidate({
+        password: changePasswordInput.nextPassword,
+        recentPasswords: [credential.password, ...credential.passwordHistory],
+      });
+      if (!nextPasswordPolicy.valid) {
+        throw new Error(`Password policy rejected: ${nextPasswordPolicy.errors.join(', ')}`);
+      }
+
+      input.authRepository.saveCredential({
+        ...credential,
+        password: changePasswordInput.nextPassword,
+        passwordHistory: [credential.password, ...credential.passwordHistory].slice(0, PASSWORD_POLICY.historyWindowSize),
+        temporaryCredentialMode: 'permanent',
+        failedAttemptCount: 0,
+        lockedUntil: null,
+        passwordChangedAt: now.toISOString(),
+      });
+      input.authRepository.revokeUserSessions({
+        userId: changePasswordInput.userId,
+        revokedAt: now.toISOString(),
+        revokeReason: 'password_changed',
+      });
+
+      const nextUser = input.authRepository.updateUser({
+        ...user,
+        mustChangePassword: false,
+      });
+      input.auditService.record({
+        requestId: changePasswordInput.requestId,
+        actor: {
+          userId: nextUser.userId,
+          username: nextUser.username,
+          roleCode: nextUser.roleCode,
+          departmentId: nextUser.departmentId,
+        },
+        targetType: 'user',
+        targetId: nextUser.userId,
+        action: PASSWORD_CHANGED_AUDIT_EVENT,
+        occurredAt: now,
+      });
+
+      return Object.freeze({
+        ok: true,
+        user: nextUser,
+      });
     },
   });
 }
