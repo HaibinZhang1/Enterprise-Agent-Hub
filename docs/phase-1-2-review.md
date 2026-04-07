@@ -18,8 +18,8 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 ## Review verdict
 - **Scaffold quality:** approve
 - **Current phase status:** Phase 0 / 0.5 are complete, and the repo now includes executable Phase 1 and Phase 2 in-memory runtime slices on top of the frozen contracts
-- **Still not complete:** the repo is not yet the full product; HTTP controllers, persistence-backed services, SSE transport wiring, and real UI execution are still ahead
-- **Primary documentation risk fixed here:** earlier docs understated the current Phase 1 / Phase 2 runtime coverage and made the repository look like a pure scaffold
+- **Still not complete:** the repo is not yet the full product; HTTP controllers, persistence-backed services, and true SSE transport wiring are still ahead. However, **real UI execution for the admin console is now available** as a local React+Vite MVP (`apps/web`) powered by memory adapters.
+- **Primary documentation risk fixed here:** earlier docs understated the current Phase 1 / Phase 2 runtime coverage and made the repository look like a pure scaffold. The latest update has promoted `apps/web` into a working MVP.
 
 ## What is implemented today
 
@@ -39,18 +39,18 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 - `apps/api/src/modules/review/core/ticket-policy.js` and `apps/api/src/modules/skill/core/{catalog-policy,publish-workflow}.js` implement review ticket creation/claim/approval plus the publish transition.
 - `apps/api/src/modules/search/core/{skill-search,skill-search-policy}.js` preserve the required permission-filter-before-rank behavior and summary-vs-detail visibility handling.
 - `apps/api/src/workflows/publish-review-runtime.js` proves the Phase 2 anchor loop end to end: upload -> review -> publish -> visible-in-search -> notify badge loop.
-- `apps/web/src/pages/{market,my-skill,review,notifications,skill-management}/page.js` preserve the intended page map and shared page states for the minimal loop.
+- `apps/web` has been upgraded to a runnable React+Vite MVP supporting Apple-style UI for `{market, my-skill, review, notifications, skill-management}`, replacing the older pure-shell index descriptor.
 - `test/governance-and-publish-flow.test.js`, `test/phase-2-marketplace.test.js`, and `test/phase-flows.test.js` verify the publish/review/search/notify slice against the frozen contracts.
 
 ## What is still missing before the platform can be called complete
 
 ### Remaining Phase 1 product work
 - No NestJS controllers, repositories, or real persistence-backed auth/org/audit/notify services exist yet.
-- There is no production SSE transport or real login/bootstrap/manage-user UI flow; current coverage is runtime/model level.
+- There is no production SSE transport. The login/bootstrap UI flow exists inside `apps/web` as an adapter against the in-memory runtime.
 - Deployment and observability rails exist as planned boundaries, but not as fully wired operational services.
 
 ### Remaining Phase 2 product work
-- The package/review/search/notify slice is proven in runtime tests, but not yet exposed through HTTP APIs, durable storage, or a live web workflow.
+- The package/review/search/notify slice is proven in runtime tests and exposed via the `apps/web` React MVP, but not yet through true HTTP APIs or durable storage.
 - File upload storage, background validation execution, and reviewer workbench persistence are still ahead.
 - Desktop install/sync execution remains Phase 3 work even though the authority contracts are already frozen.
 

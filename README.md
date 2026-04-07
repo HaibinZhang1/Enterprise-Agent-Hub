@@ -15,7 +15,7 @@ This repository now contains the executable Phase 0 / Phase 0.5 foundation slice
 
 ## Workspace layout
 - `apps/api` — NestJS-aligned service skeleton plus in-memory governance / publish-review runtimes
-- `apps/web` — React management UI shell manifest
+- `apps/web` — React + Vite Management UI shell (Apple-style design) wrapping mock execution bindings
 - `apps/desktop` — Tauri desktop shell manifest
 - `packages/contracts` — shared phase-gate fixtures and contract exports
 - `packages/migrations` — SQL foundations plus PostgreSQL/SQLite migration runners
@@ -32,7 +32,14 @@ For narrower checks:
 - `pnpm test:python` runs the document/scaffold verification suite
 - `pnpm typecheck` validates the workspace TypeScript config
 
-## Notes
-This is still not the full product. The repository proves the contract-first runtime slices for Phase 1 and Phase 2, but it does not yet ship real HTTP adapters, durable service layers, live SSE transport, or end-user UI flows.
+## Running the Web Frontend MVP
+The `apps/web` application is now a fully runnable React + Vite MVP featuring an Apple-style design system.
+```bash
+pnpm --filter @enterprise-agent-hub/web dev
+```
+Navigate to `http://localhost:5173`. You can log in using Username: `admin` and Password: `<any_string>`.
 
-For a concrete Phase 1 / Phase 2 audit of the current repository state, see [`docs/phase-1-2-review.md`](./docs/phase-1-2-review.md).
+## Notes
+The repository proves the contract-first runtime slices for Phase 1 and Phase 2. The web frontend MVP now connects to these in-memory workflows, meaning you can experience the product flow visually. However, it does not yet ship real HTTP adapters, durable database services, or live SSE transports beyond the mock boundary.
+
+For a concrete Phase 1 / Phase 2 audit of the current repository state, see [`docs/phase-1-2-review.md`](./docs/phase-1-2-review.md). For UI details, see [`docs/frontend-mvp-implementation.md`](./docs/frontend-mvp-implementation.md).
