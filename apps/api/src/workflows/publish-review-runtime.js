@@ -277,6 +277,69 @@ export function createPublishReviewRuntime() {
     },
 
     /**
+     * @param {string} ownerUserId
+     */
+    listOwnedSkills(ownerUserId) {
+      return Object.freeze([...skills.values()].filter((skill) => skill.ownerUserId === ownerUserId));
+    },
+
+    /**
+     * @param {{ actor: { roleCode: string; departmentId?: string | null } }} input
+     */
+    listManageableSkills(input) {
+      const isGlobalAdmin = input.actor.roleCode.startsWith('system_admin');
+      return Object.freeze(
+        [...skills.values()].filter((skill) => {
+          if (isGlobalAdmin) {
+            return true;
+          }
+          if (input.actor.departmentId === null || input.actor.departmentId === undefined) {
+            return false;
+          }
+          return skill.allowedDepartmentIds.includes(input.actor.departmentId);
+        }),
+      );
+    },
+
+    /**
+     * @param {{ reviewerId?: string; status?: string }} input
+     */
+    listReviewTickets(input = {}) {
+      return Object.freeze(
+        [...reviewTickets.values()].filter((ticket) => {
+          if (input.reviewerId && ticket.reviewerId !== input.reviewerId) {
+            return false;
+          }
+          if (input.status && ticket.status !== input.status) {
+            return false;
+          }
+          return true;
+        }),
+      );
+    },
+
+    /**
+     * @param {string} skillId
+     */
+    getSkill(skillId) {
+      return requireSkill(skillId);
+    },
+
+    /**
+     * @param {{ userId: string; notificationId: string; now?: Date }} input
+     */
+    markNotificationRead(input) {
+      return notifications.markRead(input);
+    },
+
+    /**
+     * @param {{ userId: string; now?: Date }} input
+     */
+    readAllNotifications(input) {
+      return notifications.readAll(input);
+    },
+
+    /**
      * @param {string} userId
      */
     getBadges(userId) {
