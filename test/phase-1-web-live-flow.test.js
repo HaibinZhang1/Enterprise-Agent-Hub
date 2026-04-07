@@ -19,6 +19,39 @@ test('phase 1 live web flow executes login/manage-user actions and surfaces noti
     reason: 'actor_required',
   });
 
+  const bootstrapTicket = flow.bootstrapPage.issueTicket({
+    requestId: 'req-web-bootstrap-ticket',
+    now: new Date('2026-04-06T04:55:00.000Z'),
+  });
+  assert.equal(bootstrapTicket.state, 'ready');
+  assert.equal(bootstrapTicket.ticket.expiresAt, null);
+
+  const bootstrapAdmin = flow.bootstrapPage.bootstrapAdmin({
+    requestId: 'req-web-bootstrap-admin',
+    bootstrapTicket: bootstrapTicket.ticket.value,
+    userId: 'bootstrap-admin-1',
+    username: 'bootstrap-admin',
+    displayName: 'Bootstrap Admin',
+    departmentId: null,
+    now: new Date('2026-04-06T04:56:00.000Z'),
+  });
+  assert.equal(bootstrapAdmin.state, 'ready');
+  assert.equal(bootstrapAdmin.user.roleCode, 'system_admin_lv1');
+  assert.match(bootstrapAdmin.temporaryCredential, /^bootstrap-bootstrap-admin-1-/);
+  assert.equal(flow.userManagementPage.load({ actor: admin }).users.length, 1);
+
+  assert.deepEqual(
+    flow.bootstrapPage.issueTicket({
+      requestId: 'req-web-bootstrap-ticket-after-init',
+      now: new Date('2026-04-06T04:57:00.000Z'),
+    }),
+    {
+      state: 'error',
+      code: 'AUTH_BOOTSTRAP_DISABLED',
+      reason: 'system_initialized',
+    },
+  );
+
   const provisioned = flow.userManagementPage.provisionUser({
     requestId: 'req-web-provision',
     actor: admin,
@@ -35,7 +68,7 @@ test('phase 1 live web flow executes login/manage-user actions and surfaces noti
   assert.match(provisioned.temporaryCredential, /^temp-user-1-/);
 
   assert.equal(flow.userManagementPage.load({ actor: admin }).state, 'ready');
-  assert.equal(flow.userManagementPage.load({ actor: admin }).users.length, 1);
+  assert.equal(flow.userManagementPage.load({ actor: admin }).users.length, 2);
 
   const firstLogin = flow.loginPage.submit({
     requestId: 'req-web-login-1',
@@ -144,6 +177,7 @@ test('phase 1 live web flow executes login/manage-user actions and surfaces noti
   assert.deepEqual(
     flow.auditPage.load().entries.map((entry) => entry.action),
     [
+      'AUTH_BOOTSTRAP_ADMIN',
       'AUTH_USER_CREATED',
       'AUTH_LOGIN_SUCCEEDED',
       'org.user.assignment.changed',

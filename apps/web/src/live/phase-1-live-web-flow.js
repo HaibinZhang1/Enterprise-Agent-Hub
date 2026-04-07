@@ -25,6 +25,39 @@ export function createPhase1LiveWebFlow() {
   }
 
   return Object.freeze({
+    bootstrapPage: Object.freeze({
+      /**
+       * @param {{ requestId: string; now?: Date }} input
+       */
+      issueTicket(input) {
+        const result = slice.bootstrapController.issueTicket(input);
+        return result.ok
+          ? readyUserAction(result)
+          : Object.freeze({ state: 'error', code: result.code, reason: result.reason });
+      },
+
+      /**
+       * @param {{
+       *   requestId: string;
+       *   bootstrapTicket: string;
+       *   userId: string;
+       *   username: string;
+       *   displayName: string;
+       *   departmentId?: string | null;
+       *   now?: Date;
+       * }} input
+       */
+      bootstrapAdmin(input) {
+        const result = slice.bootstrapController.bootstrapAdmin(input);
+        if (result.ok) {
+          managedUserIds.add(result.user.userId);
+        }
+        return result.ok
+          ? readyUserAction(result)
+          : Object.freeze({ state: 'error', code: result.code, reason: result.reason });
+      },
+    }),
+
     loginPage: Object.freeze({
       /**
        * @param {{ requestId: string; username: string; password: string; deviceLabel?: string; now?: Date }} input
