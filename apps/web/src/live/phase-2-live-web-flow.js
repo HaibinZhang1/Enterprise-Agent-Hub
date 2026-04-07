@@ -6,7 +6,7 @@ import { buildReconnectBanner, permissionDenied, resolveCollectionState } from '
  * @typedef {{ userId: string; username: string; roleCode: string; departmentId?: string | null }} Actor
  * @typedef {{ userId: string; departmentIds?: string[] }} Viewer
  * @typedef {{ ticketId?: string; id?: string; reviewerId: string; status: string }} ReviewTicket
- * @typedef {{ skillId: string; ownerUserId: string }} SkillRecord
+ * @typedef {{ skillId: string; ownerUserId: string; allowedDepartmentIds: readonly string[] }} SkillRecord
  */
 
 /**
@@ -17,6 +17,20 @@ function ready(payload = {}) {
     state: 'ready',
     ...payload,
   });
+}
+
+/**
+ * @param {Actor} actor
+ */
+function canReview(actor) {
+  return actor.roleCode.startsWith('review_admin') || actor.roleCode.startsWith('system_admin');
+}
+
+/**
+ * @param {Actor} actor
+ */
+function canManageSkills(actor) {
+  return actor.roleCode.includes('admin');
 }
 
 /**
@@ -79,6 +93,24 @@ export function createPhase2LiveWebFlow() {
     return Object.freeze([...skills.values()].filter((skill) => skill.ownerUserId === actor.userId));
   }
 
+  /**
+   * @param {Actor} actor
+   */
+  function listManageableSkills(actor) {
+    const isGlobalAdmin = actor.roleCode.startsWith('system_admin');
+    return Object.freeze(
+      [...skills.values()].filter((skill) => {
+        if (isGlobalAdmin) {
+          return true;
+        }
+        if (actor.departmentId === null || actor.departmentId === undefined) {
+          return false;
+        }
+        return skill.allowedDepartmentIds.includes(actor.departmentId);
+      }),
+    );
+  }
+
   return Object.freeze({
     mySkillPage: Object.freeze({
       /**
@@ -128,6 +160,9 @@ export function createPhase2LiveWebFlow() {
         if (!input.actor) {
           return permissionDenied();
         }
+        if (!canReview(input.actor)) {
+          return permissionDenied('review_admin_required');
+        }
         const reviewTickets = listTicketsFor(input.actor, input.status);
         return resolveCollectionState(reviewTickets, { tickets: reviewTickets });
       },
@@ -136,6 +171,9 @@ export function createPhase2LiveWebFlow() {
        * @param {{ requestId: string; actor: Actor; ticketId: string; now?: Date }} input
        */
       claimTicket(input) {
+        if (!canReview(input.actor)) {
+          return permissionDenied('review_admin_required');
+        }
         const claim = runtime.claimReview(input);
         const ticket = 'ticket' in claim ? claim.ticket : claim;
         trackTicket(tickets, ticket);
@@ -146,6 +184,9 @@ export function createPhase2LiveWebFlow() {
        * @param {{ requestId: string; actor: Actor; ticketId: string; comment: string; now?: Date }} input
        */
       approveTicket(input) {
+        if (!canReview(input.actor)) {
+          return permissionDenied('review_admin_required');
+        }
         const approval = runtime.approveReview(input);
         trackTicket(tickets, approval.ticket);
         trackSkill(skills, approval.skill);
@@ -191,8 +232,11 @@ export function createPhase2LiveWebFlow() {
         if (!input.actor) {
           return permissionDenied();
         }
-        const ownedSkills = listOwnedSkills(input.actor);
-        return resolveCollectionState(ownedSkills, { skills: ownedSkills });
+        if (!canManageSkills(input.actor)) {
+          return permissionDenied('admin_required');
+        }
+        const manageableSkills = listManageableSkills(input.actor);
+        return resolveCollectionState(manageableSkills, { skills: manageableSkills });
       },
     }),
   });
