@@ -17,3 +17,4 @@ apps/desktop/.data/
 apps/desktop/apps/
 infra/.env.production.local
 infra/.env.production.test
+.omx/
