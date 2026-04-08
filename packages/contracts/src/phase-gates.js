@@ -9,7 +9,9 @@ export const PHASE_GATES_FIXTURE = Object.freeze([
       'apps/web/src/manifest.js',
       'apps/desktop/src/manifest.js',
       'packages/migrations/postgres/sql/0001_initial_foundation.sql',
+      'packages/migrations/postgres/sql/0002_mvp_read_models.sql',
       'packages/migrations/sqlite/sql/0001_local_state_foundation.sql',
+      'packages/migrations/sqlite/sql/0002_mvp_client_cache.sql'
     ],
     verification: ['pnpm lint', 'pnpm typecheck', 'pnpm build'],
   },

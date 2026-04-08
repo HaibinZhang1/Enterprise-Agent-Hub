@@ -11,9 +11,17 @@ services:
   api:
     image: node:24-alpine
     working_dir: /workspace
-    command: ['sh', '-lc', 'node -e "console.log('api skeleton ready')"']
+    command: ['sh', '-lc', 'cd /workspace/apps/api && node src/server.js']
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      DATABASE_URL: postgresql://enterprise_agent_hub:enterprise_agent_hub@postgres:5432/enterprise_agent_hub
+    ports:
+      - '3001:3001'
     volumes:
       - ..:/workspace
+    depends_on:
+      - postgres
 
   postgres:
     image: postgres:17-alpine

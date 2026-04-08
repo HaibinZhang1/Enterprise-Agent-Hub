@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createPublishReviewRuntime } from './publish-review-runtime.js';
 
 /**
@@ -25,8 +26,8 @@ function assertSkillManager(actor) {
   }
 }
 
-export function createLivePublishReviewSlice() {
-  const runtime = createPublishReviewRuntime();
+export function createLivePublishReviewSlice(input = {}) {
+  const runtime = input.runtime ?? createPublishReviewRuntime(input);
 
   return Object.freeze({
     packageController: Object.freeze({

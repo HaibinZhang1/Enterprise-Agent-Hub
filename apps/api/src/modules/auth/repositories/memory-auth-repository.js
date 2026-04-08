@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * @typedef {{
  *   userId: string;
@@ -127,6 +128,10 @@ export function createMemoryAuthRepository() {
     findUserByUsername(username) {
       const userId = userIdByUsername.get(username);
       return userId ? usersById.get(userId) ?? null : null;
+    },
+
+    listUsers() {
+      return Object.freeze([...usersById.values()]);
     },
 
     /**

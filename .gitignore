@@ -9,3 +9,9 @@ build/
 *.log
 __pycache__/
 *.py[cod]
+
+.local/
+*.db
+
+apps/desktop/.data/
+apps/desktop/apps/

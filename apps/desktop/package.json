@@ -4,6 +4,9 @@
   "type": "module",
   "exports": "./src/index.js",
   "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "smoke:sqlite": "node src/desktop-shell/smoke.js",
     "build": "node build.js"
   },
   "dependencies": {

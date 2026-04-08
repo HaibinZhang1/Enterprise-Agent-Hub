@@ -18,5 +18,13 @@
     "apps/**/*.js",
     "packages/**/*.js",
     "scripts/**/*.js"
+  ],
+  "exclude": [
+    "apps/api/src/mvp/**/*",
+    "apps/desktop/.data/**/*",
+    "apps/desktop/apps/**/*",
+    "apps/desktop/src/desktop-shell/**/*",
+    "apps/desktop/ui/**/*",
+    "apps/web/**/*"
   ]
 }

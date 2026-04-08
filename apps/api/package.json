@@ -4,6 +4,8 @@
   "type": "module",
   "exports": "./src/index.js",
   "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
     "build": "node build.js"
   },
   "dependencies": {

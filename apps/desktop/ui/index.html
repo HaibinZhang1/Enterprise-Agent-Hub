@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enterprise Agent Hub Desktop Shell</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Desktop MVP Shell</p>
+          <h1>Enterprise Agent Hub</h1>
+          <p class="subtitle">SQLite-backed local shell for the PostgreSQL + SSE MVP.</p>
+        </div>
+        <div class="status-card">
+          <div><strong>Login:</strong> <span id="login-status">Awaiting sign in</span></div>
+          <div><strong>Session:</strong> <span id="session-meta">Not signed in</span></div>
+        </div>
+      </section>
+
+      <section class="login-panel">
+        <form id="login-form">
+          <label>
+            Username
+            <input name="username" id="username" type="text" value="admin" />
+          </label>
+          <label>
+            Password
+            <input name="password" id="password" type="password" value="admin" />
+          </label>
+          <label>
+            Market Query
+            <input id="market-query" type="text" placeholder="search market…" />
+          </label>
+          <button type="submit">Connect desktop shell</button>
+        </form>
+        <button id="reload-all">Refresh all views</button>
+      </section>
+
+      <section class="content-panel">
+        <h2>Market</h2>
+        <pre id="market-output">No data loaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
+        <h2>Notifications</h2>
+        <pre id="notifications-output">No data loaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
+        <h2>Users</h2>
+        <pre id="users-output">No data loaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
+        <h2>My Skills</h2>
+        <pre id="my-skills-output">No data loaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
+        <h2>Skill Management</h2>
+        <pre id="manage-skills-output">No data loaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
+        <h2>Review Queue</h2>
+        <pre id="reviews-output">No data loaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
+        <h2>Realtime Events</h2>
+        <pre id="events-output">No data loaded yet.</pre>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
