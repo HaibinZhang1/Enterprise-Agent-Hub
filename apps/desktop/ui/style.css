@@ -52,16 +52,34 @@ label {
   gap: 8px;
   font-size: 14px;
 }
-input, button {
+input, button, select {
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   padding: 10px 12px;
   font: inherit;
 }
+input, select {
+  background: rgba(15, 23, 42, 0.8);
+  color: #eef2ff;
+}
 button {
   cursor: pointer;
   background: #2563eb;
   color: white;
+}
+.workflow-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.button-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.status {
+  margin-bottom: 12px;
+  color: #93c5fd;
 }
 .nav-panel {
   display: flex;

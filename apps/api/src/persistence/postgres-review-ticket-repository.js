@@ -47,11 +47,15 @@ export function createPostgresReviewTicketRepository(input) {
             reviewer_id::text as "reviewerId",
             status,
             created_at::text as "createdAt",
-            (decision->>'approvedBy') as "claimedBy",
-            (decision->>'approvedAt') as "claimedAt",
-            null::text as "claimExpiresAt",
+            claimed_by::text as "claimedBy",
+            claimed_at::text as "claimedAt",
+            claim_expires_at::text as "claimExpiresAt",
             decision,
-            status as "lastEvent"
+            case
+              when decision is not null and status = 'approved' then 'review.ticket.approved'
+              when claimed_by is not null and status = 'in_progress' then 'review.ticket.claimed'
+              else 'review.ticket.created'
+            end as "lastEvent"
           from review.tickets
           ${whereSql}
         `,
@@ -66,7 +70,7 @@ export function createPostgresReviewTicketRepository(input) {
         `
           insert into review.tickets (
             ticket_id, skill_id, package_id, requested_by, reviewer_id,
-            status, comment, created_at, updated_at
+            status, comment, claimed_by, claimed_at, claim_expires_at, decision, created_at, updated_at
           ) values (
             ${sqlLiteral(ticket.ticketId)},
             ${sqlLiteral(ticket.skillId)},
@@ -75,6 +79,10 @@ export function createPostgresReviewTicketRepository(input) {
             ${sqlUuid(ticket.reviewerId)},
             ${sqlLiteral(ticket.status)},
             ${sqlLiteral(ticket.decision?.comment ?? null)},
+            ${sqlUuid(ticket.claimedBy)},
+            ${ticket.claimedAt ? `${sqlLiteral(ticket.claimedAt)}::timestamptz` : 'null'},
+            ${ticket.claimExpiresAt ? `${sqlLiteral(ticket.claimExpiresAt)}::timestamptz` : 'null'},
+            ${sqlJson(ticket.decision)},
             ${sqlLiteral(ticket.createdAt)}::timestamptz,
             ${sqlLiteral(ticket.decision?.approvedAt ?? ticket.claimedAt ?? ticket.createdAt)}::timestamptz
           )
@@ -85,6 +93,10 @@ export function createPostgresReviewTicketRepository(input) {
             reviewer_id = excluded.reviewer_id,
             status = excluded.status,
             comment = excluded.comment,
+            claimed_by = excluded.claimed_by,
+            claimed_at = excluded.claimed_at,
+            claim_expires_at = excluded.claim_expires_at,
+            decision = excluded.decision,
             updated_at = excluded.updated_at
         `,
       );
@@ -100,23 +112,19 @@ export function createPostgresReviewTicketRepository(input) {
               ticket_id as "ticketId",
               skill_id as "skillId",
               package_id as "packageId",
-              requested_by::text as "requestedBy",
-              reviewer_id::text as "reviewerId",
-              status,
-              created_at::text as "createdAt",
-              null::text as "claimedBy",
-              null::text as "claimedAt",
-              null::text as "claimExpiresAt",
-              case
-                when comment is null then null
-                else json_build_object(
-                  'outcome', case when status = 'approved' then 'approved' else status end,
-                  'comment', comment,
-                  'approvedAt', updated_at::text,
-                  'approvedBy', reviewer_id::text
-                )
-              end as decision,
-              status as "lastEvent"
+            requested_by::text as "requestedBy",
+            reviewer_id::text as "reviewerId",
+            status,
+            created_at::text as "createdAt",
+            claimed_by::text as "claimedBy",
+            claimed_at::text as "claimedAt",
+            claim_expires_at::text as "claimExpiresAt",
+            decision,
+            case
+              when decision is not null and status = 'approved' then 'review.ticket.approved'
+              when claimed_by is not null and status = 'in_progress' then 'review.ticket.claimed'
+              else 'review.ticket.created'
+            end as "lastEvent"
             from review.tickets
             where ticket_id = ${sqlLiteral(ticketId)}
           `,
@@ -137,19 +145,15 @@ export function createPostgresReviewTicketRepository(input) {
               reviewer_id::text as "reviewerId",
               status,
               created_at::text as "createdAt",
-              null::text as "claimedBy",
-              null::text as "claimedAt",
-              null::text as "claimExpiresAt",
+              claimed_by::text as "claimedBy",
+              claimed_at::text as "claimedAt",
+              claim_expires_at::text as "claimExpiresAt",
+              decision,
               case
-                when comment is null then null
-                else json_build_object(
-                  'outcome', case when status = 'approved' then 'approved' else status end,
-                  'comment', comment,
-                  'approvedAt', updated_at::text,
-                  'approvedBy', reviewer_id::text
-                )
-              end as decision,
-              status as "lastEvent"
+                when decision is not null and status = 'approved' then 'review.ticket.approved'
+                when claimed_by is not null and status = 'in_progress' then 'review.ticket.claimed'
+                else 'review.ticket.created'
+              end as "lastEvent"
             from review.tickets
             ${buildListWhere(inputValue)}
             order by created_at desc

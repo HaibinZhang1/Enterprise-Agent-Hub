@@ -40,6 +40,48 @@
       </section>
 
       <section class="content-panel">
+        <h2>Publish Package</h2>
+        <form id="publish-form" class="workflow-form">
+          <label>
+            Skill ID
+            <input name="skillId" type="text" value="skill-desktop-upload-1" />
+          </label>
+          <label>
+            Title
+            <input name="title" type="text" value="Desktop Upload Flow" />
+          </label>
+          <label>
+            Version
+            <input name="version" type="text" value="1.0.0" />
+          </label>
+          <label>
+            Summary
+            <input name="summary" type="text" value="Submitted from the desktop shell." />
+          </label>
+          <label>
+            Visibility
+            <select name="visibility">
+              <option value="private">private</option>
+              <option value="department">department</option>
+              <option value="detail_public" selected>detail_public</option>
+              <option value="global_installable">global_installable</option>
+            </select>
+          </label>
+          <label>
+            Reviewer username
+            <input name="reviewerUsername" type="text" value="reviewer" />
+          </label>
+          <label>
+            Package files
+            <input name="packageFiles" id="package-files" type="file" multiple />
+          </label>
+          <button type="submit">Upload + submit for review</button>
+        </form>
+        <div id="publish-status" class="status">No publish action yet.</div>
+        <pre id="publish-output">No package uploaded yet.</pre>
+      </section>
+
+      <section class="content-panel">
         <h2>Market</h2>
         <pre id="market-output">No data loaded yet.</pre>
       </section>
@@ -66,6 +108,21 @@
 
       <section class="content-panel">
         <h2>Review Queue</h2>
+        <form id="review-action-form" class="workflow-form">
+          <label>
+            Ticket ID
+            <input name="ticketId" id="ticket-id" type="text" placeholder="Paste ticket id or load from queue" />
+          </label>
+          <label>
+            Approval comment
+            <input name="comment" id="review-comment" type="text" value="Approved from desktop shell." />
+          </label>
+          <div class="button-row">
+            <button type="button" id="claim-ticket">Claim ticket</button>
+            <button type="button" id="approve-ticket">Approve ticket</button>
+          </div>
+        </form>
+        <div id="review-status" class="status">No review action yet.</div>
         <pre id="reviews-output">No data loaded yet.</pre>
       </section>
 

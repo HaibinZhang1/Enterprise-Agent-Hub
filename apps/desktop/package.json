@@ -7,7 +7,9 @@
     "dev": "node src/server.js",
     "start": "node src/server.js",
     "smoke:sqlite": "node src/desktop-shell/smoke.js",
-    "build": "node build.js"
+    "build": "node build.js",
+    "tauri:dev": "pnpm dlx @tauri-apps/cli@2.0.0 dev --config src-tauri/tauri.conf.json",
+    "tauri:build": "pnpm dlx @tauri-apps/cli@2.0.0 build --config src-tauri/tauri.conf.json"
   },
   "dependencies": {
     "@enterprise-agent-hub/contracts": "workspace:*"

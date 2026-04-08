@@ -64,7 +64,7 @@ pnpm --filter @enterprise-agent-hub/desktop smoke:sqlite
 
 ### 4. Start the desktop shell
 ```bash
-DESKTOP_API_BASE_URL=http://127.0.0.1:8788   DESKTOP_PORT=4781   pnpm --filter @enterprise-agent-hub/desktop dev
+DESKTOP_API_BASE_URL=http://127.0.0.1:8788 DESKTOP_PORT=4781 pnpm --filter @enterprise-agent-hub/desktop dev
 ```
 Open `http://127.0.0.1:4781` in your browser to use the desktop shell harness.
 
@@ -72,7 +72,7 @@ Seed credentials:
 - Username: `admin`
 - Password: `admin`
 
-The desktop shell stores session + list cache state in SQLite under `apps/desktop/.data/` and proxies the in-scope read flows:
+The desktop shell stores session + list cache state in SQLite under `apps/desktop/.data/` and now proxies these connected flows:
 - login
 - market list/search
 - notifications + SSE
@@ -80,11 +80,54 @@ The desktop shell stores session + list cache state in SQLite under `apps/deskto
 - skill management list
 - my-skill list
 - review queue list
-
-Deferred flows remain deferred for this MVP slice:
 - publish
 - claim
 - approve
+
+The desktop shell accepts `DESKTOP_API_BASE_URL` (preferred) and still falls back to `API_BASE_URL` for compatibility.
+
+### 5. Production-like backend deploy assets
+The repository now includes a first production deploy path for the API:
+- `apps/api/Dockerfile`
+- `infra/docker-compose.production.yml`
+- `infra/.env.production.example`
+
+Example:
+```bash
+cp infra/.env.production.example infra/.env.production
+$EDITOR infra/.env.production
+docker compose --env-file infra/.env.production -f infra/docker-compose.production.yml up --build
+```
+
+The production compose path mounts durable package artifact storage at `/var/lib/enterprise-agent-hub/package-artifacts` and expects the API to bind on `0.0.0.0:8787`.
+If Docker Hub is not reachable in the release environment, set `NODE_RUNTIME_IMAGE`, `API_BASE_IMAGE`, `POSTGRES_IMAGE`, and/or `NGINX_IMAGE` in `infra/.env.production` to mirrored or preloaded compatible images before building the production stack. If the chosen API base image already includes `psql`, also set `API_HAS_POSTGRES_CLIENT=1`. If you must avoid `pnpm install` during image build, set `API_OFFLINE_WORKSPACE=1`. If migrations are run externally before container startup, set `SKIP_MIGRATIONS=1`. If npm registry access is slow or blocked, set `PNPM_REGISTRY_URL` to a reachable mirror.
+
+### 6. Desktop release packaging foundation
+The repository now includes the minimum Tauri packaging skeleton:
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/main.rs`
+- `apps/desktop/src-tauri/capabilities/default.json`
+- `apps/desktop/src-tauri/tauri.conf.json`
+
+Release command:
+```bash
+pnpm --filter @enterprise-agent-hub/desktop tauri:build
+```
+
+Current macOS artifact path:
+`apps/desktop/src-tauri/target/release/bundle/macos/Enterprise Agent Hub Desktop.app`
+
+Detailed release steps are documented in [`docs/desktop-release-runbook.md`](./docs/desktop-release-runbook.md).
+
+Production asset verification:
+```bash
+pnpm verify:production
+```
+
+Production runtime verification with the local fallback deploy path:
+```bash
+pnpm verify:production:runtime
+```
 
 ## Running the Web Frontend MVP
 The `apps/web` application remains runnable as a reference UI surface.
@@ -98,6 +141,6 @@ The repository now proves two different surfaces:
 - the original Web MVP (`apps/web`) still demonstrates the in-memory/UI reference flow
 - the new connected MVP path (`apps/api` + `apps/desktop`) proves real HTTP, PostgreSQL persistence, desktop-side SQLite state, and realtime notification transport
 
-The connected MVP intentionally stays narrow: it focuses on the approved read-oriented baseline and keeps publish/review write actions deferred.
+The connected path is no longer read-only: it now includes real package upload/report retrieval plus publish/review write routes, and the desktop shell can exercise upload -> submit -> claim -> approve against the live API.
 
 For a concrete Phase 1 / Phase 2 audit of the current repository state, see [`docs/phase-1-2-review.md`](./docs/phase-1-2-review.md). For UI details, see [`docs/frontend-mvp-implementation.md`](./docs/frontend-mvp-implementation.md).

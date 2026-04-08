@@ -3,6 +3,16 @@ const loginStatus = document.getElementById('login-status');
 const sessionMeta = document.getElementById('session-meta');
 const reloadAll = document.getElementById('reload-all');
 const marketQuery = document.getElementById('market-query');
+const publishForm = document.getElementById('publish-form');
+const publishStatus = document.getElementById('publish-status');
+const publishOutput = document.getElementById('publish-output');
+const reviewActionForm = document.getElementById('review-action-form');
+const claimTicketButton = document.getElementById('claim-ticket');
+const approveTicketButton = document.getElementById('approve-ticket');
+const ticketIdInput = document.getElementById('ticket-id');
+const reviewCommentInput = document.getElementById('review-comment');
+const reviewStatus = document.getElementById('review-status');
+
 const outputs = {
   market: document.getElementById('market-output'),
   notifications: document.getElementById('notifications-output'),
@@ -25,6 +35,30 @@ async function json(path, options = {}) {
     ...options,
   });
   return response.json();
+}
+
+function toBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+async function fileToPayload(file) {
+  return {
+    path: file.webkitRelativePath || file.name,
+    size: file.size,
+    contentBase64: toBase64(await file.arrayBuffer()),
+  };
+}
+
+function suggestTicketId(queue) {
+  const nextTicket = queue.todo?.[0] ?? queue.inProgress?.[0] ?? queue.done?.[0] ?? null;
+  if (nextTicket && !ticketIdInput.value) {
+    ticketIdInput.value = nextTicket.ticketId;
+  }
 }
 
 function connectEvents() {
@@ -61,6 +95,90 @@ async function loadAll() {
   render('mySkills', mySkills.skills ?? mySkills);
   render('manageableSkills', manageableSkills.skills ?? manageableSkills);
   render('reviews', reviews.queue ?? reviews);
+  if (reviews.queue) {
+    suggestTicketId(reviews.queue);
+  }
+}
+
+async function requireSession() {
+  const session = await json('/api/session');
+  if (!session.session?.user) {
+    throw new Error('Please sign in first.');
+  }
+  return session.session;
+}
+
+async function handlePublish(event) {
+  event.preventDefault();
+  try {
+    await requireSession();
+    const formData = new FormData(publishForm);
+    const selectedFiles = document.getElementById('package-files').files;
+    if (!selectedFiles || selectedFiles.length === 0) {
+      throw new Error('Select at least one package file before uploading.');
+    }
+    const files = await Promise.all([...selectedFiles].map(fileToPayload));
+    const manifest = {
+      skillId: String(formData.get('skillId') || ''),
+      version: String(formData.get('version') || ''),
+      title: String(formData.get('title') || ''),
+      summary: String(formData.get('summary') || ''),
+      tags: ['desktop'],
+    };
+    const packageId = `pkg-${Date.now()}`;
+    const upload = await json('/api/packages/upload', {
+      method: 'POST',
+      body: JSON.stringify({
+        packageId,
+        manifest,
+        files,
+      }),
+    });
+    if (!upload.ok) {
+      throw new Error(upload.reason || 'Package upload failed.');
+    }
+    const submit = await json('/api/reviews/submit', {
+      method: 'POST',
+      body: JSON.stringify({
+        packageId,
+        reviewerUsername: String(formData.get('reviewerUsername') || ''),
+        visibility: String(formData.get('visibility') || 'detail_public'),
+      }),
+    });
+    if (!submit.ok) {
+      throw new Error(submit.reason || 'Submit for review failed.');
+    }
+    publishStatus.textContent = `Uploaded ${packageId} and submitted ticket ${submit.ticket.ticketId}.`;
+    publishOutput.textContent = JSON.stringify({ upload, submit }, null, 2);
+    ticketIdInput.value = submit.ticket.ticketId;
+    await loadAll();
+  } catch (error) {
+    publishStatus.textContent = error.message;
+  }
+}
+
+async function runReviewAction(action) {
+  try {
+    await requireSession();
+    if (!ticketIdInput.value) {
+      throw new Error('Provide a ticket id first.');
+    }
+    const payload =
+      action === 'approve'
+        ? { comment: reviewCommentInput.value || 'Approved from desktop shell.' }
+        : {};
+    const result = await json(`/api/reviews/${encodeURIComponent(ticketIdInput.value)}/${action}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!result.ok) {
+      throw new Error(result.reason || `${action} failed.`);
+    }
+    reviewStatus.textContent = `${action} succeeded for ${ticketIdInput.value}.`;
+    await loadAll();
+  } catch (error) {
+    reviewStatus.textContent = error.message;
+  }
 }
 
 loginForm.addEventListener('submit', async (event) => {
@@ -79,6 +197,11 @@ loginForm.addEventListener('submit', async (event) => {
   await loadAll();
   connectEvents();
 });
+
+publishForm.addEventListener('submit', handlePublish);
+claimTicketButton.addEventListener('click', () => runReviewAction('claim'));
+approveTicketButton.addEventListener('click', () => runReviewAction('approve'));
+reviewActionForm.addEventListener('submit', (event) => event.preventDefault());
 
 reloadAll.addEventListener('click', () => {
   loadAll().catch((error) => {

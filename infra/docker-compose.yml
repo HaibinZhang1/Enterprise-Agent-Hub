@@ -11,13 +11,14 @@ services:
   api:
     image: node:24-alpine
     working_dir: /workspace
-    command: ['sh', '-lc', 'cd /workspace/apps/api && node src/server.js']
+    command: ['sh', '-lc', 'cd /workspace && corepack enable && pnpm --filter @enterprise-agent-hub/api start']
     environment:
-      API_HOST: 0.0.0.0
-      API_PORT: 3001
+      HOST: 0.0.0.0
+      PORT: 8787
       DATABASE_URL: postgresql://enterprise_agent_hub:enterprise_agent_hub@postgres:5432/enterprise_agent_hub
+      PACKAGE_STORAGE_ROOT: /workspace/.data/package-artifacts
     ports:
-      - '3001:3001'
+      - '8787:8787'
     volumes:
       - ..:/workspace
     depends_on:

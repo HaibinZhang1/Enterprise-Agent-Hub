@@ -18,5 +18,6 @@ test('migration runners include the new MVP sql bundles', () => {
   const sqlite = run('packages/migrations/src/run-sqlite-migrations.js');
 
   assert.equal(postgres.files.some((file) => file.endsWith('0002_mvp_read_models.sql')), true);
+  assert.equal(postgres.files.some((file) => file.endsWith('0003_package_artifact_storage.sql')), true);
   assert.equal(sqlite.files.some((file) => file.endsWith('0002_desktop_client_state.sql')), true);
 });

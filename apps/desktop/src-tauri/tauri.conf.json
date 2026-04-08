@@ -3,9 +3,13 @@
   "productName": "Enterprise Agent Hub Desktop",
   "version": "0.1.0",
   "identifier": "com.enterprise-agent-hub.desktop",
+  "build": {
+    "frontendDist": "../ui"
+  },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Enterprise Agent Hub Desktop",
         "width": 1440,
         "height": 960
@@ -16,6 +20,7 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["app"]
   }
 }
