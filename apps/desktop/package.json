@@ -9,7 +9,8 @@
     "smoke:sqlite": "node src/desktop-shell/smoke.js",
     "build": "node build.js",
     "tauri:dev": "pnpm dlx @tauri-apps/cli@2.0.0 dev --config src-tauri/tauri.conf.json",
-    "tauri:build": "pnpm dlx @tauri-apps/cli@2.0.0 build --config src-tauri/tauri.conf.json"
+    "tauri:build": "pnpm dlx @tauri-apps/cli@2.0.0 build --config src-tauri/tauri.conf.json",
+    "tauri:build:windows": "pnpm dlx @tauri-apps/cli@2.0.0 build --config src-tauri/tauri.conf.json --bundles nsis,msi"
   },
   "dependencies": {
     "@enterprise-agent-hub/contracts": "workspace:*"

@@ -3,30 +3,100 @@ const loginStatus = document.getElementById('login-status');
 const sessionMeta = document.getElementById('session-meta');
 const reloadAll = document.getElementById('reload-all');
 const marketQuery = document.getElementById('market-query');
-const publishForm = document.getElementById('publish-form');
-const publishStatus = document.getElementById('publish-status');
-const publishOutput = document.getElementById('publish-output');
-const reviewActionForm = document.getElementById('review-action-form');
-const claimTicketButton = document.getElementById('claim-ticket');
-const approveTicketButton = document.getElementById('approve-ticket');
-const ticketIdInput = document.getElementById('ticket-id');
-const reviewCommentInput = document.getElementById('review-comment');
-const reviewStatus = document.getElementById('review-status');
+const connectionStatus = document.getElementById('connection-status');
+const serverUrl = document.getElementById('server-url');
 
-const outputs = {
-  market: document.getElementById('market-output'),
-  notifications: document.getElementById('notifications-output'),
-  users: document.getElementById('users-output'),
-  mySkills: document.getElementById('my-skills-output'),
-  manageableSkills: document.getElementById('manage-skills-output'),
-  reviews: document.getElementById('reviews-output'),
-  events: document.getElementById('events-output'),
+const views = {
+  mySkills: {
+    output: document.getElementById('my-skills-output'),
+    state: document.getElementById('my-skills-state'),
+    empty: 'No owned skills yet.',
+    error: 'Unable to load My Skill.',
+  },
+  market: {
+    output: document.getElementById('market-output'),
+    state: document.getElementById('market-state'),
+    empty: 'No market results match this query.',
+    error: 'Unable to load the market.',
+  },
+  notifications: {
+    output: document.getElementById('notifications-output'),
+    state: document.getElementById('notifications-state'),
+    empty: 'No notifications yet.',
+    error: 'Unable to load notifications.',
+  },
+  events: {
+    output: document.getElementById('events-output'),
+    state: document.getElementById('events-state'),
+    empty: 'No live events received yet.',
+    error: 'Realtime stream unavailable.',
+  },
 };
 
 let eventSource = null;
 
-function render(target, payload) {
-  outputs[target].textContent = JSON.stringify(payload, null, 2);
+function setState(viewName, state, label) {
+  const view = views[viewName];
+  view.state.dataset.state = state;
+  view.state.textContent = label ?? state;
+}
+
+function clearView(viewName, message) {
+  const view = views[viewName];
+  view.output.className = 'data-view empty-state';
+  view.output.textContent = message;
+}
+
+function renderError(viewName, error) {
+  const view = views[viewName];
+  setState(viewName, 'error', 'Error');
+  view.output.className = 'data-view error-state';
+  view.output.textContent = `${view.error}\n${error instanceof Error ? error.message : String(error)}`;
+}
+
+function createItemCard({ title, body, meta = [] }) {
+  const card = document.createElement('div');
+  card.className = 'item-card';
+
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  card.append(heading);
+
+  if (body) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = body;
+    card.append(paragraph);
+  }
+
+  if (meta.length > 0) {
+    const metaRow = document.createElement('div');
+    metaRow.className = 'item-meta';
+    for (const item of meta) {
+      const span = document.createElement('span');
+      span.textContent = item;
+      metaRow.append(span);
+    }
+    card.append(metaRow);
+  }
+
+  return card;
+}
+
+function renderCards(viewName, entries, mapEntry) {
+  const view = views[viewName];
+  view.output.replaceChildren();
+  view.output.className = 'data-view data-list';
+
+  if (!entries || entries.length === 0) {
+    setState(viewName, 'empty', 'Empty');
+    clearView(viewName, view.empty);
+    return;
+  }
+
+  setState(viewName, 'loaded', `${entries.length} loaded`);
+  for (const entry of entries) {
+    view.output.append(createItemCard(mapEntry(entry)));
+  }
 }
 
 async function json(path, options = {}) {
@@ -34,30 +104,62 @@ async function json(path, options = {}) {
     headers: { 'content-type': 'application/json' },
     ...options,
   });
-  return response.json();
-}
-
-function toBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
+  const payload = await response.json();
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.reason || payload.code || `Request failed: ${response.status}`);
   }
-  return btoa(binary);
+  return payload;
 }
 
-async function fileToPayload(file) {
-  return {
-    path: file.webkitRelativePath || file.name,
-    size: file.size,
-    contentBase64: toBase64(await file.arrayBuffer()),
-  };
+async function refreshConnectionStatus() {
+  try {
+    const health = await json('/health');
+    connectionStatus.textContent = health.ok ? 'Online' : 'Unavailable';
+    serverUrl.textContent = health.apiBaseUrl ?? 'Not configured';
+  } catch (error) {
+    connectionStatus.textContent = 'Offline';
+    serverUrl.textContent = error instanceof Error ? error.message : 'Health check failed';
+  }
 }
 
-function suggestTicketId(queue) {
-  const nextTicket = queue.todo?.[0] ?? queue.inProgress?.[0] ?? queue.done?.[0] ?? null;
-  if (nextTicket && !ticketIdInput.value) {
-    ticketIdInput.value = nextTicket.ticketId;
+function updateSession(session) {
+  sessionMeta.textContent = session?.user ? `${session.user.username} (${session.user.roleCode ?? 'user'})` : 'Not signed in';
+}
+
+async function loadAll() {
+  for (const viewName of ['mySkills', 'market', 'notifications']) {
+    setState(viewName, 'loading', 'Loading…');
+  }
+
+  try {
+    const [session, mySkills, market, notifications] = await Promise.all([
+      json('/api/session'),
+      json('/api/skills/my'),
+      json(`/api/market?query=${encodeURIComponent(marketQuery.value || '')}`),
+      json('/api/notifications'),
+    ]);
+
+    updateSession(session.session);
+    renderCards('mySkills', mySkills.skills ?? [], (skill) => ({
+      title: skill.title ?? skill.skillId ?? 'Untitled skill',
+      body: skill.summary ?? skill.description ?? 'No summary provided.',
+      meta: [skill.skillId, skill.status, skill.version].filter(Boolean),
+    }));
+    renderCards('market', market.results ?? [], (skill) => ({
+      title: skill.title ?? skill.skillId ?? 'Untitled market entry',
+      body: skill.summary ?? skill.description ?? 'No summary provided.',
+      meta: [skill.skillId, skill.canInstall ? 'installable' : 'summary only', skill.updatedAt].filter(Boolean),
+    }));
+    renderCards('notifications', notifications.items ?? [], (item) => ({
+      title: item.title ?? item.category ?? 'Notification',
+      body: item.body ?? item.message ?? '',
+      meta: [item.category, item.createdAt, item.readAt ? 'read' : 'unread'].filter(Boolean),
+    }));
+  } catch (error) {
+    for (const viewName of ['mySkills', 'market', 'notifications']) {
+      renderError(viewName, error);
+    }
+    throw error;
   }
 }
 
@@ -65,157 +167,73 @@ function connectEvents() {
   if (eventSource) {
     eventSource.close();
   }
+
+  setState('events', 'loading', 'Connecting…');
   eventSource = new EventSource('/api/events');
   const events = [];
   const append = (type, payload) => {
     events.unshift({ type, payload, at: new Date().toISOString() });
-    render('events', events.slice(0, 20));
+    renderCards('events', events.slice(0, 20), (event) => ({
+      title: event.type,
+      body: JSON.stringify(event.payload),
+      meta: [event.at],
+    }));
   };
-  eventSource.addEventListener('notification.created', (event) => append('notification.created', JSON.parse(event.data)));
-  eventSource.addEventListener('badge.updated', (event) => append('badge.updated', JSON.parse(event.data)));
-  eventSource.addEventListener('review.queue.updated', (event) => append('review.queue.updated', JSON.parse(event.data)));
-  eventSource.addEventListener('sse.reconnect-required', (event) => append('sse.reconnect-required', JSON.parse(event.data)));
-}
 
-async function loadAll() {
-  const [session, market, notifications, users, mySkills, manageableSkills, reviews] = await Promise.all([
-    json('/api/session'),
-    json(`/api/market?query=${encodeURIComponent(marketQuery.value || '')}`),
-    json('/api/notifications'),
-    json('/api/users'),
-    json('/api/skills/my'),
-    json('/api/skills/manageable'),
-    json('/api/reviews'),
-  ]);
-
-  sessionMeta.textContent = session.session?.user ? `Signed in as ${session.session.user.username}` : 'Not signed in';
-  render('market', market.results ?? market);
-  render('notifications', notifications.items ?? notifications);
-  render('users', users.users ?? users);
-  render('mySkills', mySkills.skills ?? mySkills);
-  render('manageableSkills', manageableSkills.skills ?? manageableSkills);
-  render('reviews', reviews.queue ?? reviews);
-  if (reviews.queue) {
-    suggestTicketId(reviews.queue);
+  for (const eventName of ['notify.badge.updated', 'review.queue.updated', 'install.update-available', 'sse.reconnect-required']) {
+    eventSource.addEventListener(eventName, (event) => append(eventName, JSON.parse(event.data)));
   }
-}
 
-async function requireSession() {
-  const session = await json('/api/session');
-  if (!session.session?.user) {
-    throw new Error('Please sign in first.');
-  }
-  return session.session;
-}
-
-async function handlePublish(event) {
-  event.preventDefault();
-  try {
-    await requireSession();
-    const formData = new FormData(publishForm);
-    const selectedFiles = document.getElementById('package-files').files;
-    if (!selectedFiles || selectedFiles.length === 0) {
-      throw new Error('Select at least one package file before uploading.');
+  eventSource.onopen = () => {
+    setState('events', 'loaded', 'Connected');
+    if (events.length === 0) {
+      clearView('events', views.events.empty);
     }
-    const files = await Promise.all([...selectedFiles].map(fileToPayload));
-    const manifest = {
-      skillId: String(formData.get('skillId') || ''),
-      version: String(formData.get('version') || ''),
-      title: String(formData.get('title') || ''),
-      summary: String(formData.get('summary') || ''),
-      tags: ['desktop'],
-    };
-    const packageId = `pkg-${Date.now()}`;
-    const upload = await json('/api/packages/upload', {
-      method: 'POST',
-      body: JSON.stringify({
-        packageId,
-        manifest,
-        files,
-      }),
-    });
-    if (!upload.ok) {
-      throw new Error(upload.reason || 'Package upload failed.');
-    }
-    const submit = await json('/api/reviews/submit', {
-      method: 'POST',
-      body: JSON.stringify({
-        packageId,
-        reviewerUsername: String(formData.get('reviewerUsername') || ''),
-        visibility: String(formData.get('visibility') || 'detail_public'),
-      }),
-    });
-    if (!submit.ok) {
-      throw new Error(submit.reason || 'Submit for review failed.');
-    }
-    publishStatus.textContent = `Uploaded ${packageId} and submitted ticket ${submit.ticket.ticketId}.`;
-    publishOutput.textContent = JSON.stringify({ upload, submit }, null, 2);
-    ticketIdInput.value = submit.ticket.ticketId;
-    await loadAll();
-  } catch (error) {
-    publishStatus.textContent = error.message;
-  }
-}
-
-async function runReviewAction(action) {
-  try {
-    await requireSession();
-    if (!ticketIdInput.value) {
-      throw new Error('Provide a ticket id first.');
-    }
-    const payload =
-      action === 'approve'
-        ? { comment: reviewCommentInput.value || 'Approved from desktop shell.' }
-        : {};
-    const result = await json(`/api/reviews/${encodeURIComponent(ticketIdInput.value)}/${action}`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-    if (!result.ok) {
-      throw new Error(result.reason || `${action} failed.`);
-    }
-    reviewStatus.textContent = `${action} succeeded for ${ticketIdInput.value}.`;
-    await loadAll();
-  } catch (error) {
-    reviewStatus.textContent = error.message;
-  }
+  };
+  eventSource.onerror = () => {
+    setState('events', 'error', 'Disconnected');
+  };
 }
 
 loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const formData = new FormData(loginForm);
   const payload = Object.fromEntries(formData.entries());
-  const result = await json('/api/login', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  if (!result.ok) {
-    loginStatus.textContent = `${result.code ?? 'LOGIN_FAILED'}: ${result.reason ?? 'unknown'}`;
-    return;
+
+  try {
+    loginStatus.textContent = 'Connecting…';
+    const result = await json('/api/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    loginStatus.textContent = `Connected as ${result.user.username}.`;
+    updateSession(result.session);
+    await loadAll();
+    connectEvents();
+  } catch (error) {
+    loginStatus.textContent = error instanceof Error ? error.message : 'Login failed.';
   }
-  loginStatus.textContent = `Connected as ${result.user.username}`;
-  await loadAll();
-  connectEvents();
 });
 
-publishForm.addEventListener('submit', handlePublish);
-claimTicketButton.addEventListener('click', () => runReviewAction('claim'));
-approveTicketButton.addEventListener('click', () => runReviewAction('approve'));
-reviewActionForm.addEventListener('submit', (event) => event.preventDefault());
-
 reloadAll.addEventListener('click', () => {
+  refreshConnectionStatus();
   loadAll().catch((error) => {
     loginStatus.textContent = error.message;
   });
 });
 
-marketQuery.addEventListener('change', () => {
+marketQuery.addEventListener('input', () => {
   loadAll().catch(() => {});
 });
 
-json('/api/session').then((session) => {
-  if (session.session?.user) {
-    sessionMeta.textContent = `Signed in as ${session.session.user.username}`;
-    loadAll().then(connectEvents).catch(() => {});
-  }
-});
+refreshConnectionStatus();
+json('/api/session')
+  .then((session) => {
+    updateSession(session.session);
+    if (session.session?.user) {
+      loadAll().then(connectEvents).catch(() => {});
+    }
+  })
+  .catch(() => {
+    updateSession(null);
+  });

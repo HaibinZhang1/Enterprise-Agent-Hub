@@ -90,6 +90,7 @@ export async function createDesktopServer(config = {}) {
     ['/', { file: 'index.html', type: 'text/html; charset=utf-8' }],
     ['/app.js', { file: 'app.js', type: 'application/javascript; charset=utf-8' }],
     ['/styles.css', { file: 'styles.css', type: 'text/css; charset=utf-8' }],
+    ['/style.css', { file: 'styles.css', type: 'text/css; charset=utf-8' }],
   ]);
   const proxyRoutes = new Map([
     ['/api/market', '/api/market'],
