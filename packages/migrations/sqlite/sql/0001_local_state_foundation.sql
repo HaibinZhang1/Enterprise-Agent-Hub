@@ -7,16 +7,26 @@ create table if not exists tool_cache (
   tool_id text primary key,
   display_name text not null,
   install_path text not null,
+  skills_directory text,
+  skills_directory_source text not null default 'derived_pending',
+  materialization_enabled integer not null default 1,
   health_state text not null,
-  updated_at text not null default current_timestamp
+  updated_at text not null default current_timestamp,
+  check (skills_directory_source in ('explicit', 'derived', 'derived_pending', 'degraded')),
+  check (materialization_enabled in (0, 1))
 );
 
 create table if not exists projects (
   project_id text primary key,
   display_name text not null,
   project_path text not null,
+  skills_directory text,
+  skills_directory_source text not null default 'derived_pending',
+  materialization_enabled integer not null default 1,
   health_state text not null,
-  updated_at text not null default current_timestamp
+  updated_at text not null default current_timestamp,
+  check (skills_directory_source in ('explicit', 'derived', 'derived_pending', 'degraded')),
+  check (materialization_enabled in (0, 1))
 );
 
 create table if not exists installed_skill_cache (
