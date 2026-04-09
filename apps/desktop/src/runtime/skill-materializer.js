@@ -1,10 +1,11 @@
-import { cp, mkdir, rm, symlink } from 'node:fs/promises';
+import { cp, mkdir, rm, stat, symlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 const DEFAULT_FILESYSTEM = Object.freeze({
   cp,
   mkdir,
   rm,
+  stat,
   symlink,
 });
 
@@ -13,6 +14,7 @@ const DEFAULT_FILESYSTEM = Object.freeze({
  *   cp: typeof cp;
  *   mkdir: typeof mkdir;
  *   rm: typeof rm;
+ *   stat: typeof stat;
  *   symlink: typeof symlink;
  * }} SkillMaterializerFilesystem
  */
@@ -37,8 +39,25 @@ const DEFAULT_FILESYSTEM = Object.freeze({
  *   status: 'materialized';
  *   fallbackUsed: boolean;
  *   fallbackReason: string | null;
- * }} SkillMaterializeResult
+ * }} SkillMaterializeSuccess
  */
+
+/**
+ * @typedef {{
+ *   ok: false;
+ *   skillId: string;
+ *   sourceDirectory: string;
+ *   skillsDirectory: string;
+ *   targetPath: string;
+ *   mode: null;
+ *   status: 'offline_blocked' | 'access_denied';
+ *   fallbackUsed: false;
+ *   fallbackReason: null;
+ *   failureReason: string;
+ * }} SkillMaterializeFailure
+ */
+
+/** @typedef {SkillMaterializeSuccess | SkillMaterializeFailure} SkillMaterializeResult */
 
 /**
  * @param {string} value
@@ -53,13 +72,28 @@ function requireNonEmptyString(value, fieldName) {
 /**
  * @param {unknown} error
  */
-function formatFallbackReason(error) {
+function formatFilesystemReason(error) {
   if (error && typeof error === 'object') {
     const code = 'code' in error && typeof error.code === 'string' ? `${error.code}: ` : '';
     const message = 'message' in error && typeof error.message === 'string' ? error.message : String(error);
     return `${code}${message}`;
   }
   return String(error);
+}
+
+/**
+ * @param {unknown} error
+ */
+function statusForSourceFailure(error) {
+  if (
+    error
+    && typeof error === 'object'
+    && 'code' in error
+    && ['EACCES', 'EPERM'].includes(String(error.code))
+  ) {
+    return 'access_denied';
+  }
+  return 'offline_blocked';
 }
 
 /**
@@ -90,6 +124,11 @@ export function createSkillMaterializer(input = {}) {
      * that actually reached the filesystem, so callers can persist it in
      * skill_materialization_status without guessing.
      *
+     * Source availability is checked before touching the destination. Missing
+     * or inaccessible package trees return explicit degraded status, preserving
+     * any current materialization instead of silently substituting a different
+     * source or creating a dangling symlink.
+     *
      * @param {SkillMaterializeRequest} request
      * @returns {Promise<SkillMaterializeResult>}
      */
@@ -99,6 +138,37 @@ export function createSkillMaterializer(input = {}) {
       const sourceDirectory = resolve(request.sourceDirectory);
       const skillsDirectory = resolve(request.skillsDirectory);
       const targetPath = join(skillsDirectory, request.skillId);
+
+      try {
+        const sourceStats = await filesystem.stat(sourceDirectory);
+        if (!sourceStats.isDirectory()) {
+          return Object.freeze({
+            ok: false,
+            skillId: request.skillId,
+            sourceDirectory,
+            skillsDirectory,
+            targetPath,
+            mode: null,
+            status: 'offline_blocked',
+            fallbackUsed: false,
+            fallbackReason: null,
+            failureReason: 'source path is not a directory',
+          });
+        }
+      } catch (error) {
+        return Object.freeze({
+          ok: false,
+          skillId: request.skillId,
+          sourceDirectory,
+          skillsDirectory,
+          targetPath,
+          mode: null,
+          status: statusForSourceFailure(error),
+          fallbackUsed: false,
+          fallbackReason: null,
+          failureReason: formatFilesystemReason(error),
+        });
+      }
 
       await filesystem.mkdir(skillsDirectory, { recursive: true });
       await filesystem.rm(targetPath, { recursive: true, force: true });
@@ -147,7 +217,7 @@ export function createSkillMaterializer(input = {}) {
           mode: 'copy',
           status: 'materialized',
           fallbackUsed: true,
-          fallbackReason: formatFallbackReason(error),
+          fallbackReason: formatFilesystemReason(error),
         });
       }
     },
