@@ -63,6 +63,17 @@ test('production verifiers encode Windows artifact evidence and intranet runtime
   assert.match(runtime, /\/api\/skills\/my/);
 });
 
+test('desktop shell keeps publish and review proxy routes available for resumed workbench coverage', async () => {
+  const server = await read('apps/desktop/src/server.js');
+
+  assert.match(server, /\/api\/packages\/upload/);
+  assert.match(server, /\/api\/reviews\/submit/);
+  assert.match(server, /segments\[1\] === 'reviews'.*segments\[3\] === 'claim'/s);
+  assert.match(server, /segments\[1\] === 'reviews'.*segments\[3\] === 'approve'/s);
+  assert.match(server, /proxyRoutes = new Map\(\[/);
+  assert.match(server, /'\/api\/reviews'/);
+});
+
 test('documentation keeps apps/web out of the Windows-first product/demo path', async () => {
   const readme = await read('README.md');
   const runbook = await read('docs/desktop-release-runbook.md');
