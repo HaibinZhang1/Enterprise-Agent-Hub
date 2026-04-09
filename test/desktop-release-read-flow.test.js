@@ -24,6 +24,11 @@ async function readJson(response) {
   return response.json();
 }
 
+async function readText(response) {
+  assert.match(response.headers.get('content-type') ?? '', /text\/html/);
+  return response.text();
+}
+
 test('desktop release smoke covers login, My Skill, market, notifications, and configured API URL', async () => {
   const upstreamRequests = [];
   const fakeApi = createServer(async (request, response) => {
@@ -89,9 +94,20 @@ test('desktop release smoke covers login, My Skill, market, notifications, and c
     assert.equal(typeof desktopAddress, 'object');
     const desktopBaseUrl = `http://127.0.0.1:${desktopAddress.port}`;
 
+    const shellHtml = await fetch(`${desktopBaseUrl}/`).then((response) => response.text());
     const health = await readJson(await fetch(`${desktopBaseUrl}/health`));
     assert.equal(health.ok, true);
     assert.equal(health.apiBaseUrl, apiBaseUrl);
+    assert.match(shellHtml, /Release boundary:/);
+    assert.match(shellHtml, /Tools/);
+    assert.match(shellHtml, /Projects/);
+    assert.match(shellHtml, /Settings/);
+    assert.match(shellHtml, /Publish Workbench/);
+    assert.match(shellHtml, /Review Queue/);
+    assert.match(shellHtml, /Pending local change/);
+    assert.match(shellHtml, /apps\/web/);
+    assert.doesNotMatch(shellHtml, /sqlite path/i);
+    assert.doesNotMatch(shellHtml, /DESKTOP_SQLITE_PATH/);
 
     const beforeLogin = await readJson(await fetch(`${desktopBaseUrl}/api/skills/my`));
     assert.deepEqual(beforeLogin, { ok: false, reason: 'session_required' });
@@ -128,5 +144,36 @@ test('desktop release smoke covers login, My Skill, market, notifications, and c
   } finally {
     await close(desktop.server);
     await close(fakeApi);
+  }
+});
+
+test('desktop release shell keeps publish-review boundary copy while hiding SQLite path details from product UI', async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), 'desktop-release-shell-'));
+  const desktop = await createDesktopServer({
+    port: 0,
+    sqlitePath: join(tempDir, 'desktop.db'),
+    apiBaseUrl: 'http://127.0.0.1:65530',
+  });
+
+  try {
+    const desktopAddress = await listen(desktop.server);
+    assert.equal(typeof desktopAddress, 'object');
+    const desktopBaseUrl = `http://127.0.0.1:${desktopAddress.port}`;
+
+    const html = await readText(await fetch(`${desktopBaseUrl}/`));
+
+    assert.match(html, /Release boundary:/);
+    assert.match(html, /Tools/);
+    assert.match(html, /Projects/);
+    assert.match(html, /Settings/);
+    assert.match(html, /publish\/review workbench path/i);
+    assert.match(html, /apps\/web.*historical\/non-product/i);
+    assert.match(html, /Publish Workbench/);
+    assert.match(html, /Review Queue/);
+    assert.match(html, /Pending local change/);
+    assert.doesNotMatch(html, /DESKTOP_SQLITE_PATH/);
+    assert.doesNotMatch(html, /sqlite path/i);
+  } finally {
+    await close(desktop.server);
   }
 });

@@ -227,6 +227,14 @@ button.secondary {
   margin-top: 18px;
 }
 
+.local-control-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+  align-items: start;
+}
+
 .workbench-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -241,6 +249,13 @@ button.secondary {
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .state-pill {
@@ -352,13 +367,69 @@ button.secondary {
   gap: 14px;
 }
 
+.local-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
 .workbench-form .span-2 {
+  grid-column: span 2;
+}
+
+.local-form .full-width {
   grid-column: span 2;
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-start;
+}
+
+.preview-panel {
+  margin-top: 18px;
+  border-radius: 26px;
+  padding: 24px;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.preview-field {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(247, 250, 253, 0.82);
+  border: 1px solid rgba(151, 170, 196, 0.22);
+}
+
+.preview-field.full-width {
+  grid-column: span 2;
+}
+
+.preview-field strong {
+  color: #23344d;
+  font-size: 13px;
+}
+
+.preview-field p {
+  margin: 0;
+  color: #53657c;
+  line-height: 1.5;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 
 .empty-state {
@@ -382,14 +453,19 @@ button.secondary {
   .hero,
   .login-panel,
   .login-form,
+  .local-control-grid,
   .toolbar,
   .dashboard-grid,
   .workbench-grid,
-  .workbench-form {
+  .workbench-form,
+  .local-form,
+  .preview-grid {
     grid-template-columns: 1fr;
   }
 
-  .workbench-form .span-2 {
+  .workbench-form .span-2,
+  .local-form .full-width,
+  .preview-field.full-width {
     grid-column: span 1;
   }
 }

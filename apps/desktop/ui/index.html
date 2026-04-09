@@ -55,6 +55,139 @@
         <button id="reload-all" type="button" class="secondary">Refresh read views</button>
       </section>
 
+      <section class="local-control-grid">
+        <article class="content-panel glass-panel" aria-labelledby="tools-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Local authority</p>
+              <h2 id="tools-heading">Tools</h2>
+            </div>
+            <div class="panel-actions">
+              <span id="tools-state" class="state-pill">Not loaded</span>
+              <button id="tools-rescan" type="button" class="secondary">Rescan</button>
+            </div>
+          </div>
+          <p id="tools-status" class="status-message" role="status">
+            Scan the machine to load writable-path health for the desktop toolchain.
+          </p>
+          <div id="tools-output" class="data-view empty-state">Scan the machine to load writable-path health for the desktop toolchain.</div>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="projects-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Multi-project control</p>
+              <h2 id="projects-heading">Projects</h2>
+            </div>
+            <span id="projects-state" class="state-pill">Not loaded</span>
+          </div>
+          <form id="project-form" class="local-form">
+            <label>
+              Display name
+              <input name="displayName" type="text" placeholder="Desktop Workspace" required />
+            </label>
+            <label>
+              Project path
+              <input name="projectPath" type="text" placeholder="/Users/you/workspace/project" required />
+            </label>
+            <div class="form-actions full-width">
+              <button type="submit">Register project</button>
+            </div>
+          </form>
+          <p id="projects-status" class="status-message" role="status">
+            Register a local project path to start multi-project management.
+          </p>
+          <div id="projects-output" class="data-view empty-state">Register a local project path to start multi-project management.</div>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="settings-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Desktop policy</p>
+              <h2 id="settings-heading">Settings</h2>
+            </div>
+            <span id="settings-state" class="state-pill">Not loaded</span>
+          </div>
+          <form id="settings-form" class="local-form">
+            <label>
+              API base URL
+              <input name="apiBaseUrl" type="text" placeholder="http://127.0.0.1:8787" />
+            </label>
+            <label>
+              Scan commands
+              <input name="scanCommands" type="text" placeholder="node,pnpm,git,python3,sqlite3,cargo" />
+            </label>
+            <label>
+              Default project behavior
+              <select name="defaultProjectBehavior">
+                <option value="last-active">last-active</option>
+                <option value="manual">manual</option>
+              </select>
+            </label>
+            <label>
+              Appearance
+              <select name="appearance">
+                <option value="system">system</option>
+                <option value="light">light</option>
+                <option value="dark">dark</option>
+              </select>
+            </label>
+            <label>
+              Update channel
+              <select name="updateChannel">
+                <option value="stable">stable</option>
+                <option value="preview">preview</option>
+              </select>
+            </label>
+            <div class="form-actions full-width">
+              <button type="submit">Save settings</button>
+            </div>
+          </form>
+          <p id="settings-status" class="status-message" role="status">
+            Desktop settings will appear here after the local shell loads.
+          </p>
+          <div id="settings-output" class="data-view empty-state">Desktop settings will appear here after the local shell loads.</div>
+        </article>
+      </section>
+
+      <section id="preview-panel" class="preview-panel glass-panel" aria-labelledby="preview-heading" hidden>
+        <div class="content-header">
+          <div>
+            <p class="eyebrow">Preview-first repair</p>
+            <h2 id="preview-heading">Pending local change</h2>
+          </div>
+          <span class="state-pill" id="preview-target">No preview</span>
+        </div>
+        <p id="preview-status" class="status-message" role="status">Select a local action to preview the exact mutation before it runs.</p>
+        <div class="preview-grid">
+          <div class="preview-field">
+            <strong>Current state</strong>
+            <p id="preview-current">No active preview.</p>
+          </div>
+          <div class="preview-field">
+            <strong>Incoming state</strong>
+            <p id="preview-incoming">No active preview.</p>
+          </div>
+          <div class="preview-field full-width">
+            <strong>Impact</strong>
+            <p id="preview-impact">No active preview.</p>
+          </div>
+          <label id="preview-path-row" class="preview-field full-width" hidden>
+            Repair path
+            <input id="preview-path-input" type="text" />
+          </label>
+          <div class="preview-field full-width">
+            <strong>Issues</strong>
+            <p id="preview-issues">No active preview.</p>
+          </div>
+        </div>
+        <div class="preview-actions">
+          <button id="preview-build" type="button" class="secondary" hidden>Build preview</button>
+          <button id="preview-confirm" type="button" hidden>Confirm change</button>
+          <button id="preview-cancel" type="button" class="secondary">Dismiss</button>
+        </div>
+      </section>
+
       <section class="dashboard-grid">
         <article class="content-panel glass-panel" aria-labelledby="my-skills-heading">
           <div class="content-header">
