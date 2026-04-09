@@ -43,8 +43,8 @@
         <p id="login-status" class="status-message" role="status">Awaiting sign in.</p>
       </section>
 
-      <section class="release-boundary" aria-label="Release boundary">
-        <strong>Release boundary:</strong> Desktop remains the maintained intranet product surface, including the publish/review workbench path. `apps/web` stays historical/non-product, and Windows package/runtime evidence still gates release readiness.
+      <section class="release-boundary" aria-label="Workbench summary">
+        <strong>Deferred workbench:</strong> publishers can stage package submissions, reviewers can work their assigned queue, and administrators can inspect manageable skills from the Desktop shell.
       </section>
 
       <section class="toolbar glass-panel" aria-label="Market search and refresh controls">
@@ -98,6 +98,105 @@
             <span id="events-state" class="state-pill">Disconnected</span>
           </div>
           <div id="events-output" class="data-view empty-state">Live notification events will stream here when available.</div>
+        </article>
+      </section>
+
+      <section class="workbench-grid">
+        <article class="content-panel glass-panel" aria-labelledby="publish-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Publisher mutation</p>
+              <h2 id="publish-heading">Publish Workbench</h2>
+            </div>
+            <span id="publish-state" class="state-pill">Signed out</span>
+          </div>
+          <form id="publish-form" class="workbench-form">
+            <label>
+              Skill ID
+              <input name="skillId" type="text" placeholder="dept.desktop.assistant" required />
+            </label>
+            <label>
+              Title
+              <input name="title" type="text" placeholder="Desktop Review Assistant" required />
+            </label>
+            <label>
+              Version
+              <input name="version" type="text" value="1.0.0" required />
+            </label>
+            <label>
+              Reviewer username
+              <input name="reviewerUsername" type="text" placeholder="reviewer" required />
+            </label>
+            <label>
+              Visibility
+              <select name="visibility">
+                <option value="private">private</option>
+                <option value="summary_public">summary_public</option>
+                <option value="detail_public">detail_public</option>
+                <option value="department">department</option>
+                <option value="global_installable">global_installable</option>
+              </select>
+            </label>
+            <label>
+              Allowed departments
+              <input
+                name="allowedDepartmentIds"
+                type="text"
+                placeholder="comma-separated department ids for department visibility"
+              />
+            </label>
+            <label class="span-2">
+              Summary
+              <textarea
+                name="summary"
+                rows="3"
+                placeholder="Brief summary shown in My Skill, market, and review surfaces."
+              ></textarea>
+            </label>
+            <label class="span-2">
+              README.md
+              <textarea
+                name="readme"
+                rows="6"
+                placeholder="# Desktop Review Assistant"
+              ></textarea>
+            </label>
+            <label class="span-2">
+              SKILL.md
+              <textarea
+                name="skillDefinition"
+                rows="6"
+                placeholder="name: dept.desktop.assistant"
+              ></textarea>
+            </label>
+            <div class="form-actions span-2">
+              <button id="publish-submit" type="submit">Upload + Submit</button>
+            </div>
+          </form>
+          <p id="publish-status" class="status-message" role="status">Sign in to stage a package and submit it for review.</p>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="review-queue-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Reviewer queue</p>
+              <h2 id="review-queue-heading">Review Queue</h2>
+            </div>
+            <span id="review-queue-state" class="state-pill">Role gated</span>
+          </div>
+          <p id="review-status" class="status-message" role="status">Review actions unlock for review_admin and system_admin roles.</p>
+          <div id="review-queue-output" class="data-view empty-state">Assigned tickets will appear here for reviewer and administrator sessions.</div>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="management-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Admin read surface</p>
+              <h2 id="management-heading">Skill Management</h2>
+            </div>
+            <span id="management-state" class="state-pill">Role gated</span>
+          </div>
+          <div id="management-output" class="data-view empty-state">Manageable skills load here for administrator sessions.</div>
         </article>
       </section>
     </main>
