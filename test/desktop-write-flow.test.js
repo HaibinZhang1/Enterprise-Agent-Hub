@@ -188,11 +188,20 @@ test('desktop shell proxies upload -> submit -> claim -> approve through the liv
   assert.equal(submit.response.status, 201, JSON.stringify(submit.payload));
   assert.equal(submit.payload.ticket.status, 'todo');
 
+  const publisherQueue = await requestDesktop(publisherDesktop.baseUrl, '/api/reviews');
+  assert.equal(publisherQueue.response.status, 403, JSON.stringify(publisherQueue.payload));
+  assert.equal(publisherQueue.payload.reason, 'review_admin_required');
+
   const reviewerLogin = await requestDesktop(reviewerDesktop.baseUrl, '/api/login', {
     method: 'POST',
     body: { username: 'reviewer', password: 'reviewer' },
   });
   assert.equal(reviewerLogin.response.status, 200, JSON.stringify(reviewerLogin.payload));
+
+  const todoQueue = await requestDesktop(reviewerDesktop.baseUrl, '/api/reviews');
+  assert.equal(todoQueue.response.status, 200, JSON.stringify(todoQueue.payload));
+  assert.equal(todoQueue.payload.queue.todo.length, 1);
+  assert.equal(todoQueue.payload.queue.todo[0].ticketId, submit.payload.ticket.ticketId);
 
   const claim = await requestDesktop(
     reviewerDesktop.baseUrl,
@@ -202,6 +211,12 @@ test('desktop shell proxies upload -> submit -> claim -> approve through the liv
   assert.equal(claim.response.status, 200, JSON.stringify(claim.payload));
   assert.equal(claim.payload.ticket.status, 'in_progress');
 
+  const inProgressQueue = await requestDesktop(reviewerDesktop.baseUrl, '/api/reviews');
+  assert.equal(inProgressQueue.response.status, 200, JSON.stringify(inProgressQueue.payload));
+  assert.equal(inProgressQueue.payload.queue.todo.length, 0);
+  assert.equal(inProgressQueue.payload.queue.inProgress.length, 1);
+  assert.equal(inProgressQueue.payload.queue.inProgress[0].ticketId, submit.payload.ticket.ticketId);
+
   const approve = await requestDesktop(
     reviewerDesktop.baseUrl,
     `/api/reviews/${submit.payload.ticket.ticketId}/approve`,
@@ -209,6 +224,12 @@ test('desktop shell proxies upload -> submit -> claim -> approve through the liv
   );
   assert.equal(approve.response.status, 200, JSON.stringify(approve.payload));
   assert.equal(approve.payload.skill.status, 'published');
+
+  const doneQueue = await requestDesktop(reviewerDesktop.baseUrl, '/api/reviews');
+  assert.equal(doneQueue.response.status, 200, JSON.stringify(doneQueue.payload));
+  assert.equal(doneQueue.payload.queue.inProgress.length, 0);
+  assert.equal(doneQueue.payload.queue.done.length, 1);
+  assert.equal(doneQueue.payload.queue.done[0].ticketId, submit.payload.ticket.ticketId);
 
   const market = await requestDesktop(publisherDesktop.baseUrl, '/api/market?query=Desktop%20Production');
   assert.equal(market.response.status, 200, JSON.stringify(market.payload));

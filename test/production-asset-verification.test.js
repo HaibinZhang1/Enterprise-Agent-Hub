@@ -9,9 +9,13 @@ const repoRoot = resolve(import.meta.dirname, '..');
 test('production asset verification script reports local, Windows, and deploy readiness evidence', async () => {
   const fixtureDir = resolve(repoRoot, 'apps/desktop/src-tauri/target/release/bundle/nsis');
   const fixtureArtifact = resolve(fixtureDir, 'Enterprise Agent Hub Desktop_0.0.0_x64-setup.exe');
+  const macFixtureDir = resolve(repoRoot, 'apps/desktop/src-tauri/target/release/bundle/macos/Enterprise Agent Hub Desktop.app');
+  const binaryFixture = resolve(repoRoot, 'apps/desktop/src-tauri/target/release/enterprise-agent-hub-desktop');
 
   await mkdir(fixtureDir, { recursive: true });
+  await mkdir(macFixtureDir, { recursive: true });
   await writeFile(fixtureArtifact, 'windows installer fixture');
+  await writeFile(binaryFixture, 'desktop binary fixture');
 
   try {
     const run = spawnSync(process.execPath, ['scripts/verify-production-assets.js'], {
@@ -48,5 +52,7 @@ test('production asset verification script reports local, Windows, and deploy re
     assert.equal(Array.isArray(summary.warnings), true);
   } finally {
     await rm(fixtureArtifact, { force: true });
+    await rm(binaryFixture, { force: true });
+    await rm(macFixtureDir, { recursive: true, force: true });
   }
 });
