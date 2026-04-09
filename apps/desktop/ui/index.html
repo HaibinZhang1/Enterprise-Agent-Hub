@@ -70,6 +70,11 @@
           <p id="tools-status" class="status-message" role="status">
             Scan the machine to load writable-path health for the desktop toolchain.
           </p>
+          <div class="binding-overview" aria-label="Tool skill binding contract">
+            <strong>Tool skill targets</strong>
+            <span>Per-tool bindings materialize into each tool skills directory only when materialization is enabled.</span>
+            <span>Disabled tools stay visible in scans but receive no future materialization.</span>
+          </div>
           <div id="tools-output" class="data-view empty-state">Scan the machine to load writable-path health for the desktop toolchain.</div>
         </article>
 
@@ -97,6 +102,11 @@
           <p id="projects-status" class="status-message" role="status">
             Register a local project path to start multi-project management.
           </p>
+          <div class="binding-overview" aria-label="Project skill binding contract">
+            <strong>Project skill targets</strong>
+            <span>Project bindings use project-level precedence only inside explicit tool/project associations.</span>
+            <span>Version conflicts require a persisted manual choice before reconcile proceeds.</span>
+          </div>
           <div id="projects-output" class="data-view empty-state">Register a local project path to start multi-project management.</div>
         </article>
 

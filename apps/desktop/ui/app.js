@@ -224,6 +224,197 @@ function formatIssues(issues) {
   return Array.isArray(issues) && issues.length > 0 ? issues.join(' ') : 'No blocking issues detected.';
 }
 
+function asArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value);
+  }
+  return [];
+}
+
+function firstValue(...values) {
+  return values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+}
+
+function formatEnabled(value, enabledLabel = 'Enabled', disabledLabel = 'Disabled') {
+  if (value === false || value === 'disabled') {
+    return disabledLabel;
+  }
+  if (value === true || value === 'enabled') {
+    return enabledLabel;
+  }
+  return 'Not reported';
+}
+
+function appendKeyValue(parent, label, value) {
+  const row = document.createElement('div');
+  row.className = 'binding-detail';
+
+  const labelElement = document.createElement('span');
+  labelElement.textContent = label;
+  row.append(labelElement);
+
+  const valueElement = document.createElement('strong');
+  valueElement.textContent = value;
+  row.append(valueElement);
+
+  parent.append(row);
+}
+
+function createBindingList(title, entries, emptyText, mapEntry) {
+  const section = document.createElement('section');
+  section.className = 'binding-subpanel';
+
+  const heading = document.createElement('h4');
+  heading.textContent = title;
+  section.append(heading);
+
+  if (entries.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'binding-empty';
+    empty.textContent = emptyText;
+    section.append(empty);
+    return section;
+  }
+
+  for (const entry of entries) {
+    const item = document.createElement('div');
+    item.className = 'binding-row';
+
+    const name = document.createElement('strong');
+    name.textContent = mapEntry(entry).title;
+    item.append(name);
+
+    const detail = document.createElement('span');
+    detail.textContent = mapEntry(entry).detail;
+    item.append(detail);
+
+    section.append(item);
+  }
+
+  return section;
+}
+
+function getSkillsDirectory(target, targetType) {
+  const configured = firstValue(
+    target.skillsDirectory,
+    target.skillDirectory,
+    target.skillTarget?.skillsDirectory,
+    target.materialization?.skillsDirectory,
+  );
+  if (configured) {
+    return configured;
+  }
+  if (targetType === 'project' && target.projectPath) {
+    return `${target.projectPath.replace(/\/+$/, '')}/skills`;
+  }
+  return 'Not configured yet';
+}
+
+function createSkillManagementPanel(targetType, target) {
+  const panel = document.createElement('section');
+  panel.className = 'skill-management-panel';
+  panel.setAttribute('aria-label', `${targetType} skill binding and materialization summary`);
+
+  const header = document.createElement('div');
+  header.className = 'binding-panel-header';
+
+  const title = document.createElement('h4');
+  title.textContent = 'Skill binding & materialization';
+  header.append(title);
+
+  const status = document.createElement('span');
+  status.className = 'state-pill compact';
+  status.textContent = formatEnabled(
+    firstValue(target.materializationEnabled, target.skillMaterializationEnabled, target.enabled),
+    'Materialization on',
+    'Materialization off',
+  );
+  header.append(status);
+  panel.append(header);
+
+  appendKeyValue(panel, 'Skills directory', getSkillsDirectory(target, targetType));
+  appendKeyValue(
+    panel,
+    'Source contract',
+    firstValue(target.materializationSource, target.packageSource, 'Live package report + package files'),
+  );
+
+  if (targetType === 'project') {
+    appendKeyValue(
+      panel,
+      'Precedence',
+      firstValue(target.precedenceSummary, 'Project > tool only inside explicit tool/project associations'),
+    );
+  } else {
+    appendKeyValue(
+      panel,
+      'Disabled behavior',
+      firstValue(target.disabledMaterializationSummary, 'Visible in scans; no future skill materialization when disabled'),
+    );
+  }
+
+  const bindings = asArray(firstValue(target.skillBindings, target.bindings, target.skillTargetBindings));
+  const materializations = asArray(
+    firstValue(target.materializationStatus, target.materializations, target.skillMaterializationStatus),
+  );
+  const conflicts = asArray(firstValue(target.bindingConflicts, target.conflicts, target.precedenceConflicts));
+
+  panel.append(
+    createBindingList(
+      'Bindings',
+      bindings,
+      'No skill bindings reported for this target yet.',
+      (binding) => ({
+        title: firstValue(binding.skillId, binding.id, binding.name, 'Unknown skill'),
+        detail: [
+          firstValue(binding.version, binding.selectedVersion, binding.effectiveVersion),
+          firstValue(binding.packageId, binding.sourcePackageId),
+          formatEnabled(binding.enabled),
+        ].filter(Boolean).join(' · '),
+      }),
+    ),
+  );
+
+  panel.append(
+    createBindingList(
+      'Materialization',
+      materializations,
+      'No materialization status reported yet.',
+      (entry) => ({
+        title: firstValue(entry.skillId, entry.id, 'Unknown skill'),
+        detail: [
+          firstValue(entry.status, entry.state, 'pending'),
+          firstValue(entry.mode, entry.materializationMode),
+          firstValue(entry.version, entry.chosenVersion),
+          firstValue(entry.error, entry.errorCode),
+        ].filter(Boolean).join(' · '),
+      }),
+    ),
+  );
+
+  panel.append(
+    createBindingList(
+      'Conflicts',
+      conflicts,
+      'No active version or precedence conflicts reported.',
+      (conflict) => ({
+        title: firstValue(conflict.skillId, conflict.id, 'Conflict'),
+        detail: [
+          firstValue(conflict.reason, conflict.type, 'manual choice required'),
+          firstValue(conflict.projectVersion),
+          firstValue(conflict.toolVersion),
+          firstValue(conflict.manualChoice, conflict.selectedVersion),
+        ].filter(Boolean).join(' · '),
+      }),
+    ),
+  );
+
+  return panel;
+}
+
 function summarizePreviewSide(summary) {
   if (!summary) {
     return 'No data available.';
@@ -437,6 +628,8 @@ function renderTools(tools) {
     issues.textContent = formatIssues(tool.issues);
     body.append(issues);
 
+    body.append(createSkillManagementPanel('tool', tool));
+
     const actions = document.createElement('div');
     actions.className = 'item-actions';
 
@@ -471,6 +664,8 @@ function renderProjects(projects) {
     const summary = document.createElement('p');
     summary.textContent = formatIssues(project.issues);
     body.append(summary);
+
+    body.append(createSkillManagementPanel('project', project));
 
     const actions = document.createElement('div');
     actions.className = 'item-actions';
