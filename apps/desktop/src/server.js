@@ -1,7 +1,10 @@
 // @ts-nocheck
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { access, readFile, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { createLocalSqliteStore } from './local-sqlite-store.js';
@@ -9,6 +12,21 @@ import { createLocalSqliteStore } from './local-sqlite-store.js';
 const moduleFile = fileURLToPath(import.meta.url);
 const packageRoot = dirname(moduleFile);
 const uiRoot = resolve(packageRoot, '..', 'ui');
+
+const DEFAULT_TOOL_COMMANDS = Object.freeze(['node', 'pnpm', 'git', 'python3', 'sqlite3', 'cargo']);
+const DEFAULT_TOOL_LABELS = Object.freeze({
+  node: 'Node.js',
+  pnpm: 'pnpm',
+  git: 'Git',
+  python3: 'Python 3',
+  sqlite3: 'SQLite 3',
+  cargo: 'Rust Cargo',
+});
+const DEFAULT_SETTINGS = Object.freeze({
+  defaultProjectBehavior: 'last-active',
+  appearance: 'system',
+  updateChannel: 'stable',
+});
 
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -38,9 +56,130 @@ function routeSegments(pathname) {
   return pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
 }
 
+function projectIdFrom(input) {
+  return String(input ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || `project-${randomUUID().slice(0, 8)}`;
+}
+
+function normalizeScanCommands(value) {
+  const raw = Array.isArray(value) ? value : String(value ?? '').split(',');
+  const normalized = [...new Set(raw.map((entry) => String(entry).trim()).filter(Boolean))];
+  return normalized.length > 0 ? normalized : [...DEFAULT_TOOL_COMMANDS];
+}
+
+function stateKey(name) {
+  return `desktop:${name}`;
+}
+
+async function inspectPath(targetPath) {
+  const normalizedPath = resolve(String(targetPath ?? '').trim() || '.');
+  try {
+    const details = await stat(normalizedPath);
+    let writable = true;
+    try {
+      await access(normalizedPath, fsConstants.W_OK);
+    } catch {
+      writable = false;
+    }
+    const directory = details.isDirectory();
+    const healthState = !directory ? 'invalid' : writable ? 'ready' : 'read_only';
+    const issues = [];
+    if (!directory) {
+      issues.push('Path is not a directory.');
+    }
+    if (!writable) {
+      issues.push('Path is not writable by the desktop shell.');
+    }
+    return Object.freeze({
+      normalizedPath,
+      exists: true,
+      directory,
+      writable,
+      healthState,
+      issues,
+    });
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return Object.freeze({
+        normalizedPath,
+        exists: false,
+        directory: false,
+        writable: false,
+        healthState: 'missing',
+        issues: ['Path does not exist on this machine.'],
+      });
+    }
+    return Object.freeze({
+      normalizedPath,
+      exists: false,
+      directory: false,
+      writable: false,
+      healthState: 'invalid',
+      issues: [error instanceof Error ? error.message : 'Path validation failed.'],
+    });
+  }
+}
+
+function findExecutable(command) {
+  const result = spawnSync('which', [command], { encoding: 'utf8' });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+async function inspectTool(command) {
+  const installPath = findExecutable(command);
+  if (!installPath) {
+    return Object.freeze({
+      command,
+      displayName: DEFAULT_TOOL_LABELS[command] ?? command,
+      installPath: 'Not found',
+      exists: false,
+      writable: false,
+      healthState: 'missing',
+      issues: ['Tool is not currently discoverable on PATH.'],
+    });
+  }
+
+  let writable = true;
+  try {
+    await access(installPath, fsConstants.W_OK);
+  } catch {
+    writable = false;
+  }
+
+  return Object.freeze({
+    command,
+    displayName: DEFAULT_TOOL_LABELS[command] ?? command,
+    installPath,
+    exists: true,
+    writable,
+    healthState: writable ? 'ready' : 'read_only',
+    issues: writable ? [] : ['Discovered binary is not writable by the desktop shell.'],
+  });
+}
+
+function healthSummary(healthState) {
+  switch (healthState) {
+    case 'ready':
+      return 'Ready';
+    case 'read_only':
+      return 'Read-only';
+    case 'missing':
+      return 'Missing';
+    case 'conflict':
+      return 'Conflict';
+    case 'invalid':
+      return 'Invalid';
+    default:
+      return healthState;
+  }
+}
+
 export async function createDesktopServer(config = {}) {
   const port = Number(config.port ?? process.env.DESKTOP_PORT ?? 4174);
-  const apiBaseUrl =
+  const configuredApiBaseUrl =
     config.apiBaseUrl ??
     process.env.DESKTOP_API_BASE_URL ??
     process.env.API_BASE_URL ??
@@ -48,6 +187,60 @@ export async function createDesktopServer(config = {}) {
   const sqlitePath = config.sqlitePath ?? process.env.DESKTOP_SQLITE_PATH ?? resolve(packageRoot, '..', '.local', 'desktop.db');
   const store = createLocalSqliteStore({ sqlitePath });
   let sessionState = null;
+  let desktopSettings = null;
+  let runtimeApiBaseUrl = configuredApiBaseUrl;
+
+  function loadDesktopSettings() {
+    const saved = store.getState(stateKey('settings'))?.payload ?? {};
+    const scanCommands = normalizeScanCommands(saved.scanCommands ?? DEFAULT_TOOL_COMMANDS);
+    return Object.freeze({
+      apiBaseUrl: String(saved.apiBaseUrl ?? configuredApiBaseUrl).trim() || configuredApiBaseUrl,
+      scanCommands: scanCommands.length > 0 ? scanCommands : [...DEFAULT_TOOL_COMMANDS],
+      defaultProjectBehavior: String(saved.defaultProjectBehavior ?? DEFAULT_SETTINGS.defaultProjectBehavior),
+      appearance: String(saved.appearance ?? DEFAULT_SETTINGS.appearance),
+      updateChannel: String(saved.updateChannel ?? DEFAULT_SETTINGS.updateChannel),
+    });
+  }
+
+  function persistDesktopSettings(nextSettings) {
+    desktopSettings = Object.freeze({
+      apiBaseUrl: String(nextSettings.apiBaseUrl ?? configuredApiBaseUrl).trim() || configuredApiBaseUrl,
+      scanCommands: normalizeScanCommands(nextSettings.scanCommands),
+      defaultProjectBehavior: String(nextSettings.defaultProjectBehavior ?? DEFAULT_SETTINGS.defaultProjectBehavior),
+      appearance: String(nextSettings.appearance ?? DEFAULT_SETTINGS.appearance),
+      updateChannel: String(nextSettings.updateChannel ?? DEFAULT_SETTINGS.updateChannel),
+    });
+    runtimeApiBaseUrl = desktopSettings.apiBaseUrl;
+    store.saveState(stateKey('settings'), desktopSettings);
+    return desktopSettings;
+  }
+
+  function getCurrentProjectState() {
+    return store.getState(stateKey('current-project'))?.payload ?? null;
+  }
+
+  function setCurrentProject(projectId) {
+    const payload = projectId ? { projectId, updatedAt: new Date().toISOString() } : null;
+    if (!payload) {
+      store.deleteState(stateKey('current-project'));
+      return null;
+    }
+    store.saveState(stateKey('current-project'), payload);
+    return payload;
+  }
+
+  function getPreview(previewId) {
+    return store.getState(stateKey(`preview:${previewId}`))?.payload ?? null;
+  }
+
+  function savePreview(preview) {
+    store.saveState(stateKey(`preview:${preview.previewId}`), preview);
+    return preview;
+  }
+
+  function deletePreview(previewId) {
+    store.deleteState(stateKey(`preview:${previewId}`));
+  }
 
   async function proxyJson(pathname, options = {}) {
     const headers = {
@@ -57,7 +250,7 @@ export async function createDesktopServer(config = {}) {
     if (sessionState?.sessionId) {
       headers.authorization = `Bearer ${sessionState.sessionId}`;
     }
-    const response = await fetch(`${apiBaseUrl}${pathname}`, {
+    const response = await fetch(`${runtimeApiBaseUrl}${pathname}`, {
       method: options.method ?? 'GET',
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -73,7 +266,7 @@ export async function createDesktopServer(config = {}) {
     if (sessionState?.sessionId) {
       headers.authorization = `Bearer ${sessionState.sessionId}`;
     }
-    const response = await fetch(`${apiBaseUrl}${pathname}`, {
+    const response = await fetch(`${runtimeApiBaseUrl}${pathname}`, {
       method: options.method ?? 'GET',
       headers,
     });
@@ -84,6 +277,154 @@ export async function createDesktopServer(config = {}) {
       contentType: response.headers.get('content-type') ?? 'application/octet-stream',
       contentDisposition: response.headers.get('content-disposition'),
     };
+  }
+
+  async function scanTools() {
+    const commands = normalizeScanCommands(desktopSettings?.scanCommands ?? DEFAULT_TOOL_COMMANDS);
+    const knownIds = new Set(commands);
+    for (const row of store.listTools()) {
+      if (!knownIds.has(row.toolId)) {
+        store.deleteTool(row.toolId);
+      }
+    }
+    for (const command of commands) {
+      const inspected = await inspectTool(command);
+      store.saveTool({
+        toolId: inspected.command,
+        displayName: inspected.displayName,
+        installPath: inspected.installPath,
+        healthState: inspected.healthState,
+      });
+    }
+    return listToolsModel();
+  }
+
+  async function listToolsModel() {
+    const rows = store.listTools();
+    if (rows.length === 0) {
+      return scanTools();
+    }
+    const pathOwners = new Map();
+    for (const row of rows) {
+      if (row.installPath && row.installPath !== 'Not found') {
+        const owners = pathOwners.get(row.installPath) ?? [];
+        owners.push(row.toolId);
+        pathOwners.set(row.installPath, owners);
+      }
+    }
+    return rows.map((row) => {
+      const conflicts = pathOwners.get(row.installPath) ?? [];
+      const healthState = conflicts.length > 1 ? 'conflict' : row.healthState;
+      const issues = [];
+      if (healthState === 'conflict') {
+        issues.push(`Path is shared with ${conflicts.filter((toolId) => toolId !== row.toolId).join(', ')}.`);
+      }
+      if (healthState === 'missing') {
+        issues.push('Tool is not currently discoverable on PATH.');
+      }
+      if (healthState === 'read_only') {
+        issues.push('Discovered binary is not writable by the desktop shell.');
+      }
+      return Object.freeze({
+        toolId: row.toolId,
+        displayName: row.displayName,
+        installPath: row.installPath,
+        healthState,
+        healthLabel: healthSummary(healthState),
+        updatedAt: row.updatedAt,
+        issues,
+        actions: Object.freeze({ canRepair: healthState !== 'ready', canRescan: true }),
+      });
+    });
+  }
+
+  async function enrichProject(project, rows, currentProjectId) {
+    const validation = await inspectPath(project.projectPath);
+    const conflictingProjectIds = rows
+      .filter((row) => row.projectId !== project.projectId && resolve(row.projectPath) === validation.normalizedPath)
+      .map((row) => row.projectId);
+    const healthState = conflictingProjectIds.length > 0 ? 'conflict' : validation.healthState;
+    const issues = [...validation.issues];
+    if (conflictingProjectIds.length > 0) {
+      issues.unshift(`Registered path conflicts with ${conflictingProjectIds.join(', ')}.`);
+    }
+    return Object.freeze({
+      projectId: project.projectId,
+      displayName: project.displayName,
+      projectPath: validation.normalizedPath,
+      healthState,
+      healthLabel: healthSummary(healthState),
+      updatedAt: project.updatedAt,
+      isCurrent: currentProjectId === project.projectId,
+      validation: {
+        exists: validation.exists,
+        directory: validation.directory,
+        writable: validation.writable,
+      },
+      conflictingProjectIds,
+      issues,
+      actions: Object.freeze({ canSwitch: true, canRepair: healthState !== 'ready', canRemove: true, canRescan: true }),
+    });
+  }
+
+  async function listProjectsModel() {
+    const rows = store.listProjects();
+    const currentProjectId = getCurrentProjectState()?.projectId ?? null;
+    const projects = await Promise.all(rows.map((row) => enrichProject(row, rows, currentProjectId)));
+    if (currentProjectId && !projects.some((project) => project.projectId === currentProjectId)) {
+      setCurrentProject(null);
+    }
+    return projects;
+  }
+
+  async function getProjectModel(projectId) {
+    const rows = store.listProjects();
+    const currentProjectId = getCurrentProjectState()?.projectId ?? null;
+    const row = rows.find((entry) => entry.projectId === projectId);
+    if (!row) {
+      return null;
+    }
+    return enrichProject(row, rows, currentProjectId);
+  }
+
+  function settingsModel() {
+    return Object.freeze({
+      execution: {
+        apiBaseUrl: runtimeApiBaseUrl,
+        scanCommands: [...desktopSettings.scanCommands],
+        defaultProjectBehavior: desktopSettings.defaultProjectBehavior,
+      },
+      desktop: {
+        appearance: desktopSettings.appearance,
+        updateChannel: desktopSettings.updateChannel,
+      },
+      account: {
+        currentSessionUser: sessionState?.user ?? null,
+        lastSignedInUser: store.getState('last-user')?.payload ?? null,
+      },
+      storage: {
+        mode: 'managed_sqlite',
+        summary: 'SQLite storage is managed internally by the desktop shell and stays hidden from product settings.',
+      },
+    });
+  }
+
+  function requireSession(response) {
+    if (!sessionState?.sessionId) {
+      sendJson(response, 401, { ok: false, reason: 'session_required' });
+      return false;
+    }
+    return true;
+  }
+
+  function createPreviewPayload(input) {
+    return savePreview(
+      Object.freeze({
+        previewId: randomUUID(),
+        createdAt: new Date().toISOString(),
+        ...input,
+      }),
+    );
   }
 
   const staticFiles = new Map([
@@ -103,14 +444,8 @@ export async function createDesktopServer(config = {}) {
 
   await store.init();
   sessionState = store.getState('session')?.payload ?? null;
-
-  function requireSession(response) {
-    if (!sessionState?.sessionId) {
-      sendJson(response, 401, { ok: false, reason: 'session_required' });
-      return false;
-    }
-    return true;
-  }
+  desktopSettings = loadDesktopSettings();
+  runtimeApiBaseUrl = desktopSettings.apiBaseUrl;
 
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
@@ -129,7 +464,7 @@ export async function createDesktopServer(config = {}) {
           ok: true,
           service: '@enterprise-agent-hub/desktop',
           port,
-          apiBaseUrl,
+          apiBaseUrl: runtimeApiBaseUrl,
           sqlitePath,
           cacheEntries: store.listCaches().length,
         });
@@ -147,6 +482,290 @@ export async function createDesktopServer(config = {}) {
       }
 
       const segments = routeSegments(url.pathname);
+
+      if (request.method === 'GET' && url.pathname === '/api/tools') {
+        const tools = await listToolsModel();
+        sendJson(response, 200, { ok: true, tools });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/tools/scan') {
+        const tools = await scanTools();
+        sendJson(response, 200, { ok: true, tools, scannedAt: new Date().toISOString() });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'tools' && segments[3] === 'repair-preview') {
+        const toolId = segments[2];
+        const currentTool = store.getTool(toolId);
+        if (!currentTool) {
+          sendJson(response, 404, { ok: false, reason: 'tool_not_found' });
+          return;
+        }
+        const incoming = await inspectTool(toolId);
+        const preview = createPreviewPayload({
+          action: 'repair-tool',
+          installId: toolId,
+          target: 'tool',
+          targetKey: `tool:${toolId}`,
+          occupiedBy: currentTool.installPath !== incoming.installPath ? currentTool.installPath : null,
+          suggestedDecision: 'refresh_tool_cache',
+          currentLocalSummary: {
+            displayName: currentTool.displayName,
+            installPath: currentTool.installPath,
+            healthState: currentTool.healthState,
+          },
+          incomingSummary: {
+            displayName: incoming.displayName,
+            installPath: incoming.installPath,
+            healthState: incoming.healthState,
+            issues: incoming.issues,
+          },
+          consequenceSummary: `Desktop will refresh ${currentTool.displayName} from ${currentTool.installPath} to ${incoming.installPath}.`,
+        });
+        sendJson(response, 200, { ok: true, preview });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'tools' && segments[3] === 'repair') {
+        const toolId = segments[2];
+        const body = await parseBody(request);
+        const preview = getPreview(body.previewId);
+        if (!preview || preview.action !== 'repair-tool' || preview.targetKey !== `tool:${toolId}`) {
+          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+          return;
+        }
+        const incoming = await inspectTool(toolId);
+        const tool = store.saveTool({
+          toolId,
+          displayName: incoming.displayName,
+          installPath: incoming.installPath,
+          healthState: incoming.healthState,
+        });
+        deletePreview(preview.previewId);
+        sendJson(response, 200, { ok: true, tool });
+        return;
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/projects') {
+        const projects = await listProjectsModel();
+        sendJson(response, 200, {
+          ok: true,
+          projects,
+          currentProjectId: getCurrentProjectState()?.projectId ?? null,
+        });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/projects') {
+        const body = await parseBody(request);
+        const validation = await inspectPath(body.projectPath);
+        const displayName = String(body.displayName ?? '').trim() || validation.normalizedPath.split('/').filter(Boolean).at(-1) || 'Project';
+        const projectId = projectIdFrom(body.projectId ?? displayName);
+        store.saveProject({
+          projectId,
+          displayName,
+          projectPath: validation.normalizedPath,
+          healthState: validation.healthState,
+        });
+        if (desktopSettings.defaultProjectBehavior === 'last-active' && !getCurrentProjectState()?.projectId) {
+          setCurrentProject(projectId);
+        }
+        const project = await getProjectModel(projectId);
+        sendJson(response, 200, { ok: true, project });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'projects' && segments[3] === 'validate') {
+        const projectId = segments[2];
+        const existing = store.getProject(projectId);
+        if (!existing) {
+          sendJson(response, 404, { ok: false, reason: 'project_not_found' });
+          return;
+        }
+        const validation = await inspectPath(existing.projectPath);
+        store.saveProject({
+          projectId,
+          displayName: existing.displayName,
+          projectPath: validation.normalizedPath,
+          healthState: validation.healthState,
+        });
+        sendJson(response, 200, { ok: true, project: await getProjectModel(projectId) });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'projects' && segments[3] === 'rescan') {
+        const projectId = segments[2];
+        const existing = store.getProject(projectId);
+        if (!existing) {
+          sendJson(response, 404, { ok: false, reason: 'project_not_found' });
+          return;
+        }
+        const validation = await inspectPath(existing.projectPath);
+        store.saveProject({
+          projectId,
+          displayName: existing.displayName,
+          projectPath: validation.normalizedPath,
+          healthState: validation.healthState,
+        });
+        sendJson(response, 200, { ok: true, project: await getProjectModel(projectId) });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'projects' && segments[3] === 'switch-preview') {
+        const projectId = segments[2];
+        const targetProject = await getProjectModel(projectId);
+        if (!targetProject) {
+          sendJson(response, 404, { ok: false, reason: 'project_not_found' });
+          return;
+        }
+        const currentProjectId = getCurrentProjectState()?.projectId ?? null;
+        const currentProject = currentProjectId ? await getProjectModel(currentProjectId) : null;
+        const preview = createPreviewPayload({
+          action: 'switch-project',
+          installId: projectId,
+          target: 'project',
+          targetKey: `project:${projectId}`,
+          occupiedBy: currentProject?.projectId ?? null,
+          suggestedDecision: 'switch_project',
+          currentLocalSummary: currentProject
+            ? {
+                projectId: currentProject.projectId,
+                displayName: currentProject.displayName,
+                projectPath: currentProject.projectPath,
+                healthState: currentProject.healthState,
+              }
+            : {
+                projectId: null,
+                displayName: 'No active project',
+                projectPath: null,
+                healthState: 'empty',
+              },
+          incomingSummary: {
+            projectId: targetProject.projectId,
+            displayName: targetProject.displayName,
+            projectPath: targetProject.projectPath,
+            healthState: targetProject.healthState,
+          },
+          consequenceSummary: `Desktop will switch the active project to ${targetProject.displayName}.`,
+        });
+        sendJson(response, 200, { ok: true, preview });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'projects' && segments[3] === 'switch') {
+        const projectId = segments[2];
+        const body = await parseBody(request);
+        const preview = getPreview(body.previewId);
+        if (!preview || preview.action !== 'switch-project' || preview.targetKey !== `project:${projectId}`) {
+          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+          return;
+        }
+        const project = await getProjectModel(projectId);
+        if (!project) {
+          sendJson(response, 404, { ok: false, reason: 'project_not_found' });
+          return;
+        }
+        setCurrentProject(projectId);
+        deletePreview(preview.previewId);
+        sendJson(response, 200, { ok: true, project: await getProjectModel(projectId) });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'projects' && segments[3] === 'repair-preview') {
+        const projectId = segments[2];
+        const existing = store.getProject(projectId);
+        if (!existing) {
+          sendJson(response, 404, { ok: false, reason: 'project_not_found' });
+          return;
+        }
+        const body = await parseBody(request);
+        const candidatePath = body.projectPath ? resolve(String(body.projectPath)) : existing.projectPath;
+        const incoming = await inspectPath(candidatePath);
+        const preview = createPreviewPayload({
+          action: 'repair-project',
+          installId: projectId,
+          target: 'project',
+          targetKey: `project:${projectId}`,
+          occupiedBy: existing.projectPath,
+          suggestedDecision: 'repair_project_path',
+          currentLocalSummary: {
+            projectId: existing.projectId,
+            displayName: existing.displayName,
+            projectPath: existing.projectPath,
+            healthState: existing.healthState,
+          },
+          incomingSummary: {
+            projectId: existing.projectId,
+            displayName: existing.displayName,
+            projectPath: incoming.normalizedPath,
+            healthState: incoming.healthState,
+            issues: incoming.issues,
+          },
+          consequenceSummary: `Desktop will update ${existing.displayName} to ${incoming.normalizedPath} and refresh local validation.`,
+        });
+        sendJson(response, 200, { ok: true, preview });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'projects' && segments[3] === 'repair') {
+        const projectId = segments[2];
+        const body = await parseBody(request);
+        const preview = getPreview(body.previewId);
+        if (!preview || preview.action !== 'repair-project' || preview.targetKey !== `project:${projectId}`) {
+          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+          return;
+        }
+        const existing = store.getProject(projectId);
+        if (!existing) {
+          sendJson(response, 404, { ok: false, reason: 'project_not_found' });
+          return;
+        }
+        store.saveProject({
+          projectId,
+          displayName: existing.displayName,
+          projectPath: preview.incomingSummary.projectPath,
+          healthState: preview.incomingSummary.healthState,
+        });
+        deletePreview(preview.previewId);
+        sendJson(response, 200, { ok: true, project: await getProjectModel(projectId) });
+        return;
+      }
+
+      if (request.method === 'DELETE' && segments[0] === 'api' && segments[1] === 'projects' && segments.length === 3) {
+        const projectId = segments[2];
+        store.deleteProject(projectId);
+        if (getCurrentProjectState()?.projectId === projectId) {
+          setCurrentProject(null);
+        }
+        sendJson(response, 200, { ok: true, projectId });
+        return;
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/settings') {
+        sendJson(response, 200, { ok: true, settings: settingsModel() });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/settings') {
+        const body = await parseBody(request);
+        persistDesktopSettings({
+          ...desktopSettings,
+          apiBaseUrl: body.apiBaseUrl ?? desktopSettings.apiBaseUrl,
+          scanCommands: body.scanCommands ?? desktopSettings.scanCommands,
+          defaultProjectBehavior: body.defaultProjectBehavior ?? desktopSettings.defaultProjectBehavior,
+          appearance: body.appearance ?? desktopSettings.appearance,
+          updateChannel: body.updateChannel ?? desktopSettings.updateChannel,
+        });
+        sendJson(response, 200, { ok: true, settings: settingsModel() });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'previews' && segments[3] === 'cancel') {
+        deletePreview(segments[2]);
+        sendJson(response, 200, { ok: true, previewId: segments[2] });
+        return;
+      }
 
       if (request.method === 'POST' && url.pathname === '/api/login') {
         const body = await parseBody(request);
@@ -268,7 +887,7 @@ export async function createDesktopServer(config = {}) {
         if (!requireSession(response)) {
           return;
         }
-        const upstream = await fetch(`${apiBaseUrl}/api/notifications/stream?sessionId=${encodeURIComponent(sessionState.sessionId)}`);
+        const upstream = await fetch(`${runtimeApiBaseUrl}/api/notifications/stream?sessionId=${encodeURIComponent(sessionState.sessionId)}`);
         if (!upstream.ok || !upstream.body) {
           sendJson(response, upstream.status, { ok: false, reason: 'sse_proxy_failed' });
           return;
@@ -315,7 +934,7 @@ export async function createDesktopServer(config = {}) {
     }
   });
 
-  return Object.freeze({ server, store, config: { port, apiBaseUrl, sqlitePath } });
+  return Object.freeze({ server, store, config: { port, apiBaseUrl: configuredApiBaseUrl, sqlitePath } });
 }
 
 export async function startDesktopServer(config = {}) {

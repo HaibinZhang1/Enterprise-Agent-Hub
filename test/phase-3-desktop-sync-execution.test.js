@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { desktopSkeletonManifest } from '../apps/desktop/src/index.js';
+import { createLocalSqliteStore } from '../apps/desktop/src/local-sqlite-store.js';
 import {
   INSTALL_RECONCILE_STATUS_FIXTURE,
   SOURCE_OF_TRUTH_MATRIX_FIXTURE,
@@ -70,4 +74,37 @@ test('phase 3 desktop sync/local execution slice preserves repair and update sig
   assert.equal(INSTALL_RECONCILE_STATUS_FIXTURE.derivedReconcileStates.includes('desktop_drift'), true);
   assert.equal(INSTALL_RECONCILE_STATUS_FIXTURE.derivedReconcileStates.includes('offline_blocked'), true);
   assert.equal(SSE_PAYLOAD_FIXTURE.streams.installUpdate.event, 'install.update-available');
+});
+
+test('phase 3 desktop sync/local execution slice exposes structured sqlite adapters for tool and project authority', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'desktop-authority-seam-'));
+  const store = createLocalSqliteStore({ sqlitePath: join(dir, 'desktop.db') });
+  await store.init();
+
+  assert.equal(typeof store.saveTool, 'function');
+  assert.equal(typeof store.getTool, 'function');
+  assert.equal(typeof store.listTools, 'function');
+  assert.equal(typeof store.deleteTool, 'function');
+  assert.equal(typeof store.saveProject, 'function');
+  assert.equal(typeof store.getProject, 'function');
+  assert.equal(typeof store.listProjects, 'function');
+  assert.equal(typeof store.deleteProject, 'function');
+
+  store.saveTool({
+    toolId: 'tool-authority-1',
+    displayName: 'Authority Tool',
+    installPath: '/opt/authority-tool',
+    healthState: 'healthy',
+  });
+  store.saveProject({
+    projectId: 'project-authority-1',
+    displayName: 'Authority Project',
+    projectPath: '/workspace/authority-project',
+    healthState: 'degraded',
+  });
+
+  assert.equal(store.getTool('tool-authority-1')?.toolId, 'tool-authority-1');
+  assert.equal(store.getProject('project-authority-1')?.projectId, 'project-authority-1');
+  assert.equal(store.listTools()[0]?.toolId, 'tool-authority-1');
+  assert.equal(store.listProjects()[0]?.projectId, 'project-authority-1');
 });
