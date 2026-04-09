@@ -567,14 +567,7 @@ export function createLocalSqliteStore(input) {
           true,
         ),
       );
-      return normalizeTool(rows[0] ?? null);
-    },
-
-    getToolTarget(toolId) {
-      const rows = parseJsonRows(
-        runSqlite(sqlitePath, `${selectToolSql(`where tool_id = ${sqlLiteral(toolId)}`)};`, true),
-      );
-      return normalizeTool(rows[0] ?? null, { includeTarget: true });
+      return rows[0] ? Object.freeze({ ...rows[0], materializationEnabled: Boolean(rows[0].materializationEnabled) }) : null;
     },
 
     listTools() {
@@ -596,7 +589,7 @@ export function createLocalSqliteStore(input) {
             `,
             true,
           ),
-        ),
+        ).map((row) => Object.freeze({ ...row, materializationEnabled: Boolean(row.materializationEnabled) })),
       );
     },
 

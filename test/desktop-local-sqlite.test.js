@@ -71,6 +71,8 @@ test('desktop local sqlite foundation keeps tool/project tables and settings-lik
     toolId: 'tool-alpha',
     displayName: 'Tool Alpha',
     installPath: '/opt/tools/alpha',
+    skillsDirectory: null,
+    materializationEnabled: true,
     healthState: 'healthy',
     updatedAt: storedTool.updatedAt,
   });
@@ -78,6 +80,7 @@ test('desktop local sqlite foundation keeps tool/project tables and settings-lik
     projectId: 'project-alpha',
     displayName: 'Project Alpha',
     projectPath: '/workspace/project-alpha',
+    skillsDirectory: null,
     healthState: 'healthy',
     updatedAt: storedProject.updatedAt,
   });
@@ -99,6 +102,8 @@ test('desktop local sqlite foundation keeps tool/project tables and settings-lik
         tool_id as toolId,
         display_name as displayName,
         install_path as installPath,
+        skills_directory as skillsDirectory,
+        materialization_enabled as materializationEnabled,
         health_state as healthState,
         updated_at as updatedAt
       from tool_cache;
@@ -111,6 +116,7 @@ test('desktop local sqlite foundation keeps tool/project tables and settings-lik
         project_id as projectId,
         display_name as displayName,
         project_path as projectPath,
+        skills_directory as skillsDirectory,
         health_state as healthState,
         updated_at as updatedAt
       from projects;
@@ -126,6 +132,8 @@ test('desktop local sqlite foundation keeps tool/project tables and settings-lik
       toolId: 'tool-alpha',
       displayName: 'Tool Alpha',
       installPath: '/opt/tools/alpha',
+      skillsDirectory: null,
+      materializationEnabled: 1,
       healthState: 'healthy',
       updatedAt: tools[0].updatedAt,
     },
@@ -135,6 +143,7 @@ test('desktop local sqlite foundation keeps tool/project tables and settings-lik
       projectId: 'project-alpha',
       displayName: 'Project Alpha',
       projectPath: '/workspace/project-alpha',
+      skillsDirectory: null,
       healthState: 'healthy',
       updatedAt: projects[0].updatedAt,
     },
