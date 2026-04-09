@@ -632,8 +632,9 @@ export async function createDesktopServer(config = {}) {
         const toolId = segments[2];
         const body = await parseBody(request);
         const preview = getPreview(body.previewId);
-        if (!preview || preview.action !== 'repair-tool' || preview.targetKey !== `tool:${toolId}`) {
-          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+        const confirmation = validatePreviewConfirmation({ body, preview, action: 'repair-tool', targetKey: `tool:${toolId}` });
+        if (!confirmation.ok) {
+          sendJson(response, 409, { ok: false, reason: confirmation.reason });
           return;
         }
         const incoming = await inspectTool(toolId);
@@ -758,8 +759,9 @@ export async function createDesktopServer(config = {}) {
         const projectId = segments[2];
         const body = await parseBody(request);
         const preview = getPreview(body.previewId);
-        if (!preview || preview.action !== 'switch-project' || preview.targetKey !== `project:${projectId}`) {
-          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+        const confirmation = validatePreviewConfirmation({ body, preview, action: 'switch-project', targetKey: `project:${projectId}` });
+        if (!confirmation.ok) {
+          sendJson(response, 409, { ok: false, reason: confirmation.reason });
           return;
         }
         const project = await getProjectModel(projectId);
@@ -813,8 +815,9 @@ export async function createDesktopServer(config = {}) {
         const projectId = segments[2];
         const body = await parseBody(request);
         const preview = getPreview(body.previewId);
-        if (!preview || preview.action !== 'repair-project' || preview.targetKey !== `project:${projectId}`) {
-          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+        const confirmation = validatePreviewConfirmation({ body, preview, action: 'repair-project', targetKey: `project:${projectId}` });
+        if (!confirmation.ok) {
+          sendJson(response, 409, { ok: false, reason: confirmation.reason });
           return;
         }
         const existing = store.getProject(projectId);
