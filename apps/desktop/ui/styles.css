@@ -210,6 +210,23 @@ button.secondary {
   font-weight: 700;
 }
 
+.binding-overview {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(10, 132, 255, 0.08);
+  border: 1px solid rgba(10, 132, 255, 0.16);
+  color: #315f93;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.binding-overview strong {
+  color: #17395e;
+}
+
 .release-boundary {
   margin-top: 18px;
   padding: 14px 18px;
@@ -283,6 +300,11 @@ button.secondary {
   color: #a62822;
 }
 
+.state-pill.compact {
+  padding: 5px 9px;
+  font-size: 11px;
+}
+
 .data-view {
   min-height: 172px;
   border-radius: 20px;
@@ -314,6 +336,76 @@ button.secondary {
   margin: 0;
   color: #53657c;
   line-height: 1.5;
+}
+
+.skill-management-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(244, 248, 253, 0.88);
+  border: 1px solid rgba(151, 170, 196, 0.24);
+}
+
+.binding-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.binding-panel-header h4,
+.binding-subpanel h4 {
+  margin: 0;
+  color: #23344d;
+  font-size: 13px;
+}
+
+.binding-detail {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  color: #65758c;
+  font-size: 12px;
+}
+
+.binding-detail strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #23344d;
+  font-weight: 800;
+}
+
+.binding-subpanel {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(151, 170, 196, 0.22);
+}
+
+.binding-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  color: #53657c;
+  font-size: 12px;
+}
+
+.binding-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #172033;
+}
+
+.binding-empty {
+  margin: 0;
+  color: #6a7b91;
+  font-size: 12px;
 }
 
 .item-meta {

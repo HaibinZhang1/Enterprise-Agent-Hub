@@ -34,6 +34,10 @@ function sqlNullable(value) {
   return value === null || value === undefined ? 'null' : sqlLiteral(value);
 }
 
+function sqlJson(value) {
+  return sqlLiteral(JSON.stringify(value ?? null));
+}
+
 function sqlBoolean(value, fallback = true) {
   return value ?? fallback ? '1' : '0';
 }
@@ -101,13 +105,14 @@ function normalizeTool(row, options = {}) {
     toolId: row.toolId,
     displayName: row.displayName,
     installPath: row.installPath,
+    skillsDirectory: row.skillsDirectory ?? null,
+    materializationEnabled: booleanFromRow(row.materializationEnabled),
     healthState: row.healthState,
     updatedAt: row.updatedAt,
   };
   if (shouldExposeTargetFields(row, options.includeTarget === true)) {
     tool.skillsDirectory = row.skillsDirectory;
     tool.skillsDirectorySource = row.skillsDirectorySource;
-    tool.materializationEnabled = booleanFromRow(row.materializationEnabled);
   }
   return Object.freeze(tool);
 }
@@ -120,11 +125,11 @@ function normalizeProject(row, options = {}) {
     projectId: row.projectId,
     displayName: row.displayName,
     projectPath: row.projectPath,
+    skillsDirectory: row.skillsDirectory ?? null,
     healthState: row.healthState,
     updatedAt: row.updatedAt,
   };
   if (shouldExposeTargetFields(row, options.includeTarget === true)) {
-    project.skillsDirectory = row.skillsDirectory;
     project.skillsDirectorySource = row.skillsDirectorySource;
     project.materializationEnabled = booleanFromRow(row.materializationEnabled);
   }
@@ -197,6 +202,8 @@ function normalizeMaterializationStatus(row) {
     mode: row.mode,
     status: row.status,
     reportStatus: row.reportStatus,
+    targetPath: row.targetPath,
+    sourcePath: row.sourcePath,
     driftDetails: parseJsonCell(row.driftDetails, null),
     lastError: row.lastError,
     lastReconciledAt: row.lastReconciledAt,
@@ -219,6 +226,14 @@ function defaultOverrideId(associationId, skillId) {
 
 function defaultStatusId(targetType, targetId, skillId) {
   return `${targetType}:${targetId}:skill:${skillId}:status`;
+}
+
+function normalizeAssociationState(value) {
+  if (!value || value === 'clear') {
+    return 'resolved';
+  }
+  assertEnum('conflictState', value, ASSOCIATION_STATES);
+  return value;
 }
 
 function sameSelectedPackage(left, right) {
@@ -399,6 +414,8 @@ function selectMaterializationStatusSql(whereClause) {
       mode,
       status,
       report_status as reportStatus,
+      target_path as targetPath,
+      source_path as sourcePath,
       drift_details as driftDetails,
       last_error as lastError,
       last_reconciled_at as lastReconciledAt,
@@ -516,21 +533,20 @@ export function createLocalSqliteStore(input) {
             tool_id,
             display_name,
             install_path,
-            health_state,
             skills_directory,
+            skills_directory_source,
             materialization_enabled,
+            health_state,
             updated_at
           )
           values (
             ${sqlLiteral(tool.toolId)},
             ${sqlLiteral(tool.displayName)},
             ${sqlLiteral(tool.installPath)},
-            ${sqlNullableLiteral(targetPathState.skillsDirectory)},
+            ${sqlNullable(targetPathState.skillsDirectory)},
             ${sqlLiteral(targetPathState.skillsDirectorySource)},
             ${sqlBoolean(targetPathState.materializationEnabled)},
             ${sqlLiteral(tool.healthState)},
-            ${sqlNullable(tool.skillsDirectory)},
-            ${sqlBoolean(tool.materializationEnabled)},
             current_timestamp
           )
           on conflict(tool_id) do update set
@@ -540,8 +556,6 @@ export function createLocalSqliteStore(input) {
             skills_directory_source = excluded.skills_directory_source,
             materialization_enabled = excluded.materialization_enabled,
             health_state = excluded.health_state,
-            skills_directory = excluded.skills_directory,
-            materialization_enabled = excluded.materialization_enabled,
             updated_at = current_timestamp;
         `,
       );
@@ -559,6 +573,7 @@ export function createLocalSqliteStore(input) {
               install_path as installPath,
               health_state as healthState,
               skills_directory as skillsDirectory,
+              skills_directory_source as skillsDirectorySource,
               materialization_enabled as materializationEnabled,
               updated_at as updatedAt
             from tool_cache
@@ -567,7 +582,14 @@ export function createLocalSqliteStore(input) {
           true,
         ),
       );
-      return rows[0] ? Object.freeze({ ...rows[0], materializationEnabled: Boolean(rows[0].materializationEnabled) }) : null;
+      return normalizeTool(rows[0] ?? null);
+    },
+
+    getToolTarget(toolId) {
+      const rows = parseJsonRows(
+        runSqlite(sqlitePath, `${selectToolSql(`where tool_id = ${sqlLiteral(toolId)}`)};`, true),
+      );
+      return normalizeTool(rows[0] ?? null, { includeTarget: true });
     },
 
     listTools() {
@@ -582,6 +604,7 @@ export function createLocalSqliteStore(input) {
                 install_path as installPath,
                 health_state as healthState,
                 skills_directory as skillsDirectory,
+                skills_directory_source as skillsDirectorySource,
                 materialization_enabled as materializationEnabled,
                 updated_at as updatedAt
               from tool_cache
@@ -589,7 +612,7 @@ export function createLocalSqliteStore(input) {
             `,
             true,
           ),
-        ).map((row) => Object.freeze({ ...row, materializationEnabled: Boolean(row.materializationEnabled) })),
+        ),
       );
     },
 
@@ -620,7 +643,7 @@ export function createLocalSqliteStore(input) {
         `
           update tool_cache
           set
-            skills_directory = ${sqlNullableLiteral(normalized.skillsDirectory)},
+            skills_directory = ${sqlNullable(normalized.skillsDirectory)},
             skills_directory_source = ${sqlLiteral(normalized.skillsDirectorySource)},
             materialization_enabled = ${sqlBoolean(normalized.materializationEnabled)},
             updated_at = current_timestamp
@@ -651,16 +674,24 @@ export function createLocalSqliteStore(input) {
       runSqlite(
         sqlitePath,
         `
-          insert into projects (project_id, display_name, project_path, health_state, skills_directory, updated_at)
+          insert into projects (
+            project_id,
+            display_name,
+            project_path,
+            skills_directory,
+            skills_directory_source,
+            materialization_enabled,
+            health_state,
+            updated_at
+          )
           values (
             ${sqlLiteral(project.projectId)},
             ${sqlLiteral(project.displayName)},
             ${sqlLiteral(project.projectPath)},
-            ${sqlNullableLiteral(targetPathState.skillsDirectory)},
+            ${sqlNullable(targetPathState.skillsDirectory)},
             ${sqlLiteral(targetPathState.skillsDirectorySource)},
             ${sqlBoolean(targetPathState.materializationEnabled)},
             ${sqlLiteral(project.healthState)},
-            ${sqlNullable(project.skillsDirectory)},
             current_timestamp
           )
           on conflict(project_id) do update set
@@ -670,7 +701,6 @@ export function createLocalSqliteStore(input) {
             skills_directory_source = excluded.skills_directory_source,
             materialization_enabled = excluded.materialization_enabled,
             health_state = excluded.health_state,
-            skills_directory = excluded.skills_directory,
             updated_at = current_timestamp;
         `,
       );
@@ -688,6 +718,8 @@ export function createLocalSqliteStore(input) {
               project_path as projectPath,
               health_state as healthState,
               skills_directory as skillsDirectory,
+              skills_directory_source as skillsDirectorySource,
+              materialization_enabled as materializationEnabled,
               updated_at as updatedAt
             from projects
             where project_id = ${sqlLiteral(projectId)};
@@ -717,6 +749,8 @@ export function createLocalSqliteStore(input) {
                 project_path as projectPath,
                 health_state as healthState,
                 skills_directory as skillsDirectory,
+                skills_directory_source as skillsDirectorySource,
+                materialization_enabled as materializationEnabled,
                 updated_at as updatedAt
               from projects
               order by lower(display_name), project_id;
@@ -754,7 +788,7 @@ export function createLocalSqliteStore(input) {
         `
           update projects
           set
-            skills_directory = ${sqlNullableLiteral(normalized.skillsDirectory)},
+            skills_directory = ${sqlNullable(normalized.skillsDirectory)},
             skills_directory_source = ${sqlLiteral(normalized.skillsDirectorySource)},
             materialization_enabled = ${sqlBoolean(normalized.materializationEnabled)},
             updated_at = current_timestamp
@@ -769,6 +803,8 @@ export function createLocalSqliteStore(input) {
     },
 
     saveToolProjectAssociation(association) {
+      const associationId = association.associationId ?? defaultAssociationId(association.toolId, association.projectId);
+      const conflictState = normalizeAssociationState(association.conflictState);
       runSqlite(
         sqlitePath,
         `
@@ -776,30 +812,33 @@ export function createLocalSqliteStore(input) {
             association_id,
             tool_id,
             project_id,
-            enabled,
             search_roots,
+            enabled,
             conflict_state,
+            manual_version_summary,
             updated_at
           )
           values (
-            ${sqlLiteral(association.associationId)},
+            ${sqlLiteral(associationId)},
             ${sqlLiteral(association.toolId)},
             ${sqlLiteral(association.projectId)},
-            ${sqlBoolean(association.enabled)},
             ${sqlLiteral(JSON.stringify(association.searchRoots ?? []))},
-            ${sqlLiteral(association.conflictState ?? 'clear')},
+            ${sqlBoolean(association.enabled)},
+            ${sqlLiteral(conflictState)},
+            ${sqlJson(association.manualVersionSummary)},
             current_timestamp
           )
           on conflict(association_id) do update set
             tool_id = excluded.tool_id,
             project_id = excluded.project_id,
-            enabled = excluded.enabled,
             search_roots = excluded.search_roots,
+            enabled = excluded.enabled,
             conflict_state = excluded.conflict_state,
+            manual_version_summary = excluded.manual_version_summary,
             updated_at = current_timestamp;
         `,
       );
-      return this.getToolProjectAssociation(association.associationId);
+      return this.getToolProjectAssociation(associationId);
     },
 
     getToolProjectAssociation(associationId) {
@@ -807,28 +846,12 @@ export function createLocalSqliteStore(input) {
         runSqlite(
           sqlitePath,
           `
-            select
-              association_id as associationId,
-              tool_id as toolId,
-              project_id as projectId,
-              enabled,
-              search_roots as searchRoots,
-              conflict_state as conflictState,
-              updated_at as updatedAt
-            from tool_project_associations
-            where association_id = ${sqlLiteral(associationId)};
+            ${selectAssociationSql(`where association_id = ${sqlLiteral(associationId)}`)}
           `,
           true,
         ),
       );
-      if (!rows[0]) {
-        return null;
-      }
-      return Object.freeze({
-        ...rows[0],
-        enabled: Boolean(rows[0].enabled),
-        searchRoots: JSON.parse(rows[0].searchRoots),
-      });
+      return normalizeAssociation(rows[0] ?? null);
     },
 
     listToolProjectAssociations(filter = {}) {
@@ -845,54 +868,50 @@ export function createLocalSqliteStore(input) {
           runSqlite(
             sqlitePath,
             `
-              select
-                association_id as associationId,
-                tool_id as toolId,
-                project_id as projectId,
-                enabled,
-                search_roots as searchRoots,
-                conflict_state as conflictState,
-                updated_at as updatedAt
-              from tool_project_associations
-              ${where}
+              ${selectAssociationSql(where)}
               order by association_id;
             `,
             true,
           ),
-        ).map((row) => Object.freeze({
-          ...row,
-          enabled: Boolean(row.enabled),
-          searchRoots: JSON.parse(row.searchRoots),
-        })),
+        ).map(normalizeAssociation),
       );
     },
 
     saveSkillTargetBinding(binding) {
+      assertEnum('targetType', binding.targetType, TARGET_TYPES);
+      const bindingId = binding.bindingId ?? defaultBindingId(binding.targetType, binding.targetId, binding.skillId);
+      const desiredVersionIntent = binding.desiredVersionIntent ?? 'selected';
+      assertEnum('desiredVersionIntent', desiredVersionIntent, DESIRED_VERSION_INTENTS);
       runSqlite(
         sqlitePath,
         `
           insert into skill_target_bindings (
+            binding_id,
             target_type,
             target_id,
             skill_id,
             package_id,
             version,
             enabled,
+            desired_version_intent,
             updated_at
           )
           values (
+            ${sqlLiteral(bindingId)},
             ${sqlLiteral(binding.targetType)},
             ${sqlLiteral(binding.targetId)},
             ${sqlLiteral(binding.skillId)},
             ${sqlLiteral(binding.packageId)},
             ${sqlLiteral(binding.version)},
             ${sqlBoolean(binding.enabled)},
+            ${sqlLiteral(desiredVersionIntent)},
             current_timestamp
           )
           on conflict(target_type, target_id, skill_id) do update set
             package_id = excluded.package_id,
             version = excluded.version,
             enabled = excluded.enabled,
+            desired_version_intent = excluded.desired_version_intent,
             updated_at = current_timestamp;
         `,
       );
@@ -908,23 +927,16 @@ export function createLocalSqliteStore(input) {
         runSqlite(
           sqlitePath,
           `
-            select
-              target_type as targetType,
-              target_id as targetId,
-              skill_id as skillId,
-              package_id as packageId,
-              version,
-              enabled,
-              updated_at as updatedAt
-            from skill_target_bindings
-            where target_type = ${sqlLiteral(binding.targetType)}
-              and target_id = ${sqlLiteral(binding.targetId)}
-              and skill_id = ${sqlLiteral(binding.skillId)};
+            ${selectBindingSql(`
+              where target_type = ${sqlLiteral(binding.targetType)}
+                and target_id = ${sqlLiteral(binding.targetId)}
+                and skill_id = ${sqlLiteral(binding.skillId)}
+            `)};
           `,
           true,
         ),
       );
-      return rows[0] ? Object.freeze({ ...rows[0], enabled: Boolean(rows[0].enabled) }) : null;
+      return normalizeBinding(rows[0] ?? null);
     },
 
     listSkillTargetBindings(filter = {}) {
@@ -944,47 +956,46 @@ export function createLocalSqliteStore(input) {
           runSqlite(
             sqlitePath,
             `
-              select
-                target_type as targetType,
-                target_id as targetId,
-                skill_id as skillId,
-                package_id as packageId,
-                version,
-                enabled,
-                updated_at as updatedAt
-              from skill_target_bindings
-              ${where}
+              ${selectBindingSql(where)}
               order by target_type, target_id, skill_id;
             `,
             true,
           ),
-        ).map((row) => Object.freeze({ ...row, enabled: Boolean(row.enabled) })),
+        ).map(normalizeBinding),
       );
     },
 
     saveSkillTargetVersionOverride(override) {
+      const overrideId = override.overrideId ?? defaultOverrideId(override.associationId, override.skillId);
+      const decisionSource = override.decisionSource ?? 'manual';
+      assertEnum('decisionSource', decisionSource, DECISION_SOURCES);
       runSqlite(
         sqlitePath,
         `
           insert into skill_target_version_overrides (
+            override_id,
             association_id,
             skill_id,
             selected_version,
             selected_package_id,
+            decision_source,
             reason,
             updated_at
           )
           values (
+            ${sqlLiteral(overrideId)},
             ${sqlLiteral(override.associationId)},
             ${sqlLiteral(override.skillId)},
             ${sqlLiteral(override.selectedVersion)},
             ${sqlLiteral(override.selectedPackageId)},
-            ${sqlLiteral(override.reason)},
+            ${sqlLiteral(decisionSource)},
+            ${sqlNullable(override.reason)},
             current_timestamp
           )
           on conflict(association_id, skill_id) do update set
             selected_version = excluded.selected_version,
             selected_package_id = excluded.selected_package_id,
+            decision_source = excluded.decision_source,
             reason = excluded.reason,
             updated_at = current_timestamp;
         `,
@@ -1000,28 +1011,30 @@ export function createLocalSqliteStore(input) {
         runSqlite(
           sqlitePath,
           `
-            select
-              association_id as associationId,
-              skill_id as skillId,
-              selected_version as selectedVersion,
-              selected_package_id as selectedPackageId,
-              reason,
-              updated_at as updatedAt
-            from skill_target_version_overrides
-            where association_id = ${sqlLiteral(override.associationId)}
-              and skill_id = ${sqlLiteral(override.skillId)};
+            ${selectVersionOverrideSql(`
+              where association_id = ${sqlLiteral(override.associationId)}
+                and skill_id = ${sqlLiteral(override.skillId)}
+            `)};
           `,
           true,
         ),
       );
-      return Object.freeze(rows[0] ?? null);
+      return normalizeVersionOverride(rows[0] ?? null);
     },
 
     saveSkillMaterializationStatus(status) {
+      assertEnum('targetType', status.targetType, TARGET_TYPES);
+      const mode = status.mode ?? 'none';
+      assertEnum('mode', mode, MATERIALIZATION_MODES);
+      assertEnum('status', status.status, MATERIALIZATION_STATUSES);
+      const reportStatus = status.reportStatus ?? 'unknown';
+      assertEnum('reportStatus', reportStatus, REPORT_STATUSES);
+      const statusId = status.statusId ?? defaultStatusId(status.targetType, status.targetId, status.skillId);
       runSqlite(
         sqlitePath,
         `
           insert into skill_materialization_status (
+            status_id,
             target_type,
             target_id,
             skill_id,
@@ -1029,22 +1042,29 @@ export function createLocalSqliteStore(input) {
             version,
             mode,
             status,
+            report_status,
             target_path,
             source_path,
+            drift_details,
             last_error,
+            last_reconciled_at,
             updated_at
           )
           values (
+            ${sqlLiteral(statusId)},
             ${sqlLiteral(status.targetType)},
             ${sqlLiteral(status.targetId)},
             ${sqlLiteral(status.skillId)},
-            ${sqlLiteral(status.packageId)},
-            ${sqlLiteral(status.version)},
-            ${sqlLiteral(status.mode)},
+            ${sqlNullable(status.packageId)},
+            ${sqlNullable(status.version)},
+            ${sqlLiteral(mode)},
             ${sqlLiteral(status.status)},
-            ${sqlLiteral(status.targetPath)},
+            ${sqlLiteral(reportStatus)},
+            ${sqlNullable(status.targetPath)},
             ${sqlNullable(status.sourcePath)},
+            ${sqlJson(status.driftDetails)},
             ${sqlNullable(status.lastError)},
+            ${sqlNullable(status.lastReconciledAt)},
             current_timestamp
           )
           on conflict(target_type, target_id, skill_id) do update set
@@ -1052,9 +1072,12 @@ export function createLocalSqliteStore(input) {
             version = excluded.version,
             mode = excluded.mode,
             status = excluded.status,
+            report_status = excluded.report_status,
             target_path = excluded.target_path,
             source_path = excluded.source_path,
+            drift_details = excluded.drift_details,
             last_error = excluded.last_error,
+            last_reconciled_at = excluded.last_reconciled_at,
             updated_at = current_timestamp;
         `,
       );
@@ -1070,27 +1093,16 @@ export function createLocalSqliteStore(input) {
         runSqlite(
           sqlitePath,
           `
-            select
-              target_type as targetType,
-              target_id as targetId,
-              skill_id as skillId,
-              package_id as packageId,
-              version,
-              mode,
-              status,
-              target_path as targetPath,
-              source_path as sourcePath,
-              last_error as lastError,
-              updated_at as updatedAt
-            from skill_materialization_status
-            where target_type = ${sqlLiteral(status.targetType)}
-              and target_id = ${sqlLiteral(status.targetId)}
-              and skill_id = ${sqlLiteral(status.skillId)};
+            ${selectMaterializationStatusSql(`
+              where target_type = ${sqlLiteral(status.targetType)}
+                and target_id = ${sqlLiteral(status.targetId)}
+                and skill_id = ${sqlLiteral(status.skillId)}
+            `)};
           `,
           true,
         ),
       );
-      return Object.freeze(rows[0] ?? null);
+      return normalizeMaterializationStatus(rows[0] ?? null);
     },
 
     listSkillMaterializationStatuses(filter = {}) {
@@ -1110,25 +1122,12 @@ export function createLocalSqliteStore(input) {
           runSqlite(
             sqlitePath,
             `
-              select
-                target_type as targetType,
-                target_id as targetId,
-                skill_id as skillId,
-                package_id as packageId,
-                version,
-                mode,
-                status,
-                target_path as targetPath,
-                source_path as sourcePath,
-                last_error as lastError,
-                updated_at as updatedAt
-              from skill_materialization_status
-              ${where}
+              ${selectMaterializationStatusSql(where)}
               order by target_type, target_id, skill_id;
             `,
             true,
           ),
-        ),
+        ).map(normalizeMaterializationStatus),
       );
     },
 
