@@ -7,9 +7,16 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const composeFile = resolve(repoRoot, 'infra/docker-compose.production.yml');
+const configuredBaseUrl = process.env.INTRANET_BASE_URL || process.env.PRODUCTION_BASE_URL || '';
+const verificationMode = configuredBaseUrl ? 'intranet-url' : 'localhost-fallback';
+const baseUrl = normalizeBaseUrl(configuredBaseUrl || 'http://127.0.0.1:8080');
 const envDir = await mkdtemp(resolve(tmpdir(), 'enterprise-agent-hub-prod-runtime-'));
 const envPath = resolve(envDir, '.env.production.local');
 const migrationOutput = resolve(envDir, 'postgres.sql');
+
+function normalizeBaseUrl(value) {
+  return value.replace(/\/+$/, '');
+}
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -23,7 +30,19 @@ function run(command, args, options = {}) {
   return result.stdout.trim();
 }
 
-async function main() {
+function runJson(command, args, options = {}) {
+  return JSON.parse(run(command, args, options));
+}
+
+function apiUrl(pathname) {
+  return `${baseUrl}${pathname}`;
+}
+
+function curlJson(pathname, args = []) {
+  return runJson('curl', ['-sf', apiUrl(pathname), ...args]);
+}
+
+async function prepareLocalFallbackStack() {
   await writeFile(
     envPath,
     [
@@ -44,66 +63,93 @@ async function main() {
     ].join('\n'),
   );
 
-  try {
-    run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'down', '-v']);
-    run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'up', '-d', 'postgres']);
+  run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'down', '-v']);
+  run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'up', '-d', 'postgres']);
 
-    for (let attempt = 0; attempt < 30; attempt += 1) {
-      const ready = spawnSync(
-        'docker',
-        ['compose', '--env-file', envPath, '-f', composeFile, 'exec', '-T', 'postgres', 'pg_isready', '-U', 'enterprise_agent_hub', '-d', 'enterprise_agent_hub'],
-        { cwd: repoRoot, encoding: 'utf8' },
-      );
-      if (ready.status === 0) {
-        break;
-      }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
-      if (attempt === 29) {
-        throw new Error((ready.stderr || ready.stdout || 'postgres not ready').trim());
-      }
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const ready = spawnSync(
+      'docker',
+      ['compose', '--env-file', envPath, '-f', composeFile, 'exec', '-T', 'postgres', 'pg_isready', '-U', 'enterprise_agent_hub', '-d', 'enterprise_agent_hub'],
+      { cwd: repoRoot, encoding: 'utf8' },
+    );
+    if (ready.status === 0) {
+      break;
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1000);
+    if (attempt === 29) {
+      throw new Error((ready.stderr || ready.stdout || 'postgres not ready').trim());
+    }
+  }
+
+  run('node', ['packages/migrations/src/run-postgres-migrations.js', '--emit', migrationOutput]);
+  const migrationSql = await readFile(migrationOutput, 'utf8');
+  run(
+    'docker',
+    ['compose', '--env-file', envPath, '-f', composeFile, 'exec', '-T', 'postgres', 'psql', '-U', 'enterprise_agent_hub', '-d', 'enterprise_agent_hub'],
+    { input: migrationSql },
+  );
+
+  run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'build', 'api']);
+  run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'up', '-d', 'api', 'nginx']);
+
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);
+}
+
+function verifyRuntime() {
+  const health = curlJson('/api/health');
+  const login = curlJson('/api/auth/login', [
+    '-H',
+    'content-type: application/json',
+    '-d',
+    '{"username":"admin","password":"admin","deviceLabel":"Production Runtime Verification"}',
+  ]);
+  const sessionId = login.sessionId ?? login.session?.sessionId ?? login.accessToken;
+  if (!sessionId) {
+    throw new Error('Production runtime login did not return a usable session token.');
+  }
+
+  const authHeader = ['-H', `authorization: Bearer ${sessionId}`];
+  const market = curlJson('/api/market', authHeader);
+  const mySkills = curlJson('/api/skills/my', authHeader);
+
+  return {
+    ok: true,
+    mode: verificationMode,
+    baseUrl,
+    health,
+    login: {
+      ok: login.ok,
+      username: login.user?.username ?? null,
+      userId: login.user?.userId ?? null,
+      hasSessionId: Boolean(sessionId),
+    },
+    market: {
+      ok: market.ok,
+      resultCount: Array.isArray(market.results) ? market.results.length : null,
+    },
+    mySkills: {
+      ok: mySkills.ok,
+      count: Array.isArray(mySkills.skills) ? mySkills.skills.length : null,
+    },
+    envFile: verificationMode === 'localhost-fallback' ? envPath : null,
+    composeFile: verificationMode === 'localhost-fallback' ? composeFile : null,
+  };
+}
+
+async function main() {
+  try {
+    if (verificationMode === 'localhost-fallback') {
+      await prepareLocalFallbackStack();
     }
 
-    run('node', ['packages/migrations/src/run-postgres-migrations.js', '--emit', migrationOutput]);
-    const migrationSql = await readFile(migrationOutput, 'utf8');
-    run(
-      'docker',
-      ['compose', '--env-file', envPath, '-f', composeFile, 'exec', '-T', 'postgres', 'psql', '-U', 'enterprise_agent_hub', '-d', 'enterprise_agent_hub'],
-      { input: migrationSql },
-    );
-
-    run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'build', 'api']);
-    run('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'up', '-d', 'api', 'nginx']);
-
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 3000);
-
-    const health = run('curl', ['-sf', 'http://127.0.0.1:8080/api/health']);
-    const login = run('curl', [
-      '-sf',
-      'http://127.0.0.1:8080/api/auth/login',
-      '-H',
-      'content-type: application/json',
-      '-d',
-      '{"username":"admin","password":"admin","deviceLabel":"Production Runtime Verification"}',
-    ]);
-
-    console.log(
-      JSON.stringify(
-        {
-          ok: true,
-          health: JSON.parse(health),
-          login: JSON.parse(login),
-          envFile: envPath,
-          composeFile,
-        },
-        null,
-        2,
-      ),
-    );
+    console.log(JSON.stringify(verifyRuntime(), null, 2));
   } finally {
-    spawnSync('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'down', '-v'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-    });
+    if (verificationMode === 'localhost-fallback') {
+      spawnSync('docker', ['compose', '--env-file', envPath, '-f', composeFile, 'down', '-v'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+    }
     await rm(envDir, { recursive: true, force: true });
   }
 }
