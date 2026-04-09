@@ -115,7 +115,7 @@ function hasPreviewField(preview, field) {
     return value.trim().length > 0;
   }
   if (Array.isArray(value)) {
-    return true;
+    return field === 'plannedFilesystemOperations' ? value.length > 0 : true;
   }
   return true;
 }
