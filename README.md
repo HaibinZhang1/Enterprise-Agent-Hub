@@ -1,22 +1,22 @@
 # Enterprise Agent Hub Workspace Scaffold
 
-This repository now contains the executable Phase 0 / Phase 0.5 foundation slice plus verified Phase 1 governance runtimes and the Phase 2 publish/review/search/notify runtime loop from the approved detailed-design package.
+This repository is now aligned to the Windows-first intranet Desktop production path. `apps/desktop` is the maintained product/demo surface for this release, backed by the connected `apps/api` service, PostgreSQL, nginx, and Desktop-local SQLite. Historical web code remains in-tree for prior Phase 1 / Phase 2 memory-runtime evidence only; it is not the maintained product UI for the current release.
 
 ## What this slice delivers
 - a pnpm workspace that separates `apps/*` from `packages/*`
 - shared contract fixtures for the approval gate (`AUTHZ_RECALC_PENDING`, auth/org convergence, install authority, SSE payloads, source-of-truth matrix)
-- buildable manifests for the planned API, web, and desktop surfaces
+- buildable manifests for API, historical web scaffolding, and the Windows-first Desktop surface
 - auth policy primitives for fail-closed access, bootstrap, credential, session, and managed-user lifecycle behavior
 - executable Phase 1 governance coverage via `apps/api/src/workflows/admin-governance-runtime.js`
-- executable Phase 2 marketplace coverage via `apps/api/src/workflows/publish-review-runtime.js`
-- Phase 1 / Phase 2 review notes that explain what is proven today versus what still needs real adapters and UI execution
+- executable Phase 2 marketplace coverage via `apps/api/src/workflows/publish-review-runtime.js` as backend regression evidence
+- Phase 1 / Phase 2 review notes that explain historical runtime coverage while keeping current release positioning Desktop-only
 - dry-run migration runners for PostgreSQL and desktop SQLite
 - verification scripts that catch cross-surface contract drift early
 
 ## Workspace layout
-- `apps/api` — NestJS-aligned service skeleton plus in-memory governance / publish-review runtimes
-- `apps/web` — React + Vite Management UI shell (Apple-style design) wrapping mock execution bindings
-- `apps/desktop` — Tauri desktop shell manifest
+- `apps/api` — connected API entrypoint plus governance / publish-review backend regression runtimes
+- `apps/desktop` — maintained Windows-first Tauri Desktop product/demo shell for this release
+- `apps/web` — historical React + Vite memory-runtime UI; do not use as the maintained product/demo/reference UI for this release
 - `packages/contracts` — shared phase-gate fixtures and contract exports
 - `packages/migrations` — SQL foundations plus PostgreSQL/SQLite migration runners
 - `infra` — deployment scaffolding for Compose + Nginx
@@ -32,11 +32,12 @@ For narrower checks:
 - `pnpm test:python` runs the document/scaffold verification suite
 - `pnpm typecheck` validates the workspace TypeScript config
 
-## Running the connected API + Desktop MVP
-The current safest-path MVP uses:
+## Running the Windows-first Desktop intranet path
+The current release path uses:
 - `apps/api` as the real API entrypoint
 - PostgreSQL as the server source of truth
-- `apps/desktop` as the primary client shell
+- nginx as the intranet reverse proxy for the single-host deployment
+- `apps/desktop` as the only maintained product/demo client
 - SQLite as the desktop-local cache/state store
 - SSE for realtime notification updates
 
@@ -72,19 +73,16 @@ Seed credentials:
 - Username: `admin`
 - Password: `admin`
 
-The desktop shell stores session + list cache state in SQLite under `apps/desktop/.data/` and now proxies these connected flows:
+The desktop shell stores session + list cache state in SQLite under `apps/desktop/.data/` and the release UI must center these connected flows:
 - login
-- market list/search
-- notifications + SSE
-- user management list
-- skill management list
+- visible API connection status and configured server URL
+- market list/search/browse
+- notifications + SSE status where available
 - my-skill list
-- review queue list
-- publish
-- claim
-- approve
 
-The desktop shell accepts `DESKTOP_API_BASE_URL` (preferred) and still falls back to `API_BASE_URL` for compatibility.
+Backend publish/review routes and tests remain valid regression coverage, but publish/review are deferred from this Desktop release's UX and exit criteria. Do not present upload, claim, or approve as required Desktop release actions unless a later PRD explicitly reopens that scope.
+
+The desktop shell accepts `DESKTOP_API_BASE_URL` (preferred) and still falls back to `API_BASE_URL` for compatibility. For intranet validation, point it at the nginx/LAN base URL rather than a developer-only localhost URL.
 
 ### 5. Production-like backend deploy assets
 The repository now includes a first production deploy path for the API:
@@ -102,8 +100,8 @@ docker compose --env-file infra/.env.production -f infra/docker-compose.producti
 The production compose path mounts durable package artifact storage at `/var/lib/enterprise-agent-hub/package-artifacts` and expects the API to bind on `0.0.0.0:8787`.
 If Docker Hub is not reachable in the release environment, set `NODE_RUNTIME_IMAGE`, `API_BASE_IMAGE`, `POSTGRES_IMAGE`, and/or `NGINX_IMAGE` in `infra/.env.production` to mirrored or preloaded compatible images before building the production stack. If the chosen API base image already includes `psql`, also set `API_HAS_POSTGRES_CLIENT=1`. If you must avoid `pnpm install` during image build, set `API_OFFLINE_WORKSPACE=1`. If migrations are run externally before container startup, set `SKIP_MIGRATIONS=1`. If npm registry access is slow or blocked, set `PNPM_REGISTRY_URL` to a reachable mirror.
 
-### 6. Desktop release packaging foundation
-The repository now includes the minimum Tauri packaging skeleton:
+### 6. Windows Desktop release packaging foundation
+The repository includes the Tauri packaging skeleton used for Desktop artifacts:
 - `apps/desktop/src-tauri/Cargo.toml`
 - `apps/desktop/src-tauri/src/main.rs`
 - `apps/desktop/src-tauri/capabilities/default.json`
@@ -114,8 +112,12 @@ Release command:
 pnpm --filter @enterprise-agent-hub/desktop tauri:build
 ```
 
-Current macOS artifact path:
-`apps/desktop/src-tauri/target/release/bundle/macos/Enterprise Agent Hub Desktop.app`
+Required Windows artifact evidence must report an NSIS `.exe`, MSI `.msi`, or another explicitly documented Tauri Windows package path such as:
+- `apps/desktop/src-tauri/target/release/bundle/nsis/*.exe`
+- `apps/desktop/src-tauri/target/release/bundle/msi/*.msi`
+- `apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe`
+
+The existing macOS `.app` bundle is supporting development evidence only and must not be used as Windows-first release proof.
 
 Detailed release steps are documented in [`docs/desktop-release-runbook.md`](./docs/desktop-release-runbook.md).
 
@@ -129,18 +131,12 @@ Production runtime verification with the local fallback deploy path:
 pnpm verify:production:runtime
 ```
 
-## Running the Web Frontend MVP
-The `apps/web` application remains runnable as a reference UI surface.
-```bash
-pnpm --filter @enterprise-agent-hub/web dev
-```
-Navigate to `http://localhost:5173`. You can log in using Username: `admin` and Password: `<any_string>`.
+For intranet validation, configure the runtime verifier with the operator-selected LAN base URL when available (for example `INTRANET_BASE_URL=http://agent-hub.lan`). If no LAN URL is provided, the verifier may only claim localhost fallback coverage.
+
+## Historical Web MVP boundary
+`apps/web` remains in the repository as historical/non-product code from the Phase 1 / Phase 2 memory-runtime MVP. It must not be described, demoed, or verified as the maintained product UI for the current Windows-first Desktop release. Do not add new current-release feature work to `apps/web` unless a later user-approved plan explicitly changes that boundary.
 
 ## Notes
-The repository now proves two different surfaces:
-- the original Web MVP (`apps/web`) still demonstrates the in-memory/UI reference flow
-- the new connected MVP path (`apps/api` + `apps/desktop`) proves real HTTP, PostgreSQL persistence, desktop-side SQLite state, and realtime notification transport
+The current release proves the connected Desktop path: `apps/api` + PostgreSQL + nginx + `apps/desktop` with Desktop-local SQLite state and realtime notification transport. Publish/review backend routes can remain under regression tests, but the Desktop release target is read/use-oriented: login, connection status, My Skill, market/search/browse, and notifications/status.
 
-The connected path is no longer read-only: it now includes real package upload/report retrieval plus publish/review write routes, and the desktop shell can exercise upload -> submit -> claim -> approve against the live API.
-
-For a concrete Phase 1 / Phase 2 audit of the current repository state, see [`docs/phase-1-2-review.md`](./docs/phase-1-2-review.md). For UI details, see [`docs/frontend-mvp-implementation.md`](./docs/frontend-mvp-implementation.md).
+For a concrete Phase 1 / Phase 2 historical audit, see [`docs/phase-1-2-review.md`](./docs/phase-1-2-review.md). For the historical web MVP notes, see [`docs/frontend-mvp-implementation.md`](./docs/frontend-mvp-implementation.md). For current release operations, use [`docs/desktop-release-runbook.md`](./docs/desktop-release-runbook.md).
