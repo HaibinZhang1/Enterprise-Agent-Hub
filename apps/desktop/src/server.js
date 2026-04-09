@@ -28,6 +28,35 @@ const DEFAULT_SETTINGS = Object.freeze({
   updateChannel: 'stable',
 });
 
+export const BINDING_MATERIALIZATION_PREVIEW_REQUIRED_FIELDS = Object.freeze([
+  'previewId',
+  'action',
+  'targetType',
+  'targetId',
+  'skillId',
+  'currentSummary',
+  'incomingSummary',
+  'currentSkillsDirectory',
+  'incomingSkillsDirectory',
+  'effectiveVersion',
+  'plannedFilesystemOperations',
+  'fallbackMode',
+  'consequenceSummary',
+  'issues',
+]);
+
+export const BINDING_MATERIALIZATION_MUTATION_ACTIONS = Object.freeze([
+  'bind-skill-target',
+  'unbind-skill-target',
+  'enable-skill-target-binding',
+  'disable-skill-target-binding',
+  'enable-target-materialization',
+  'disable-target-materialization',
+  'configure-target-skills-directory',
+  'reconcile-target-materialization',
+  'resolve-binding-version-conflict',
+]);
+
 function sendJson(response, statusCode, payload) {
   response.writeHead(statusCode, {
     'content-type': 'application/json; charset=utf-8',
@@ -72,6 +101,78 @@ function normalizeScanCommands(value) {
 
 function stateKey(name) {
   return `desktop:${name}`;
+}
+
+function hasPreviewField(preview, field) {
+  if (!Object.hasOwn(preview, field)) {
+    return false;
+  }
+  const value = preview[field];
+  if (value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  return true;
+}
+
+export function isBindingMaterializationMutationAction(action) {
+  return BINDING_MATERIALIZATION_MUTATION_ACTIONS.includes(String(action ?? ''));
+}
+
+export function validateBindingMaterializationPreview(preview) {
+  if (!preview || typeof preview !== 'object') {
+    return Object.freeze({
+      ok: false,
+      reason: 'missing_preview',
+      missingFields: [...BINDING_MATERIALIZATION_PREVIEW_REQUIRED_FIELDS],
+    });
+  }
+  const missingFields = BINDING_MATERIALIZATION_PREVIEW_REQUIRED_FIELDS.filter((field) => !hasPreviewField(preview, field));
+  if (missingFields.length > 0) {
+    return Object.freeze({ ok: false, reason: 'incomplete_preview', missingFields });
+  }
+  if (!isBindingMaterializationMutationAction(preview.action)) {
+    return Object.freeze({ ok: false, reason: 'unsupported_binding_materialization_action', missingFields: [] });
+  }
+  if (!['tool', 'project'].includes(preview.targetType)) {
+    return Object.freeze({ ok: false, reason: 'invalid_target_type', missingFields: [] });
+  }
+  if (!Array.isArray(preview.plannedFilesystemOperations)) {
+    return Object.freeze({ ok: false, reason: 'invalid_planned_filesystem_operations', missingFields: [] });
+  }
+  return Object.freeze({ ok: true, reason: 'valid_preview', missingFields: [] });
+}
+
+export function validatePreviewConfirmation(input) {
+  const body = input.body ?? {};
+  const preview = input.preview;
+  if (!body.previewId || !preview || preview.previewId !== body.previewId) {
+    return Object.freeze({ ok: false, reason: 'invalid_preview' });
+  }
+  if (input.action && preview.action !== input.action) {
+    return Object.freeze({ ok: false, reason: 'invalid_preview' });
+  }
+  if (input.targetKey && preview.targetKey !== input.targetKey) {
+    return Object.freeze({ ok: false, reason: 'invalid_preview' });
+  }
+  if (input.targetType && preview.targetType !== input.targetType) {
+    return Object.freeze({ ok: false, reason: 'invalid_preview' });
+  }
+  if (input.targetId && preview.targetId !== input.targetId) {
+    return Object.freeze({ ok: false, reason: 'invalid_preview' });
+  }
+  if (input.skillId && preview.skillId !== input.skillId) {
+    return Object.freeze({ ok: false, reason: 'invalid_preview' });
+  }
+  if (input.requireBindingMaterializationPreview) {
+    return validateBindingMaterializationPreview(preview);
+  }
+  return Object.freeze({ ok: true, reason: 'valid_preview' });
 }
 
 async function inspectPath(targetPath) {
