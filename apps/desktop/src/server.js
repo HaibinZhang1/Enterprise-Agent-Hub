@@ -115,7 +115,7 @@ function hasPreviewField(preview, field) {
     return value.trim().length > 0;
   }
   if (Array.isArray(value)) {
-    return value.length > 0;
+    return true;
   }
   return true;
 }
@@ -142,7 +142,7 @@ export function validateBindingMaterializationPreview(preview) {
   if (!['tool', 'project'].includes(preview.targetType)) {
     return Object.freeze({ ok: false, reason: 'invalid_target_type', missingFields: [] });
   }
-  if (!Array.isArray(preview.plannedFilesystemOperations)) {
+  if (!Array.isArray(preview.plannedFilesystemOperations) || preview.plannedFilesystemOperations.length === 0) {
     return Object.freeze({ ok: false, reason: 'invalid_planned_filesystem_operations', missingFields: [] });
   }
   return Object.freeze({ ok: true, reason: 'valid_preview', missingFields: [] });
