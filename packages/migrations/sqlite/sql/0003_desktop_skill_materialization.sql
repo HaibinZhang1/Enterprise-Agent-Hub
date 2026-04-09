@@ -69,6 +69,8 @@ create table if not exists skill_materialization_status (
   mode text not null default 'none',
   status text not null,
   report_status text not null default 'unknown',
+  target_path text,
+  source_path text,
   drift_details text,
   last_error text,
   last_reconciled_at text,

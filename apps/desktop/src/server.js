@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { constants as fsConstants } from 'node:fs';
 import { access, readFile, stat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -470,6 +470,19 @@ export async function createDesktopServer(config = {}) {
         writable: validation.writable,
       },
       conflictingProjectIds,
+      skillBindings: store.listSkillTargetBindings({ targetType: 'project', targetId: project.projectId }).map((binding) => Object.freeze({
+        targetType: binding.targetType,
+        targetId: binding.targetId,
+        skillId: binding.skillId,
+        packageId: binding.packageId,
+        version: binding.version,
+        enabled: binding.enabled,
+        materializationStatus: store.getSkillMaterializationStatus({
+          targetType: binding.targetType,
+          targetId: binding.targetId,
+          skillId: binding.skillId,
+        }),
+      })),
       issues,
       skillBindings: store.listSkillTargetBindings({ targetType: 'project', targetId: project.projectId }).map((binding) => Object.freeze({
         targetType: binding.targetType,
