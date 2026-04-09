@@ -4,7 +4,7 @@ This runbook defines the minimum release path for the Windows-first intranet Des
 
 ## Release scope
 - Required client flows: login, visible API connection status, configured server URL, My Skill, market/search/browse, and notifications/status where the API already exposes it.
-- Deferred Desktop UX: publish, claim, approve, and review workbench actions. Backend publish/review tests can remain regression coverage, but they are not Desktop release exit criteria.
+- Desktop publish/review workbench scope: publish submission plus review claim/approve actions stay on the maintained Desktop surface. `apps/web` remains historical/non-product, and Windows package/runtime evidence remains the release gate.
 - Required server topology: one intranet host running PostgreSQL, API, nginx/reverse proxy, and durable package artifact storage.
 - Required artifact: Windows Desktop package evidence (`.exe`, `.msi`, or another explicitly documented Tauri Windows package type).
 - Preferred runtime proof: Windows install/start/connect/login/My Skill/market smoke on Windows hardware, Windows VM, or Windows CI runner.
