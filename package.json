@@ -13,6 +13,8 @@
     "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
     "lint": "node scripts/lint-workspace.js",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:python && pnpm build && pnpm migrate:postgres && pnpm migrate:sqlite",
+    "verify:production": "node scripts/verify-production-assets.js",
+    "verify:production:runtime": "node scripts/verify-production-runtime.js",
     "migrate:postgres": "node packages/migrations/src/run-postgres-migrations.js --dry-run",
     "migrate:sqlite": "node packages/migrations/src/run-sqlite-migrations.js --dry-run"
   },

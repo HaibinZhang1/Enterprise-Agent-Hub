@@ -1,6 +1,8 @@
-# Web MVP 交付与开发总结报告
+# Web MVP 历史交付与开发总结报告
 
-**本报告旨在向团队中的其他 Agent 和开发者简述 Agent Hub React Web MVP 的完成状态。**
+**本报告旨在向团队中的其他 Agent 和开发者简述 Agent Hub React Web MVP 的历史完成状态。**
+
+> 当前版本边界（Windows-first intranet Desktop production）：`apps/desktop` 是本轮唯一维护的产品/演示入口；`apps/web` 仅作为早期内存运行时 MVP 的历史记录保留，不应再被描述为当前版本的产品 UI、演示 UI、参考 UI 或发布验收依赖。发布/审核相关能力本轮保留为后端回归测试，不作为 Desktop 发布 UX/退出条件。
 
 ## 📌 核心文件变动清单：
 
@@ -36,16 +38,18 @@
 
 ---
 
-## ✨ 如何运行当前的前端系统：
-只需要在项目根目录拉取好所有依赖然后执行服务即可：
-```bash
-pnpm install
-pnpm --filter @enterprise-agent-hub/web dev
-```
-前端将监听 `http://localhost:5173`。启动时后端 Adapter 自动拉取环境初始化的基础号（用户名：**`admin`**，密码随意），开发者或测试 Agent 可利用该账号体验在市场面和审核流当中的数据流转交互！
+## ✨ 当前版本如何使用本报告：
+本报告只用于理解早期 Web MVP 的历史实现与设计取舍。当前 Windows-first 内网生产版本的运行、演示与验收应使用根目录 `README.md` 和 `docs/desktop-release-runbook.md` 中的 Desktop 路径。
+
+请不要把 `apps/web` 运行命令写入当前版本发布说明或验收清单；如需重启 Web 产品方向，必须先由后续 PRD 明确改变 `apps/web` 的非产品边界。
 
 ---
 
 ## ⚙️ 技术取舍说明：
 1. **Mock 环境的复用与兼容**：保留了旧有原生模块加载模拟 `data/workflows` 代码，而通过 `mockService.js` 中引入 `Zustand` 与 `Tanstack Query` 让前端具备状态机管理模式。未来的扩展只需要替换 Axios 发送请求逻辑即可解耦完成演进。
 2. **渐进式 Apple Style 设计与重写**：原生 Ant Design 直接适配 Apple 设计太过于生硬。我们剥离了系统默认字体栈，覆盖了大量的底色/字色以及去掉了高亮与线框。整体交互上结合 Glassmorphism 手绘的侧边导航及背景模糊极大地提升了系统的设计气质（同时保留了如表格、弹窗这类的基础支撑）。
+
+## ✅ 对后续 Agent 的交接提示：
+- 当前版本的新 UI/文案/验收工作应落在 `apps/desktop` 与 Desktop runbook。
+- `apps/web` 可以继续作为历史代码和回归上下文存在，但不得被新文档重新提升为当前产品/演示/参考入口。
+- 本文提到的市场、审核、发布交互代表历史 Web MVP；本轮 Desktop 发布只要求 login、connection status、My Skill、market/search/browse、notifications/status。

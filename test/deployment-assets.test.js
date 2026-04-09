@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+import { resolve } from 'node:path';
+
+const repoRoot = resolve(import.meta.dirname, '..');
+
+test('production deployment assets wire the API host, storage root, and reverse proxy correctly', async () => {
+  const rootPackageJson = JSON.parse(await readFile(resolve(repoRoot, 'package.json'), 'utf8'));
+  const dockerfile = await readFile(resolve(repoRoot, 'apps/api/Dockerfile'), 'utf8');
+  const compose = await readFile(resolve(repoRoot, 'infra/docker-compose.production.yml'), 'utf8');
+  const localCompose = await readFile(resolve(repoRoot, 'infra/docker-compose.yml'), 'utf8');
+  const envExample = await readFile(resolve(repoRoot, 'infra/.env.production.example'), 'utf8');
+  const nginx = await readFile(resolve(repoRoot, 'infra/nginx/nginx.conf'), 'utf8');
+
+  assert.match(dockerfile, /postgresql-client/);
+  assert.match(dockerfile, /ARG API_BASE_IMAGE=node:24-alpine/);
+  assert.match(dockerfile, /ARG API_HAS_POSTGRES_CLIENT=0/);
+  assert.match(dockerfile, /ARG API_OFFLINE_WORKSPACE=0/);
+  assert.match(dockerfile, /ARG PNPM_REGISTRY_URL=https:\/\/registry\.npmjs\.org/);
+  assert.match(dockerfile, /ARG NODE_RUNTIME_IMAGE=node:24-alpine/);
+  assert.match(dockerfile, /FROM \$\{NODE_RUNTIME_IMAGE\} AS node_runtime/);
+  assert.match(dockerfile, /FROM \$\{API_BASE_IMAGE\}/);
+  assert.match(dockerfile, /COPY --from=node_runtime \/usr\/local\/bin\/node/);
+  assert.match(dockerfile, /API_HAS_POSTGRES_CLIENT/);
+  assert.match(dockerfile, /API_OFFLINE_WORKSPACE/);
+  assert.match(dockerfile, /pnpm config set registry/);
+  assert.match(dockerfile, /HOST=0\.0\.0\.0/);
+  assert.match(dockerfile, /PACKAGE_STORAGE_ROOT=\/var\/lib\/enterprise-agent-hub\/package-artifacts/);
+  assert.match(compose, /dockerfile: apps\/api\/Dockerfile/);
+  assert.match(compose, /NODE_RUNTIME_IMAGE:/);
+  assert.match(compose, /API_BASE_IMAGE:/);
+  assert.match(compose, /API_HAS_POSTGRES_CLIENT:/);
+  assert.match(compose, /API_OFFLINE_WORKSPACE:/);
+  assert.match(compose, /PNPM_REGISTRY_URL:/);
+  assert.match(compose, /SKIP_MIGRATIONS:/);
+  assert.match(compose, /NGINX_IMAGE/);
+  assert.match(compose, /POSTGRES_IMAGE/);
+  assert.match(compose, /package_artifacts/);
+  assert.match(compose, /PORT: 8787/);
+  assert.match(compose, /PACKAGE_STORAGE_ROOT: \/var\/lib\/enterprise-agent-hub\/package-artifacts/);
+  assert.match(localCompose, /PORT: 8787/);
+  assert.match(localCompose, /PACKAGE_STORAGE_ROOT:/);
+  assert.match(envExample, /DATABASE_URL=/);
+  assert.match(envExample, /NGINX_IMAGE=nginx:1.29-alpine/);
+  assert.match(envExample, /POSTGRES_IMAGE=postgres:17-alpine/);
+  assert.match(envExample, /NODE_RUNTIME_IMAGE=node:24-alpine/);
+  assert.match(envExample, /API_BASE_IMAGE=node:24-alpine/);
+  assert.match(envExample, /API_HAS_POSTGRES_CLIENT=0/);
+  assert.match(envExample, /API_OFFLINE_WORKSPACE=0/);
+  assert.match(envExample, /SKIP_MIGRATIONS=0/);
+  assert.match(envExample, /PNPM_REGISTRY_URL=https:\/\/registry\.npmjs\.org/);
+  assert.equal(typeof rootPackageJson.scripts['verify:production:runtime'], 'string');
+  assert.match(nginx, /proxy_pass http:\/\/api:8787/);
+  assert.match(nginx, /proxy_buffering off/);
+});

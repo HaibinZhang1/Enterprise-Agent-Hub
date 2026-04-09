@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -72,11 +73,35 @@ function createUnauthorized(message = 'session_required') {
   return Object.freeze({ ok: false, code: 'AUTH_SESSION_REQUIRED', reason: message });
 }
 
+function routeSegments(pathname) {
+  return pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
+}
+
+function sameUserOrAdmin(user, targetUserId) {
+  return user.userId === targetUserId || user.roleCode.includes('admin');
+}
+
+function reviewerScopeFilter(user) {
+  return user.roleCode.startsWith('system_admin') ? {} : { reviewerId: user.userId };
+}
+
+function parseRequestedDate(value) {
+  return value ? new Date(value) : undefined;
+}
+
 export async function createApiServer(config = {}) {
+  const host = config.host ?? process.env.HOST ?? process.env.API_HOST ?? '127.0.0.1';
   const port = Number(config.port ?? process.env.PORT ?? 8787);
   const databaseUrl = config.databaseUrl ?? process.env.DATABASE_URL ?? 'postgresql://enterprise_agent_hub:enterprise_agent_hub@localhost:5432/enterprise_agent_hub';
-  runMigrations(databaseUrl);
-  const context = createMvpContext({ databaseUrl });
+  const skipMigrations = config.skipMigrations ?? process.env.SKIP_MIGRATIONS === '1';
+  const packageStorageRoot =
+    config.packageStorageRoot ??
+    process.env.PACKAGE_STORAGE_ROOT ??
+    resolve(workspaceRoot, '.data', 'package-artifacts');
+  if (!skipMigrations && !config.contextOverride) {
+    runMigrations(databaseUrl);
+  }
+  const context = config.contextOverride ?? createMvpContext({ databaseUrl, packageStorageRoot });
 
   function authorizeRequest(request) {
     const sessionId = bearerSessionId(request);
@@ -210,6 +235,8 @@ export async function createApiServer(config = {}) {
         return;
       }
 
+      const segments = routeSegments(url.pathname);
+
       if (request.method === 'GET' && url.pathname === '/api/users') {
         if (!requireAdmin(authorized.user)) {
           sendJson(response, 403, { ok: false, reason: 'admin_required' });
@@ -260,10 +287,154 @@ export async function createApiServer(config = {}) {
           sendJson(response, 403, { ok: false, reason: 'review_admin_required' });
           return;
         }
-        const tickets = context.reviewService.listTickets(
-          authorized.user.roleCode.startsWith('system_admin') ? {} : { reviewerId: authorized.user.userId },
-        );
+        const tickets = context.reviewService.listTickets(reviewerScopeFilter(authorized.user));
         sendJson(response, 200, { ok: true, queue: groupQueue(tickets) });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/packages/upload') {
+        const body = await parseBody(request);
+        const packageId = body.packageId ?? `pkg-${randomUUID()}`;
+        const report = context.packageService.upload({
+          requestId: body.requestId ?? `upload-${packageId}`,
+          actor: authorized.user,
+          packageId,
+          files: body.files ?? [],
+          manifest: body.manifest ?? {},
+          now: parseRequestedDate(body.now),
+        });
+        sendJson(response, 201, { ok: true, report });
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'packages' && segments[3] === 'report') {
+        const report = context.packageService.getReport(segments[2]);
+        if (!sameUserOrAdmin(authorized.user, report.uploadedBy)) {
+          sendJson(response, 403, { ok: false, reason: 'package_access_denied' });
+          return;
+        }
+        sendJson(response, 200, { ok: true, report });
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'packages' && segments[3] === 'files' && segments.length >= 5) {
+        const packageId = segments[2];
+        const artifactPath = segments.slice(4).join('/');
+        const report = context.packageService.getReport(packageId);
+        if (!sameUserOrAdmin(authorized.user, report.uploadedBy) && !canReview(authorized.user)) {
+          sendJson(response, 403, { ok: false, reason: 'package_access_denied' });
+          return;
+        }
+        const artifact = context.artifactStorage.readArtifact(packageId, artifactPath);
+        response.writeHead(200, {
+          'content-type': 'application/octet-stream',
+          'cache-control': 'no-store',
+          'content-length': artifact.byteLength,
+          'content-disposition': `attachment; filename="${segments[segments.length - 1]}"`,
+        });
+        response.end(artifact);
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/reviews/submit') {
+        const body = await parseBody(request);
+        const report = context.packageService.getReport(body.packageId);
+        if (!sameUserOrAdmin(authorized.user, report.uploadedBy)) {
+          sendJson(response, 403, { ok: false, reason: 'package_submit_denied' });
+          return;
+        }
+        const reviewer =
+          body.reviewerId
+            ? context.authRepository.findUserById(body.reviewerId)
+            : body.reviewerUsername
+              ? context.authRepository.findUserByUsername(body.reviewerUsername)
+              : null;
+        if (!reviewer) {
+          sendJson(response, 400, { ok: false, reason: 'reviewer_id_required' });
+          return;
+        }
+        const skillId = body.skillId ?? report.manifest.skillId;
+        if (skillId !== report.manifest.skillId) {
+          sendJson(response, 400, { ok: false, reason: 'skill_id_mismatch' });
+          return;
+        }
+        const submittedSkill = context.skillCatalogService.submitVersion({
+          requestId: body.requestId ?? `submit-${body.packageId}`,
+          actor: authorized.user,
+          skillId,
+          packageReport: report,
+          visibility: body.visibility ?? 'private',
+          allowedDepartmentIds: body.allowedDepartmentIds ?? [],
+          now: parseRequestedDate(body.now),
+        });
+        const ticket = context.reviewService.createTicket({
+          requestId: body.requestId ?? `submit-${body.packageId}`,
+          actor: authorized.user,
+          ticketId: body.ticketId ?? `review-${randomUUID()}`,
+          skillId,
+          skillTitle: submittedSkill.title,
+          packageId: body.packageId,
+          reviewerId: reviewer.userId,
+          now: parseRequestedDate(body.now),
+        });
+        sendJson(response, 201, { ok: true, skill: submittedSkill, ticket });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'claim') {
+        if (!canReview(authorized.user)) {
+          sendJson(response, 403, { ok: false, reason: 'review_admin_required' });
+          return;
+        }
+        const body = await parseBody(request);
+        const ticket = context.reviewService.claimTicket({
+          requestId: body.requestId ?? `claim-${segments[2]}`,
+          actor: authorized.user,
+          ticketId: segments[2],
+          now: parseRequestedDate(body.now),
+        });
+        sendJson(response, 200, { ok: true, ticket });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'approve') {
+        if (!canReview(authorized.user)) {
+          sendJson(response, 403, { ok: false, reason: 'review_admin_required' });
+          return;
+        }
+        const body = await parseBody(request);
+        const approvedTicket = context.reviewService.approveTicket({
+          requestId: body.requestId ?? `approve-${segments[2]}`,
+          actor: authorized.user,
+          ticketId: segments[2],
+          comment: body.comment ?? '',
+          now: parseRequestedDate(body.now),
+        });
+        const publishedSkill = context.skillCatalogService.publishApproved({
+          requestId: body.requestId ?? `approve-${segments[2]}`,
+          actor: authorized.user,
+          skillId: approvedTicket.skillId,
+          now: parseRequestedDate(body.now),
+        });
+        context.searchService.upsertSkill({
+          skillId: publishedSkill.skillId,
+          title: publishedSkill.title,
+          summary: publishedSkill.summary,
+          ownerUserId: publishedSkill.ownerUserId,
+          publishedVersion: publishedSkill.publishedVersion,
+          visibility: publishedSkill.visibility,
+          allowedDepartmentIds: publishedSkill.allowedDepartmentIds,
+          tags: [],
+        });
+        context.notifyService.notify({
+          userId: publishedSkill.ownerUserId,
+          category: 'review',
+          title: 'Skill published',
+          body: `${publishedSkill.title} passed review and is now searchable.`,
+          now: parseRequestedDate(body.now),
+          metadata: { ticketId: approvedTicket.ticketId, version: publishedSkill.publishedVersion },
+        });
+        sendJson(response, 200, { ok: true, ticket: approvedTicket, skill: publishedSkill });
         return;
       }
 
@@ -273,15 +444,15 @@ export async function createApiServer(config = {}) {
     }
   });
 
-  return Object.freeze({ server, context, config: { port, databaseUrl } });
+  return Object.freeze({ server, context, config: { host, port, databaseUrl, packageStorageRoot, skipMigrations } });
 }
 
 export async function startApiServer(config = {}) {
   const created = await createApiServer(config);
   await new Promise((resolvePromise) => {
-    created.server.listen(created.config.port, '127.0.0.1', resolvePromise);
+    created.server.listen(created.config.port, created.config.host, resolvePromise);
   });
-  console.log(JSON.stringify({ ok: true, service: '@enterprise-agent-hub/api', port: created.config.port }));
+  console.log(JSON.stringify({ ok: true, service: '@enterprise-agent-hub/api', host: created.config.host, port: created.config.port }));
   return created;
 }
 

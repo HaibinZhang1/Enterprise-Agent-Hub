@@ -3,6 +3,7 @@ export const postgresMigrationPlan = Object.freeze({
   files: [
     'postgres/sql/0001_initial_foundation.sql',
     'postgres/sql/0002_mvp_read_models.sql',
+    'postgres/sql/0003_package_artifact_storage.sql',
   ],
   executionModes: ['dry-run', 'emit', 'psql'],
 });

@@ -3,75 +3,201 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Enterprise Agent Hub Desktop Shell</title>
-    <link rel="stylesheet" href="/style.css" />
+    <title>Enterprise Agent Hub Desktop</title>
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
-      <section class="hero">
+      <section class="hero glass-panel">
         <div>
-          <p class="eyebrow">Desktop MVP Shell</p>
+          <p class="eyebrow">Windows-first desktop release</p>
           <h1>Enterprise Agent Hub</h1>
-          <p class="subtitle">SQLite-backed local shell for the PostgreSQL + SSE MVP.</p>
+          <p class="subtitle">
+            Apple-style desktop shell for intranet login, My Skill, market browsing, and notification status.
+          </p>
         </div>
-        <div class="status-card">
-          <div><strong>Login:</strong> <span id="login-status">Awaiting sign in</span></div>
-          <div><strong>Session:</strong> <span id="session-meta">Not signed in</span></div>
+        <div class="connection-card" aria-label="Connection status">
+          <div class="status-row"><span>API status</span><strong id="connection-status">Checking…</strong></div>
+          <div class="status-row"><span>Server URL</span><strong id="server-url">Not loaded</strong></div>
+          <div class="status-row"><span>Signed in</span><strong id="session-meta">Not signed in</strong></div>
         </div>
       </section>
 
-      <section class="login-panel">
-        <form id="login-form">
+      <section class="login-panel glass-panel" aria-labelledby="login-heading">
+        <div>
+          <p class="eyebrow">Secure connection</p>
+          <h2 id="login-heading">Sign in to the intranet server</h2>
+          <p class="panel-copy">Use the configured Desktop API base URL. Sessions are kept by the desktop shell and list data is cached locally in SQLite.</p>
+        </div>
+        <form id="login-form" class="login-form">
           <label>
             Username
-            <input name="username" id="username" type="text" value="admin" />
+            <input name="username" id="username" type="text" value="admin" autocomplete="username" />
           </label>
           <label>
             Password
-            <input name="password" id="password" type="password" value="admin" />
+            <input name="password" id="password" type="password" value="admin" autocomplete="current-password" />
           </label>
-          <label>
-            Market Query
-            <input id="market-query" type="text" placeholder="search market…" />
-          </label>
-          <button type="submit">Connect desktop shell</button>
+          <button type="submit">Connect</button>
         </form>
-        <button id="reload-all">Refresh all views</button>
+        <p id="login-status" class="status-message" role="status">Awaiting sign in.</p>
       </section>
 
-      <section class="content-panel">
-        <h2>Market</h2>
-        <pre id="market-output">No data loaded yet.</pre>
+      <section class="release-boundary" aria-label="Release boundary">
+        <strong>Release boundary:</strong> Desktop remains the maintained intranet product surface, including the publish/review workbench path. `apps/web` stays historical/non-product, and Windows package/runtime evidence still gates release readiness.
       </section>
 
-      <section class="content-panel">
-        <h2>Notifications</h2>
-        <pre id="notifications-output">No data loaded yet.</pre>
+      <section class="toolbar glass-panel" aria-label="Market search and refresh controls">
+        <label>
+          Market search
+          <input id="market-query" type="search" placeholder="Search available skills…" />
+        </label>
+        <button id="reload-all" type="button" class="secondary">Refresh read views</button>
       </section>
 
-      <section class="content-panel">
-        <h2>Users</h2>
-        <pre id="users-output">No data loaded yet.</pre>
+      <section class="dashboard-grid">
+        <article class="content-panel glass-panel" aria-labelledby="my-skills-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Owned capability</p>
+              <h2 id="my-skills-heading">My Skill</h2>
+            </div>
+            <span id="my-skills-state" class="state-pill">Not loaded</span>
+          </div>
+          <div id="my-skills-output" class="data-view empty-state">Sign in to load your skills.</div>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="market-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Browse and use</p>
+              <h2 id="market-heading">Market</h2>
+            </div>
+            <span id="market-state" class="state-pill">Not loaded</span>
+          </div>
+          <div id="market-output" class="data-view empty-state">Sign in to browse the market.</div>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="notifications-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Realtime status</p>
+              <h2 id="notifications-heading">Notifications</h2>
+            </div>
+            <span id="notifications-state" class="state-pill">Not loaded</span>
+          </div>
+          <div id="notifications-output" class="data-view empty-state">Notification status will appear after sign in.</div>
+        </article>
+
+        <article class="content-panel glass-panel" aria-labelledby="events-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">SSE connection</p>
+              <h2 id="events-heading">Live Events</h2>
+            </div>
+            <span id="events-state" class="state-pill">Disconnected</span>
+          </div>
+          <div id="events-output" class="data-view empty-state">Live notification events will stream here when available.</div>
+        </article>
       </section>
 
-      <section class="content-panel">
-        <h2>My Skills</h2>
-        <pre id="my-skills-output">No data loaded yet.</pre>
-      </section>
+      <section class="workbench-grid">
+        <article class="content-panel glass-panel" aria-labelledby="publish-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Publisher mutation</p>
+              <h2 id="publish-heading">Publish Workbench</h2>
+            </div>
+            <span id="publish-state" class="state-pill">Signed out</span>
+          </div>
+          <form id="publish-form" class="workbench-form">
+            <label>
+              Skill ID
+              <input name="skillId" type="text" placeholder="dept.desktop.assistant" required />
+            </label>
+            <label>
+              Title
+              <input name="title" type="text" placeholder="Desktop Review Assistant" required />
+            </label>
+            <label>
+              Version
+              <input name="version" type="text" value="1.0.0" required />
+            </label>
+            <label>
+              Reviewer username
+              <input name="reviewerUsername" type="text" placeholder="reviewer" required />
+            </label>
+            <label>
+              Visibility
+              <select name="visibility">
+                <option value="private">private</option>
+                <option value="summary_public">summary_public</option>
+                <option value="detail_public">detail_public</option>
+                <option value="department">department</option>
+                <option value="global_installable">global_installable</option>
+              </select>
+            </label>
+            <label>
+              Allowed departments
+              <input
+                name="allowedDepartmentIds"
+                type="text"
+                placeholder="comma-separated department ids for department visibility"
+              />
+            </label>
+            <label class="span-2">
+              Summary
+              <textarea
+                name="summary"
+                rows="3"
+                placeholder="Brief summary shown in My Skill, market, and review surfaces."
+              ></textarea>
+            </label>
+            <label class="span-2">
+              README.md
+              <textarea
+                name="readme"
+                rows="6"
+                placeholder="# Desktop Review Assistant"
+              ></textarea>
+            </label>
+            <label class="span-2">
+              SKILL.md
+              <textarea
+                name="skillDefinition"
+                rows="6"
+                placeholder="name: dept.desktop.assistant"
+              ></textarea>
+            </label>
+            <div class="form-actions span-2">
+              <button id="publish-submit" type="submit">Upload + Submit</button>
+            </div>
+          </form>
+          <p id="publish-status" class="status-message" role="status">Sign in to stage a package and submit it for review.</p>
+        </article>
 
-      <section class="content-panel">
-        <h2>Skill Management</h2>
-        <pre id="manage-skills-output">No data loaded yet.</pre>
-      </section>
+        <article class="content-panel glass-panel" aria-labelledby="review-queue-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Reviewer queue</p>
+              <h2 id="review-queue-heading">Review Queue</h2>
+            </div>
+            <span id="review-queue-state" class="state-pill">Role gated</span>
+          </div>
+          <p id="review-status" class="status-message" role="status">Review actions unlock for review_admin and system_admin roles.</p>
+          <div id="review-queue-output" class="data-view empty-state">Assigned tickets will appear here for reviewer and administrator sessions.</div>
+        </article>
 
-      <section class="content-panel">
-        <h2>Review Queue</h2>
-        <pre id="reviews-output">No data loaded yet.</pre>
-      </section>
-
-      <section class="content-panel">
-        <h2>Realtime Events</h2>
-        <pre id="events-output">No data loaded yet.</pre>
+        <article class="content-panel glass-panel" aria-labelledby="management-heading">
+          <div class="content-header">
+            <div>
+              <p class="eyebrow">Admin read surface</p>
+              <h2 id="management-heading">Skill Management</h2>
+            </div>
+            <span id="management-state" class="state-pill">Role gated</span>
+          </div>
+          <div id="management-output" class="data-view empty-state">Manageable skills load here for administrator sessions.</div>
+        </article>
       </section>
     </main>
 

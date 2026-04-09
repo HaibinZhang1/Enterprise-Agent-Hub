@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-enterprise_agent_hub}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      args:
+        NODE_RUNTIME_IMAGE: ${NODE_RUNTIME_IMAGE:-node:24-alpine}
+        API_BASE_IMAGE: ${API_BASE_IMAGE:-node:24-alpine}
+        API_HAS_POSTGRES_CLIENT: ${API_HAS_POSTGRES_CLIENT:-0}
+        API_OFFLINE_WORKSPACE: ${API_OFFLINE_WORKSPACE:-0}
+        PNPM_REGISTRY_URL: ${PNPM_REGISTRY_URL:-https://registry.npmjs.org}
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      SKIP_MIGRATIONS: ${SKIP_MIGRATIONS:-0}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      PACKAGE_STORAGE_ROOT: /var/lib/enterprise-agent-hub/package-artifacts
+    volumes:
+      - package_artifacts:/var/lib/enterprise-agent-hub/package-artifacts
+    depends_on:
+      - postgres
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:1.29-alpine}
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_HTTP_PORT:-8080}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  package_artifacts:

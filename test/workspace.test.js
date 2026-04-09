@@ -76,6 +76,7 @@ test('postgres migration runner can emit a bundled SQL script', async () => {
   assert.equal(summary.output, outputPath);
   assert.match(emitted, /create schema if not exists auth;/);
   assert.match(emitted, /create table if not exists infra\.outbox_events/);
+  assert.match(emitted, /create table if not exists package\.uploads/);
 });
 
 test('sqlite migration runner can emit a bundled SQL script', async () => {

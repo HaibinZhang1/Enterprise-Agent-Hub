@@ -3,6 +3,8 @@
 ## 设计包说明
 本目录基于需求文档、deep-interview 规格与已批准的 auth 方案，沉淀准实施级详细设计。
 
+> 当前发布边界（2026-04-09）：Windows-first 内网生产交付以 `apps/desktop` 为唯一维护的产品/演示入口。本文档包仍保留完整产品蓝图（含前端页面与审核模块），但本轮发布验收不得把 `apps/web` 或发布/审核页面作为当前产品 UI、演示 UI、参考 UI或退出条件。
+
 ## 目录总览
 - [实施交接说明](./00_execution_handoff.md)
 - [总体架构](./architecture/01_system_architecture.md)

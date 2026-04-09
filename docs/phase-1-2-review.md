@@ -2,6 +2,8 @@
 
 Reviewed on April 6, 2026 against the current repository state in `Enterprise-Agent-Hub/`.
 
+> Current release note (April 9, 2026): this review is historical Phase 1 / Phase 2 evidence. The Windows-first intranet production release is Desktop-only: `apps/desktop` is the maintained product/demo surface, while `apps/web` remains historical/non-product code and is not a maintained product UI, demo UI, reference UI, or release-readiness dependency.
+
 ## Review scope
 - Phase 1 target: auth / org / audit / notify governance rails and management flows
 - Phase 2 target: package / skill / review / minimal search / notify publish-review loop
@@ -18,8 +20,8 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 ## Review verdict
 - **Scaffold quality:** approve
 - **Current phase status:** Phase 0 / 0.5 are complete, and the repo now includes executable Phase 1 and Phase 2 in-memory runtime slices on top of the frozen contracts
-- **Still not complete:** the repo is not yet the full product; HTTP controllers, persistence-backed services, and true SSE transport wiring are still ahead. However, **real UI execution for the admin console is now available** as a local React+Vite MVP (`apps/web`) powered by memory adapters.
-- **Primary documentation risk fixed here:** earlier docs understated the current Phase 1 / Phase 2 runtime coverage and made the repository look like a pure scaffold. The latest update has promoted `apps/web` into a working MVP.
+- **Historical UI status:** a local React+Vite MVP (`apps/web`) was available for memory-adapter exploration during this phase, but it is no longer the current release product/demo surface.
+- **Current documentation risk:** do not reinterpret this historical review as approval to promote `apps/web` in Windows-first release docs. New product-facing UX and release evidence must point to `apps/desktop`.
 
 ## What is implemented today
 
@@ -39,18 +41,18 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 - `apps/api/src/modules/review/core/ticket-policy.js` and `apps/api/src/modules/skill/core/{catalog-policy,publish-workflow}.js` implement review ticket creation/claim/approval plus the publish transition.
 - `apps/api/src/modules/search/core/{skill-search,skill-search-policy}.js` preserve the required permission-filter-before-rank behavior and summary-vs-detail visibility handling.
 - `apps/api/src/workflows/publish-review-runtime.js` proves the Phase 2 anchor loop end to end: upload -> review -> publish -> visible-in-search -> notify badge loop.
-- `apps/web` has been upgraded to a runnable React+Vite MVP supporting Apple-style UI for `{market, my-skill, review, notifications, skill-management}`, replacing the older pure-shell index descriptor.
+- `apps/web` was upgraded to a runnable React+Vite MVP supporting Apple-style UI for `{market, my-skill, review, notifications, skill-management}`, replacing the older pure-shell index descriptor. For the current Windows-first release, this remains historical/non-product evidence only.
 - `test/governance-and-publish-flow.test.js`, `test/phase-2-marketplace.test.js`, and `test/phase-flows.test.js` verify the publish/review/search/notify slice against the frozen contracts.
 
 ## What is still missing before the platform can be called complete
 
 ### Remaining Phase 1 product work
 - No NestJS controllers, repositories, or real persistence-backed auth/org/audit/notify services exist yet.
-- There is no production SSE transport. The login/bootstrap UI flow exists inside `apps/web` as an adapter against the in-memory runtime.
+- At the time of this review there was no production SSE transport. The historical login/bootstrap UI flow existed inside `apps/web` as an adapter against the in-memory runtime.
 - Deployment and observability rails exist as planned boundaries, but not as fully wired operational services.
 
 ### Remaining Phase 2 product work
-- The package/review/search/notify slice is proven in runtime tests and exposed via the `apps/web` React MVP, but not yet through true HTTP APIs or durable storage.
+- The package/review/search/notify slice was proven in runtime tests and exposed via the historical `apps/web` React MVP, but this web exposure is not current release UX evidence.
 - File upload storage, background validation execution, and reviewer workbench persistence are still ahead.
 - Desktop install/sync execution remains Phase 3 work even though the authority contracts are already frozen.
 
@@ -62,11 +64,13 @@ Reviewed on April 6, 2026 against the current repository state in `Enterprise-Ag
 - **Medium-risk follow-up**
   - Parallel helper variants currently exist in a few domains (`audit`, `org`, `search`) to support both scaffold-facing and runtime-facing tests. They are aligned today, but should eventually be consolidated or clearly separated by adapter/runtime intent when real service layers land.
   - The repo still mixes manifest-level scaffolding with behavior-bearing modules, so status updates must distinguish “runtime slice proven” from “full product shipped”.
+  - Release docs must distinguish historical web MVP evidence from the current Desktop-only product boundary.
 
 ## Recommended next implementation order
-1. Add real API/controller and persistence adapters underneath the already verified Phase 1 governance runtime.
-2. Expose the minimal Phase 2 publish-review-search-notify loop through durable services and a live reviewer/publisher UI path.
-3. Preserve the current contract freeze while Phase 3 install/desktop execution work adopts the existing authority matrix and SSE payloads.
+1. Keep the connected API + persistence adapters as the server authority for the Desktop release.
+2. Keep publish/review route coverage as backend regression evidence, not Desktop release UX.
+3. Focus current product-facing work on `apps/desktop`: login, connection status, My Skill, market/search/browse, and notifications/status.
+4. Preserve the current contract freeze while install/desktop execution work adopts the existing authority matrix and SSE payloads.
 
 ## Verification entrypoint
 Run the full repository gate from the repo root:
