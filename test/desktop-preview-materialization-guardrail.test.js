@@ -126,7 +126,7 @@ test('preview confirmation rejects missing, mismatched, and incomplete binding m
       skillId: preview.skillId,
       requireBindingMaterializationPreview: true,
     }),
-    { ok: false, reason: 'incomplete_preview', missingFields: ['plannedFilesystemOperations'] },
+    { ok: false, reason: 'invalid_planned_filesystem_operations', missingFields: [] },
   );
   assert.deepEqual(
     validatePreviewConfirmation({
