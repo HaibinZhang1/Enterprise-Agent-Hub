@@ -79,6 +79,7 @@ This approved slice extends the maintained Desktop shell with `Tools`, `Projects
 - keep SQLite built in and hidden from normal product UI; do not add a user-editable database path field
 - preserve `/health` and `DESKTOP_SQLITE_PATH` as operational smoke/dev contracts
 - keep `apps/web` historical/non-product during this slice
+- keep V1 skill-management mutations single-target: no batch bind, batch enable/disable, or batch upgrade workflows ship in this slice. Future bulk workflows may be reserved in schema/UI extension points only; current Desktop actions must remain explicit preview-confirm operations for one skill/target decision at a time.
 
 ## Verification
 
