@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,9 +13,8 @@ async function createPackageSource(root, name, content = 'skill payload') {
   return sourceDirectory;
 }
 
-test('desktop skill materializer defaults to symlink materialization', async (t) => {
-  const root = await t.test.mock.fn(async () => tmpdir())();
-  const fixtureRoot = await import('node:fs/promises').then(({ mkdtemp }) => mkdtemp(join(root, 'skill-materializer-link-')));
+test('desktop skill materializer defaults to symlink materialization', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'skill-materializer-link-'));
   const sourceDirectory = await createPackageSource(fixtureRoot, 'source-skill', 'linked content');
   const skillsDirectory = join(fixtureRoot, 'target', 'skills');
 
@@ -32,9 +31,8 @@ test('desktop skill materializer defaults to symlink materialization', async (t)
   assert.equal(await readFile(join(result.targetPath, 'SKILL.md'), 'utf8'), 'linked content');
 });
 
-test('desktop skill materializer falls back to copy when symlink creation fails', async (t) => {
-  const root = await t.test.mock.fn(async () => tmpdir())();
-  const fixtureRoot = await import('node:fs/promises').then(({ mkdtemp }) => mkdtemp(join(root, 'skill-materializer-copy-')));
+test('desktop skill materializer falls back to copy when symlink creation fails', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'skill-materializer-copy-'));
   const sourceDirectory = await createPackageSource(fixtureRoot, 'source-skill', 'copied content');
   const skillsDirectory = join(fixtureRoot, 'target', 'skills');
   const symlinkError = Object.assign(new Error('symlink not permitted in target directory'), { code: 'EPERM' });
@@ -60,9 +58,8 @@ test('desktop skill materializer falls back to copy when symlink creation fails'
   assert.equal(await readFile(join(result.targetPath, 'SKILL.md'), 'utf8'), 'copied content');
 });
 
-test('desktop skill materializer removes only the requested skill materialization', async (t) => {
-  const root = await t.test.mock.fn(async () => tmpdir())();
-  const fixtureRoot = await import('node:fs/promises').then(({ mkdtemp }) => mkdtemp(join(root, 'skill-materializer-remove-')));
+test('desktop skill materializer removes only the requested skill materialization', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'skill-materializer-remove-'));
   const sourceDirectory = await createPackageSource(fixtureRoot, 'source-skill', 'remove content');
   const skillsDirectory = join(fixtureRoot, 'target', 'skills');
   const materializer = createSkillMaterializer();
