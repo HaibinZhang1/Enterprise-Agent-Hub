@@ -30,16 +30,12 @@ function sqlLiteral(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-function sqlNullableLiteral(value) {
+function sqlNullable(value) {
   return value === null || value === undefined ? 'null' : sqlLiteral(value);
 }
 
-function sqlJsonLiteral(value) {
-  return value === null || value === undefined ? 'null' : sqlLiteral(JSON.stringify(value));
-}
-
-function sqlBoolean(value) {
-  return value ? '1' : '0';
+function sqlBoolean(value, fallback = true) {
+  return value ?? fallback ? '1' : '0';
 }
 
 function parseJsonRows(output) {
@@ -520,10 +516,9 @@ export function createLocalSqliteStore(input) {
             tool_id,
             display_name,
             install_path,
-            skills_directory,
-            skills_directory_source,
-            materialization_enabled,
             health_state,
+            skills_directory,
+            materialization_enabled,
             updated_at
           )
           values (
@@ -534,6 +529,8 @@ export function createLocalSqliteStore(input) {
             ${sqlLiteral(targetPathState.skillsDirectorySource)},
             ${sqlBoolean(targetPathState.materializationEnabled)},
             ${sqlLiteral(tool.healthState)},
+            ${sqlNullable(tool.skillsDirectory)},
+            ${sqlBoolean(tool.materializationEnabled)},
             current_timestamp
           )
           on conflict(tool_id) do update set
@@ -543,6 +540,8 @@ export function createLocalSqliteStore(input) {
             skills_directory_source = excluded.skills_directory_source,
             materialization_enabled = excluded.materialization_enabled,
             health_state = excluded.health_state,
+            skills_directory = excluded.skills_directory,
+            materialization_enabled = excluded.materialization_enabled,
             updated_at = current_timestamp;
         `,
       );
@@ -551,7 +550,22 @@ export function createLocalSqliteStore(input) {
 
     getTool(toolId) {
       const rows = parseJsonRows(
-        runSqlite(sqlitePath, `${selectToolSql(`where tool_id = ${sqlLiteral(toolId)}`)};`, true),
+        runSqlite(
+          sqlitePath,
+          `
+            select
+              tool_id as toolId,
+              display_name as displayName,
+              install_path as installPath,
+              health_state as healthState,
+              skills_directory as skillsDirectory,
+              materialization_enabled as materializationEnabled,
+              updated_at as updatedAt
+            from tool_cache
+            where tool_id = ${sqlLiteral(toolId)};
+          `,
+          true,
+        ),
       );
       return normalizeTool(rows[0] ?? null);
     },
@@ -566,8 +580,23 @@ export function createLocalSqliteStore(input) {
     listTools() {
       return Object.freeze(
         parseJsonRows(
-          runSqlite(sqlitePath, `${selectToolSql('')} order by lower(display_name), tool_id;`, true),
-        ).map((row) => normalizeTool(row)),
+          runSqlite(
+            sqlitePath,
+            `
+              select
+                tool_id as toolId,
+                display_name as displayName,
+                install_path as installPath,
+                health_state as healthState,
+                skills_directory as skillsDirectory,
+                materialization_enabled as materializationEnabled,
+                updated_at as updatedAt
+              from tool_cache
+              order by lower(display_name), tool_id;
+            `,
+            true,
+          ),
+        ),
       );
     },
 
@@ -629,16 +658,7 @@ export function createLocalSqliteStore(input) {
       runSqlite(
         sqlitePath,
         `
-          insert into projects (
-            project_id,
-            display_name,
-            project_path,
-            skills_directory,
-            skills_directory_source,
-            materialization_enabled,
-            health_state,
-            updated_at
-          )
+          insert into projects (project_id, display_name, project_path, health_state, skills_directory, updated_at)
           values (
             ${sqlLiteral(project.projectId)},
             ${sqlLiteral(project.displayName)},
@@ -647,6 +667,7 @@ export function createLocalSqliteStore(input) {
             ${sqlLiteral(targetPathState.skillsDirectorySource)},
             ${sqlBoolean(targetPathState.materializationEnabled)},
             ${sqlLiteral(project.healthState)},
+            ${sqlNullable(project.skillsDirectory)},
             current_timestamp
           )
           on conflict(project_id) do update set
@@ -656,6 +677,7 @@ export function createLocalSqliteStore(input) {
             skills_directory_source = excluded.skills_directory_source,
             materialization_enabled = excluded.materialization_enabled,
             health_state = excluded.health_state,
+            skills_directory = excluded.skills_directory,
             updated_at = current_timestamp;
         `,
       );
@@ -664,7 +686,21 @@ export function createLocalSqliteStore(input) {
 
     getProject(projectId) {
       const rows = parseJsonRows(
-        runSqlite(sqlitePath, `${selectProjectSql(`where project_id = ${sqlLiteral(projectId)}`)};`, true),
+        runSqlite(
+          sqlitePath,
+          `
+            select
+              project_id as projectId,
+              display_name as displayName,
+              project_path as projectPath,
+              health_state as healthState,
+              skills_directory as skillsDirectory,
+              updated_at as updatedAt
+            from projects
+            where project_id = ${sqlLiteral(projectId)};
+          `,
+          true,
+        ),
       );
       return normalizeProject(rows[0] ?? null);
     },
@@ -679,8 +715,22 @@ export function createLocalSqliteStore(input) {
     listProjects() {
       return Object.freeze(
         parseJsonRows(
-          runSqlite(sqlitePath, `${selectProjectSql('')} order by lower(display_name), project_id;`, true),
-        ).map((row) => normalizeProject(row)),
+          runSqlite(
+            sqlitePath,
+            `
+              select
+                project_id as projectId,
+                display_name as displayName,
+                project_path as projectPath,
+                health_state as healthState,
+                skills_directory as skillsDirectory,
+                updated_at as updatedAt
+              from projects
+              order by lower(display_name), project_id;
+            `,
+            true,
+          ),
+        ),
       );
     },
 
@@ -726,12 +776,6 @@ export function createLocalSqliteStore(input) {
     },
 
     saveToolProjectAssociation(association) {
-      assertRequired('toolId', association.toolId);
-      assertRequired('projectId', association.projectId);
-      const associationId = association.associationId ?? defaultAssociationId(association.toolId, association.projectId);
-      const enabled = association.enabled ?? true;
-      const conflictState = association.conflictState ?? 'resolved';
-      assertEnum('conflictState', conflictState, ASSOCIATION_STATES);
       runSqlite(
         sqlitePath,
         `
@@ -739,244 +783,252 @@ export function createLocalSqliteStore(input) {
             association_id,
             tool_id,
             project_id,
-            search_roots,
             enabled,
+            search_roots,
             conflict_state,
-            manual_version_summary,
             updated_at
           )
           values (
-            ${sqlLiteral(associationId)},
+            ${sqlLiteral(association.associationId)},
             ${sqlLiteral(association.toolId)},
             ${sqlLiteral(association.projectId)},
+            ${sqlBoolean(association.enabled)},
             ${sqlLiteral(JSON.stringify(association.searchRoots ?? []))},
-            ${sqlBoolean(enabled)},
-            ${sqlLiteral(conflictState)},
-            ${sqlJsonLiteral(association.manualVersionSummary ?? null)},
+            ${sqlLiteral(association.conflictState ?? 'clear')},
             current_timestamp
           )
-          on conflict(tool_id, project_id) do update set
-            association_id = excluded.association_id,
-            search_roots = excluded.search_roots,
+          on conflict(association_id) do update set
+            tool_id = excluded.tool_id,
+            project_id = excluded.project_id,
             enabled = excluded.enabled,
+            search_roots = excluded.search_roots,
             conflict_state = excluded.conflict_state,
-            manual_version_summary = excluded.manual_version_summary,
             updated_at = current_timestamp;
         `,
       );
-      return this.getToolProjectAssociation(associationId);
+      return this.getToolProjectAssociation(association.associationId);
     },
 
     getToolProjectAssociation(associationId) {
       const rows = parseJsonRows(
-        runSqlite(sqlitePath, `${selectAssociationSql(`where association_id = ${sqlLiteral(associationId)}`)};`, true),
-      );
-      return normalizeAssociation(rows[0] ?? null);
-    },
-
-    findToolProjectAssociation(toolId, projectId) {
-      const rows = parseJsonRows(
         runSqlite(
           sqlitePath,
-          `${selectAssociationSql(`where tool_id = ${sqlLiteral(toolId)} and project_id = ${sqlLiteral(projectId)}`)};`,
+          `
+            select
+              association_id as associationId,
+              tool_id as toolId,
+              project_id as projectId,
+              enabled,
+              search_roots as searchRoots,
+              conflict_state as conflictState,
+              updated_at as updatedAt
+            from tool_project_associations
+            where association_id = ${sqlLiteral(associationId)};
+          `,
           true,
         ),
       );
-      return normalizeAssociation(rows[0] ?? null);
+      if (!rows[0]) {
+        return null;
+      }
+      return Object.freeze({
+        ...rows[0],
+        enabled: Boolean(rows[0].enabled),
+        searchRoots: JSON.parse(rows[0].searchRoots),
+      });
     },
 
-    listToolProjectAssociations(filters = {}) {
-      const whereClause = listFilterClauses({ tool_id: filters.toolId, project_id: filters.projectId });
+    listToolProjectAssociations(filter = {}) {
+      const clauses = [];
+      if (filter.toolId) {
+        clauses.push(`tool_id = ${sqlLiteral(filter.toolId)}`);
+      }
+      if (filter.projectId) {
+        clauses.push(`project_id = ${sqlLiteral(filter.projectId)}`);
+      }
+      const where = clauses.length > 0 ? `where ${clauses.join(' and ')}` : '';
       return Object.freeze(
         parseJsonRows(
-          runSqlite(sqlitePath, `${selectAssociationSql(whereClause)} order by tool_id, project_id;`, true),
-        ).map((row) => normalizeAssociation(row)),
+          runSqlite(
+            sqlitePath,
+            `
+              select
+                association_id as associationId,
+                tool_id as toolId,
+                project_id as projectId,
+                enabled,
+                search_roots as searchRoots,
+                conflict_state as conflictState,
+                updated_at as updatedAt
+              from tool_project_associations
+              ${where}
+              order by association_id;
+            `,
+            true,
+          ),
+        ).map((row) => Object.freeze({
+          ...row,
+          enabled: Boolean(row.enabled),
+          searchRoots: JSON.parse(row.searchRoots),
+        })),
       );
     },
 
-    deleteToolProjectAssociation(associationId) {
-      runSqlite(sqlitePath, `delete from tool_project_associations where association_id = ${sqlLiteral(associationId)};`);
-    },
-
     saveSkillTargetBinding(binding) {
-      assertRequired('targetType', binding.targetType);
-      assertRequired('targetId', binding.targetId);
-      assertRequired('skillId', binding.skillId);
-      assertRequired('packageId', binding.packageId);
-      assertRequired('version', binding.version);
-      assertEnum('targetType', binding.targetType, TARGET_TYPES);
-      const desiredVersionIntent = binding.desiredVersionIntent ?? 'selected';
-      assertEnum('desiredVersionIntent', desiredVersionIntent, DESIRED_VERSION_INTENTS);
-      const bindingId = binding.bindingId ?? defaultBindingId(binding.targetType, binding.targetId, binding.skillId);
       runSqlite(
         sqlitePath,
         `
           insert into skill_target_bindings (
-            binding_id,
             target_type,
             target_id,
             skill_id,
             package_id,
             version,
             enabled,
-            desired_version_intent,
             updated_at
           )
           values (
-            ${sqlLiteral(bindingId)},
             ${sqlLiteral(binding.targetType)},
             ${sqlLiteral(binding.targetId)},
             ${sqlLiteral(binding.skillId)},
             ${sqlLiteral(binding.packageId)},
             ${sqlLiteral(binding.version)},
-            ${sqlBoolean(binding.enabled ?? true)},
-            ${sqlLiteral(desiredVersionIntent)},
+            ${sqlBoolean(binding.enabled)},
             current_timestamp
           )
           on conflict(target_type, target_id, skill_id) do update set
-            binding_id = excluded.binding_id,
             package_id = excluded.package_id,
             version = excluded.version,
             enabled = excluded.enabled,
-            desired_version_intent = excluded.desired_version_intent,
             updated_at = current_timestamp;
         `,
       );
-      return this.getSkillTargetBinding(binding.targetType, binding.targetId, binding.skillId);
+      return this.getSkillTargetBinding({
+        targetType: binding.targetType,
+        targetId: binding.targetId,
+        skillId: binding.skillId,
+      });
     },
 
-    getSkillTargetBinding(targetType, targetId, skillId) {
-      assertEnum('targetType', targetType, TARGET_TYPES);
+    getSkillTargetBinding(binding) {
       const rows = parseJsonRows(
         runSqlite(
           sqlitePath,
-          `${selectBindingSql(`where target_type = ${sqlLiteral(targetType)} and target_id = ${sqlLiteral(targetId)} and skill_id = ${sqlLiteral(skillId)}`)};`,
+          `
+            select
+              target_type as targetType,
+              target_id as targetId,
+              skill_id as skillId,
+              package_id as packageId,
+              version,
+              enabled,
+              updated_at as updatedAt
+            from skill_target_bindings
+            where target_type = ${sqlLiteral(binding.targetType)}
+              and target_id = ${sqlLiteral(binding.targetId)}
+              and skill_id = ${sqlLiteral(binding.skillId)};
+          `,
           true,
         ),
       );
-      return normalizeBinding(rows[0] ?? null);
+      return rows[0] ? Object.freeze({ ...rows[0], enabled: Boolean(rows[0].enabled) }) : null;
     },
 
-    listSkillTargetBindings(filters = {}) {
-      if (filters.targetType !== undefined) {
-        assertEnum('targetType', filters.targetType, TARGET_TYPES);
+    listSkillTargetBindings(filter = {}) {
+      const clauses = [];
+      if (filter.targetType) {
+        clauses.push(`target_type = ${sqlLiteral(filter.targetType)}`);
       }
-      const whereClause = listFilterClauses({
-        target_type: filters.targetType,
-        target_id: filters.targetId,
-        skill_id: filters.skillId,
-      });
+      if (filter.targetId) {
+        clauses.push(`target_id = ${sqlLiteral(filter.targetId)}`);
+      }
+      if (filter.skillId) {
+        clauses.push(`skill_id = ${sqlLiteral(filter.skillId)}`);
+      }
+      const where = clauses.length > 0 ? `where ${clauses.join(' and ')}` : '';
       return Object.freeze(
         parseJsonRows(
-          runSqlite(sqlitePath, `${selectBindingSql(whereClause)} order by target_type, target_id, skill_id;`, true),
-        ).map((row) => normalizeBinding(row)),
-      );
-    },
-
-    deleteSkillTargetBinding(targetType, targetId, skillId) {
-      assertEnum('targetType', targetType, TARGET_TYPES);
-      runSqlite(
-        sqlitePath,
-        `
-          delete from skill_target_bindings
-          where target_type = ${sqlLiteral(targetType)}
-            and target_id = ${sqlLiteral(targetId)}
-            and skill_id = ${sqlLiteral(skillId)};
-        `,
+          runSqlite(
+            sqlitePath,
+            `
+              select
+                target_type as targetType,
+                target_id as targetId,
+                skill_id as skillId,
+                package_id as packageId,
+                version,
+                enabled,
+                updated_at as updatedAt
+              from skill_target_bindings
+              ${where}
+              order by target_type, target_id, skill_id;
+            `,
+            true,
+          ),
+        ).map((row) => Object.freeze({ ...row, enabled: Boolean(row.enabled) })),
       );
     },
 
     saveSkillTargetVersionOverride(override) {
-      assertRequired('associationId', override.associationId);
-      assertRequired('skillId', override.skillId);
-      assertRequired('selectedVersion', override.selectedVersion);
-      assertRequired('selectedPackageId', override.selectedPackageId);
-      const decisionSource = override.decisionSource ?? 'manual';
-      assertEnum('decisionSource', decisionSource, DECISION_SOURCES);
-      const overrideId = override.overrideId ?? defaultOverrideId(override.associationId, override.skillId);
       runSqlite(
         sqlitePath,
         `
           insert into skill_target_version_overrides (
-            override_id,
             association_id,
             skill_id,
             selected_version,
             selected_package_id,
-            decision_source,
             reason,
             updated_at
           )
           values (
-            ${sqlLiteral(overrideId)},
             ${sqlLiteral(override.associationId)},
             ${sqlLiteral(override.skillId)},
             ${sqlLiteral(override.selectedVersion)},
             ${sqlLiteral(override.selectedPackageId)},
-            ${sqlLiteral(decisionSource)},
-            ${sqlNullableLiteral(override.reason)},
+            ${sqlLiteral(override.reason)},
             current_timestamp
           )
           on conflict(association_id, skill_id) do update set
-            override_id = excluded.override_id,
             selected_version = excluded.selected_version,
             selected_package_id = excluded.selected_package_id,
-            decision_source = excluded.decision_source,
             reason = excluded.reason,
             updated_at = current_timestamp;
         `,
       );
-      return this.getSkillTargetVersionOverride(override.associationId, override.skillId);
+      return this.getSkillTargetVersionOverride({
+        associationId: override.associationId,
+        skillId: override.skillId,
+      });
     },
 
-    getSkillTargetVersionOverride(associationId, skillId) {
+    getSkillTargetVersionOverride(override) {
       const rows = parseJsonRows(
         runSqlite(
           sqlitePath,
-          `${selectVersionOverrideSql(`where association_id = ${sqlLiteral(associationId)} and skill_id = ${sqlLiteral(skillId)}`)};`,
+          `
+            select
+              association_id as associationId,
+              skill_id as skillId,
+              selected_version as selectedVersion,
+              selected_package_id as selectedPackageId,
+              reason,
+              updated_at as updatedAt
+            from skill_target_version_overrides
+            where association_id = ${sqlLiteral(override.associationId)}
+              and skill_id = ${sqlLiteral(override.skillId)};
+          `,
           true,
         ),
       );
-      return normalizeVersionOverride(rows[0] ?? null);
-    },
-
-    listSkillTargetVersionOverrides(filters = {}) {
-      const whereClause = listFilterClauses({ association_id: filters.associationId, skill_id: filters.skillId });
-      return Object.freeze(
-        parseJsonRows(
-          runSqlite(sqlitePath, `${selectVersionOverrideSql(whereClause)} order by association_id, skill_id;`, true),
-        ).map((row) => normalizeVersionOverride(row)),
-      );
-    },
-
-    deleteSkillTargetVersionOverride(associationId, skillId) {
-      runSqlite(
-        sqlitePath,
-        `
-          delete from skill_target_version_overrides
-          where association_id = ${sqlLiteral(associationId)}
-            and skill_id = ${sqlLiteral(skillId)};
-        `,
-      );
+      return Object.freeze(rows[0] ?? null);
     },
 
     saveSkillMaterializationStatus(status) {
-      assertRequired('targetType', status.targetType);
-      assertRequired('targetId', status.targetId);
-      assertRequired('skillId', status.skillId);
-      assertRequired('status', status.status);
-      assertEnum('targetType', status.targetType, TARGET_TYPES);
-      const mode = status.mode ?? 'none';
-      const reportStatus = status.reportStatus ?? 'unknown';
-      assertEnum('mode', mode, MATERIALIZATION_MODES);
-      assertEnum('status', status.status, MATERIALIZATION_STATUSES);
-      assertEnum('reportStatus', reportStatus, REPORT_STATUSES);
-      const statusId = status.statusId ?? defaultStatusId(status.targetType, status.targetId, status.skillId);
       runSqlite(
         sqlitePath,
         `
           insert into skill_materialization_status (
-            status_id,
             target_type,
             target_id,
             skill_id,
@@ -984,120 +1036,163 @@ export function createLocalSqliteStore(input) {
             version,
             mode,
             status,
-            report_status,
-            drift_details,
+            target_path,
+            source_path,
             last_error,
-            last_reconciled_at,
             updated_at
           )
           values (
-            ${sqlLiteral(statusId)},
             ${sqlLiteral(status.targetType)},
             ${sqlLiteral(status.targetId)},
             ${sqlLiteral(status.skillId)},
-            ${sqlNullableLiteral(status.packageId)},
-            ${sqlNullableLiteral(status.version)},
-            ${sqlLiteral(mode)},
+            ${sqlLiteral(status.packageId)},
+            ${sqlLiteral(status.version)},
+            ${sqlLiteral(status.mode)},
             ${sqlLiteral(status.status)},
-            ${sqlLiteral(reportStatus)},
-            ${sqlJsonLiteral(status.driftDetails ?? null)},
-            ${sqlNullableLiteral(status.lastError)},
-            ${sqlNullableLiteral(status.lastReconciledAt)},
+            ${sqlLiteral(status.targetPath)},
+            ${sqlNullable(status.sourcePath)},
+            ${sqlNullable(status.lastError)},
             current_timestamp
           )
           on conflict(target_type, target_id, skill_id) do update set
-            status_id = excluded.status_id,
             package_id = excluded.package_id,
             version = excluded.version,
             mode = excluded.mode,
             status = excluded.status,
-            report_status = excluded.report_status,
-            drift_details = excluded.drift_details,
+            target_path = excluded.target_path,
+            source_path = excluded.source_path,
             last_error = excluded.last_error,
-            last_reconciled_at = excluded.last_reconciled_at,
             updated_at = current_timestamp;
         `,
       );
-      return this.getSkillMaterializationStatus(status.targetType, status.targetId, status.skillId);
+      return this.getSkillMaterializationStatus({
+        targetType: status.targetType,
+        targetId: status.targetId,
+        skillId: status.skillId,
+      });
     },
 
-    getSkillMaterializationStatus(targetType, targetId, skillId) {
-      assertEnum('targetType', targetType, TARGET_TYPES);
+    getSkillMaterializationStatus(status) {
       const rows = parseJsonRows(
         runSqlite(
           sqlitePath,
-          `${selectMaterializationStatusSql(`where target_type = ${sqlLiteral(targetType)} and target_id = ${sqlLiteral(targetId)} and skill_id = ${sqlLiteral(skillId)}`)};`,
+          `
+            select
+              target_type as targetType,
+              target_id as targetId,
+              skill_id as skillId,
+              package_id as packageId,
+              version,
+              mode,
+              status,
+              target_path as targetPath,
+              source_path as sourcePath,
+              last_error as lastError,
+              updated_at as updatedAt
+            from skill_materialization_status
+            where target_type = ${sqlLiteral(status.targetType)}
+              and target_id = ${sqlLiteral(status.targetId)}
+              and skill_id = ${sqlLiteral(status.skillId)};
+          `,
           true,
         ),
       );
-      return normalizeMaterializationStatus(rows[0] ?? null);
+      return Object.freeze(rows[0] ?? null);
     },
 
-    listSkillMaterializationStatuses(filters = {}) {
-      if (filters.targetType !== undefined) {
-        assertEnum('targetType', filters.targetType, TARGET_TYPES);
+    listSkillMaterializationStatuses(filter = {}) {
+      const clauses = [];
+      if (filter.targetType) {
+        clauses.push(`target_type = ${sqlLiteral(filter.targetType)}`);
       }
-      const whereClause = listFilterClauses({
-        target_type: filters.targetType,
-        target_id: filters.targetId,
-        skill_id: filters.skillId,
-        status: filters.status,
-      });
+      if (filter.targetId) {
+        clauses.push(`target_id = ${sqlLiteral(filter.targetId)}`);
+      }
+      if (filter.skillId) {
+        clauses.push(`skill_id = ${sqlLiteral(filter.skillId)}`);
+      }
+      const where = clauses.length > 0 ? `where ${clauses.join(' and ')}` : '';
       return Object.freeze(
         parseJsonRows(
-          runSqlite(sqlitePath, `${selectMaterializationStatusSql(whereClause)} order by target_type, target_id, skill_id;`, true),
-        ).map((row) => normalizeMaterializationStatus(row)),
+          runSqlite(
+            sqlitePath,
+            `
+              select
+                target_type as targetType,
+                target_id as targetId,
+                skill_id as skillId,
+                package_id as packageId,
+                version,
+                mode,
+                status,
+                target_path as targetPath,
+                source_path as sourcePath,
+                last_error as lastError,
+                updated_at as updatedAt
+              from skill_materialization_status
+              ${where}
+              order by target_type, target_id, skill_id;
+            `,
+            true,
+          ),
+        ),
       );
     },
 
-    deleteSkillMaterializationStatus(targetType, targetId, skillId) {
-      assertEnum('targetType', targetType, TARGET_TYPES);
-      runSqlite(
-        sqlitePath,
-        `
-          delete from skill_materialization_status
-          where target_type = ${sqlLiteral(targetType)}
-            and target_id = ${sqlLiteral(targetId)}
-            and skill_id = ${sqlLiteral(skillId)};
-        `,
-      );
-    },
-
-    resolveEffectiveSkillForAssociation(input) {
-      const association = input.associationId
-        ? this.getToolProjectAssociation(input.associationId)
-        : this.findToolProjectAssociation(input.toolId, input.projectId);
-      if (!association) {
-        return null;
+    resolveEffectiveSkillBinding(input) {
+      let association = null;
+      if (input.associationId) {
+        association = this.getToolProjectAssociation(input.associationId);
+      } else if (input.toolId && input.projectId) {
+        association = this.listToolProjectAssociations({ toolId: input.toolId, projectId: input.projectId })
+          .find((entry) => entry.enabled);
+        if (!association) {
+          return Object.freeze({ status: 'independent_targets', candidates: Object.freeze([]), effectiveBinding: null });
+        }
       }
-      assertRequired('skillId', input.skillId);
-      const projectBinding = this.getSkillTargetBinding('project', association.projectId, input.skillId);
-      const toolBinding = this.getSkillTargetBinding('tool', association.toolId, input.skillId);
-      const override = this.getSkillTargetVersionOverride(association.associationId, input.skillId);
+      if (!association || !association.enabled) {
+        return Object.freeze({ status: 'independent_targets', candidates: Object.freeze([]), effectiveBinding: null });
+      }
+
+      const candidates = this.listSkillTargetBindings({ skillId: input.skillId })
+        .filter((binding) => (
+          (binding.targetType === 'project' && binding.targetId === association.projectId) ||
+          (binding.targetType === 'tool' && binding.targetId === association.toolId)
+        ));
+      const projectBinding = candidates.find((binding) => binding.targetType === 'project');
+      const toolBinding = candidates.find((binding) => binding.targetType === 'tool');
+      const enabledCandidates = candidates.filter((binding) => binding.enabled);
+
+      if (projectBinding?.enabled && toolBinding?.enabled && projectBinding.version !== toolBinding.version) {
+        const override = this.getSkillTargetVersionOverride({
+          associationId: association.associationId,
+          skillId: input.skillId,
+        });
+        if (!override) {
+          return Object.freeze({
+            status: 'manual_choice_required',
+            candidates: Object.freeze(candidates),
+            effectiveBinding: null,
+          });
+        }
+        const effectiveBinding = enabledCandidates.find((binding) => (
+          binding.version === override.selectedVersion &&
+          binding.packageId === override.selectedPackageId
+        )) ?? null;
+        return Object.freeze({
+          status: effectiveBinding ? 'resolved' : 'manual_choice_required',
+          candidates: Object.freeze(candidates),
+          effectiveBinding,
+          override,
+        });
+      }
+
+      const effectiveBinding = projectBinding?.enabled ? projectBinding : toolBinding?.enabled ? toolBinding : null;
       return Object.freeze({
-        association,
-        skillId: input.skillId,
-        searchRoots: association.searchRoots,
-        projectBinding,
-        toolBinding,
-        override,
-        resolution: buildEffectiveResolution({ association, projectBinding, toolBinding, override }),
+        status: effectiveBinding ? 'resolved' : 'not_materialized',
+        candidates: Object.freeze(candidates),
+        effectiveBinding,
       });
-    },
-
-    listEffectiveSkillResolutions(associationId) {
-      const association = this.getToolProjectAssociation(associationId);
-      if (!association) {
-        return Object.freeze([]);
-      }
-      const skillIds = new Set([
-        ...this.listSkillTargetBindings({ targetType: 'project', targetId: association.projectId }).map((binding) => binding.skillId),
-        ...this.listSkillTargetBindings({ targetType: 'tool', targetId: association.toolId }).map((binding) => binding.skillId),
-        ...this.listSkillTargetVersionOverrides({ associationId }).map((override) => override.skillId),
-      ]);
-      return Object.freeze(
-        [...skillIds].sort().map((skillId) => this.resolveEffectiveSkillForAssociation({ associationId, skillId })),
-      );
     },
   });
 }
