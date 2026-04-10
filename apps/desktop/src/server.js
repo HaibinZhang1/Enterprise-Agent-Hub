@@ -1118,6 +1118,32 @@ export async function createDesktopServer(config = {}) {
         return;
       }
 
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'notifications' && segments[3] === 'read') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson(url.pathname, {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/notifications/read-all') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson(url.pathname, {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
       if (request.method === 'POST' && url.pathname === '/api/logout') {
         sessionState = null;
         store.deleteState('session');
