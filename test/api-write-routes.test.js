@@ -242,3 +242,62 @@ test('api server exposes real submit/claim/approve write routes over the live se
   assert.equal(notifications.response.status, 200, JSON.stringify(notifications.payload));
   assert.equal(notifications.payload.items.some((entry) => entry.title === 'Skill published'), true);
 });
+
+test('api server marks one notification read and then read-all with server-confirmed badges', async (t) => {
+  const created = await startServer();
+  t.after(() => created.server.close());
+
+  const publisherSessionId = await login(created.baseUrl, 'publisher', 'publisher');
+  created.context.notifyService.notify({
+    userId: '00000000-0000-0000-0000-000000000010',
+    category: 'system',
+    title: 'Unread notification A',
+    body: 'First unread notification.',
+  });
+  created.context.notifyService.notify({
+    userId: '00000000-0000-0000-0000-000000000010',
+    category: 'system',
+    title: 'Unread notification B',
+    body: 'Second unread notification.',
+  });
+
+  const before = await requestJson(created.baseUrl, '/api/notifications', publisherSessionId);
+  assert.equal(before.response.status, 200, JSON.stringify(before.payload));
+  const target = before.payload.items.find((entry) => entry.title === 'Unread notification A');
+  assert.ok(target, 'expected seeded notification');
+  assert.equal(before.payload.badges.unreadCount >= 2, true);
+
+  const markRead = await requestJson(
+    created.baseUrl,
+    `/api/notifications/${target.id}/read`,
+    publisherSessionId,
+    {
+      method: 'POST',
+      body: {},
+    },
+  );
+  assert.equal(markRead.response.status, 200, JSON.stringify(markRead.payload));
+  assert.equal(markRead.payload.ok, true);
+  assert.equal(markRead.payload.notificationId, target.id);
+  assert.equal(typeof markRead.payload.updatedAt, 'string');
+  assert.equal(markRead.payload.badges.unreadCount, before.payload.badges.unreadCount - 1);
+
+  const afterSingleRead = await requestJson(created.baseUrl, '/api/notifications', publisherSessionId);
+  assert.equal(afterSingleRead.response.status, 200, JSON.stringify(afterSingleRead.payload));
+  assert.equal(afterSingleRead.payload.items.find((entry) => entry.id === target.id)?.readAt !== null, true);
+
+  const readAll = await requestJson(created.baseUrl, '/api/notifications/read-all', publisherSessionId, {
+    method: 'POST',
+    body: {},
+  });
+  assert.equal(readAll.response.status, 200, JSON.stringify(readAll.payload));
+  assert.equal(readAll.payload.ok, true);
+  assert.equal(readAll.payload.readAll, true);
+  assert.equal(typeof readAll.payload.updatedAt, 'string');
+  assert.equal(readAll.payload.badges.unreadCount, 0);
+
+  const afterAllRead = await requestJson(created.baseUrl, '/api/notifications', publisherSessionId);
+  assert.equal(afterAllRead.response.status, 200, JSON.stringify(afterAllRead.payload));
+  assert.equal(afterAllRead.payload.badges.unreadCount, 0);
+  assert.equal(afterAllRead.payload.items.every((entry) => entry.readAt !== null), true);
+});
