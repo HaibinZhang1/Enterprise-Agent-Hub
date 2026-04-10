@@ -5,6 +5,12 @@
 This document turns `.omx/plans/prd-desktop-frontend-refactor.md` into a maintained implementation-facing reference for `apps/desktop/ui`.
 It captures the route contract, current code-quality baseline, and the documentation rules that should stay aligned while the refactor lands.
 
+## Related references
+
+- source PRD: `.omx/plans/prd-desktop-frontend-refactor.md`
+- original refactor brief: `docs/前端重构要求`
+- page-level contracts: `docs/DetailedDesign/frontend-pages/*.md`
+
 ## Maintained shell contract
 
 The maintained Desktop UI target is a modular shell with:
