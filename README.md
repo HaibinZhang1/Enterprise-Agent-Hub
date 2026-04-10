@@ -80,6 +80,31 @@ Code-quality review of the current baseline:
 
 For the maintained architecture and documentation boundary, see `docs/DetailedDesign/desktop/frontend-shell-refactor.md`.
 
+## Desktop scope still pending
+
+The following Desktop-first capabilities are still incomplete and remain active follow-up work within the refactor track:
+
+- Tools page
+- Projects page
+- Settings page
+- local tool scanning UX
+- tool path validation UX
+- project-level skill enable/disable UX
+- conflict resolution UX
+- updater UX
+
+These are already represented in the desktop/domain design, but are not yet finished as product-complete desktop surfaces.
+
+## Approved local-control-plane slice guardrails
+
+This approved slice extends the maintained Desktop shell with `Tools`, `Projects`, and `Settings` while preserving the already-shipped publish workbench and review workbench. The documentation and verification boundary for this slice is:
+
+- preserve the current publish workbench and review workbench surfaces while the new local-control-plane pages land
+- keep SQLite built in and hidden from normal product UI; do not add a user-editable database path field
+- preserve `/health` and `DESKTOP_SQLITE_PATH` as operational smoke/dev contracts
+- keep `apps/web` historical/non-product during this slice
+- keep V1 skill-management mutations single-target: no batch bind, batch enable/disable, or batch upgrade workflows ship in this slice. Future bulk workflows may be reserved in schema/UI extension points only; current Desktop actions must remain explicit preview-confirm operations for one skill/target decision at a time.
+
 ## Verification
 
 From the repo root:
