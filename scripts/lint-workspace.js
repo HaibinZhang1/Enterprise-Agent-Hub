@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { apiSkeletonManifest } from '../apps/api/src/index.js';
-import { webSkeletonManifest } from '../apps/web/src/index.js';
 import { desktopSkeletonManifest } from '../apps/desktop/src/index.js';
 import {
   AUTH_PENDING_CODE,
@@ -17,19 +16,6 @@ import {
 } from '../packages/migrations/src/index.js';
 
 const expectedDomains = ['auth', 'org', 'skill', 'package', 'review', 'install', 'search', 'notify', 'audit'];
-const expectedPages = [
-  'home',
-  'market',
-  'my-skill',
-  'review',
-  'department-management',
-  'user-management',
-  'skill-management',
-  'tools',
-  'projects',
-  'notifications',
-  'settings',
-];
 const expectedDesktopModules = [
   'tool-scanner',
   'project-manager',
@@ -43,7 +29,6 @@ const expectedDesktopModules = [
 assert.equal(AUTH_PENDING_CODE, 'AUTHZ_RECALC_PENDING');
 assert.equal(AUTH_ERROR_FIXTURE.error.code, AUTH_PENDING_CODE);
 assert.deepEqual(apiSkeletonManifest.domains.map((domain) => domain.id), expectedDomains);
-assert.deepEqual(webSkeletonManifest.pages.map((page) => page.id), expectedPages);
 assert.deepEqual(desktopSkeletonManifest.modules.map((module) => module.id), expectedDesktopModules);
 assert.equal(INSTALL_RECONCILE_STATUS_FIXTURE.serverInstallStates.includes('installed'), true);
 assert.equal(SOURCE_OF_TRUTH_MATRIX_FIXTURE.every((entry) => ['server', 'desktop', 'derived'].includes(entry.authority)), true);
@@ -61,7 +46,6 @@ console.log(
     {
       ok: true,
       domains: apiSkeletonManifest.domains.length,
-      pages: webSkeletonManifest.pages.length,
       desktopModules: desktopSkeletonManifest.modules.length,
       sourceOfTruthFacts: SOURCE_OF_TRUTH_MATRIX_FIXTURE.length,
       phaseGates: PHASE_GATES_FIXTURE.length,

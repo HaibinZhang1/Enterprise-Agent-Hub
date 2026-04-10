@@ -22,6 +22,6 @@ test('desktop local-control-plane docs keep the slice aligned with the approved 
   assert.match(readme, /\/health/i);
   assert.match(readme, /DESKTOP_SQLITE_PATH/i);
   assert.match(readme, /hidden from normal product UI|not editable in the product UI|kept internal to the desktop shell/i);
-  assert.match(combined, /apps\/web[\s\S]{0,120}(historical|non-product)/i);
+  assert.doesNotMatch(combined, /apps\/web/i);
   assert.match(combined, /apps\/desktop[\s\S]{0,120}(maintained|only maintained|maintained product\/demo surface)/i);
 });

@@ -1,7 +1,7 @@
 # Enterprise Agent Hub
 
 Enterprise Agent Hub is a Windows-first intranet desktop marketplace for enterprise Agent Skills.  
-For the current release path, `apps/desktop` is the maintained product/demo surface, backed by the connected `apps/api` service, PostgreSQL, nginx, Desktop-local SQLite, and SSE. Historical web code remains in-tree for prior Phase 1 / Phase 2 memory-runtime evidence only; it is **not** the maintained product UI for the current release.
+For the current release path, `apps/desktop` is the maintained product/demo surface, backed by the connected `apps/api` service, PostgreSQL, nginx, Desktop-local SQLite, and SSE.
 
 ## Current product boundary
 
@@ -12,11 +12,6 @@ For the current release path, `apps/desktop` is the maintained product/demo surf
 - nginx — intranet reverse proxy
 - SQLite — desktop-local cache/state store
 - SSE — realtime notification and queue/status updates
-
-### Historical / non-product surface
-- `apps/web` — historical React + Vite memory-runtime UI kept only for prior scaffold/runtime evidence
-- Do **not** position `apps/web` as the maintained product UI for the current release
-- Do **not** add new current-release feature work to `apps/web` unless product scope is explicitly reopened
 
 ## What the repository delivers today
 
@@ -32,7 +27,6 @@ For the current release path, `apps/desktop` is the maintained product/demo surf
 
 - `apps/api` — connected API entrypoint plus governance / publish-review backend runtime
 - `apps/desktop` — maintained Windows-first Tauri Desktop product shell
-- `apps/web` — historical non-product memory-runtime UI
 - `packages/contracts` — frozen shared contracts and fixtures
 - `packages/migrations` — PostgreSQL / SQLite migration runners
 - `infra` — deployment scaffolding for Compose + nginx
@@ -102,7 +96,6 @@ This approved slice extends the maintained Desktop shell with `Tools`, `Projects
 - preserve the current publish workbench and review workbench surfaces while the new local-control-plane pages land
 - keep SQLite built in and hidden from normal product UI; do not add a user-editable database path field
 - preserve `/health` and `DESKTOP_SQLITE_PATH` as operational smoke/dev contracts
-- keep `apps/web` historical/non-product during this slice
 - keep V1 skill-management mutations single-target: no batch bind, batch enable/disable, or batch upgrade workflows ship in this slice. Future bulk workflows may be reserved in schema/UI extension points only; current Desktop actions must remain explicit preview-confirm operations for one skill/target decision at a time.
 
 ## Verification
@@ -128,6 +121,39 @@ Production-oriented verification:
 pnpm verify:production
 pnpm verify:production:runtime
 ```
+
+## OMX / Codex workflow setup
+
+This repo is maintained with oh-my-codex (`omx`) project/runtime artifacts under `.omx/` and workspace guidance through `AGENTS.md`.
+
+Validated baseline:
+
+- `oh-my-codex` / `omx`: `0.12.4`
+
+Recommended local setup:
+
+```bash
+omx --version
+omx setup --force --scope user --verbose
+omx doctor
+```
+
+Expected result:
+
+- `omx --version` reports `oh-my-codex v0.12.4`
+- `omx doctor` passes with Codex home, skills, prompts, hooks, state dir, and MCP server checks green
+
+Useful `0.12.4` operator commands:
+
+```bash
+omx state
+omx notepad
+omx project-memory
+omx trace
+omx code-intel
+```
+
+These CLI surfaces now mirror the MCP-backed OMX state/memory/trace/code-intel tools, which makes local inspection and recovery easier during long-running planning or execution sessions.
 
 ## Running the connected Desktop path
 
@@ -193,8 +219,6 @@ The current product direction is:
 * server remains the authority for market, review, auth, visibility, and version state
 * desktop remains the execution surface for local user workflows
 
-`apps/web` is intentionally retained as historical code, but it is not part of the current maintained product story.
-
 ## Production-like backend deploy assets
 
 The repository includes a production deploy path for the backend stack:
@@ -247,7 +271,7 @@ macOS `.app` output, if present, is development evidence only and must not be us
 3. Harden route guards, login/logout invalidation, and connection/error handling across guest/user/admin flows
 4. Complete page-separated delivery for `home`, `market`, `my-skill`, `notifications`, `review`, `management`, `tools`, `projects`, and `settings`
 5. Collapse overlapping style layers and remove obsolete DOM anchors/selectors after page migration is complete
-6. Keep `apps/web` frozen as historical/non-product code unless product scope explicitly reopens browser UI
+6. Keep browser UI out of scope unless product requirements explicitly reopen it
 
 ## Key docs
 * `docs/RequirementDocument/index.md`
@@ -263,6 +287,5 @@ macOS `.app` output, if present, is development evidence only and must not be us
 This repository should now be understood as:
 
 * **current product path:** `apps/api` + PostgreSQL + nginx + `apps/desktop`
-* **historical evidence path only:** `apps/web`
-
-If release scope changes in the future and a browser-based management UI is reopened, `apps/web` can be revived and realigned then. Until that happens, `apps/web` remains historical/non-product code and Desktop remains the only maintained product/demo surface.
+* **current client surface:** Desktop-only
+* **browser UI scope:** removed from the workspace unless future product requirements explicitly reopen it

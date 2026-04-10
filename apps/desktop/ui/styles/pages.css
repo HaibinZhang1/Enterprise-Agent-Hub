@@ -3,19 +3,21 @@
   gap: 20px;
 }
 
-.page-screen--workspace,
-.page-screen--local,
-.page-screen--admin {
-  align-content: start;
+.page-screen[hidden] {
+  display: none !important;
 }
 
-.page-grid {
+.page-section {
+  margin: 0;
+}
+
+.management-body {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
-.page-grid--local,
-.page-grid--workspace,
-.page-grid--admin {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+@media (max-width: 900px) {
+  .stack-form {
+    grid-template-columns: 1fr;
+  }
 }

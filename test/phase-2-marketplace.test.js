@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import { apiSkeletonManifest } from '../apps/api/src/index.js';
 import { desktopSkeletonManifest } from '../apps/desktop/src/index.js';
-import { webSkeletonManifest } from '../apps/web/src/index.js';
 import {
   INSTALL_RECONCILE_STATUS_FIXTURE,
   SOURCE_OF_TRUTH_MATRIX_FIXTURE,
@@ -38,24 +37,13 @@ test('phase 2 marketplace scaffold keeps the publish/review/search/notify loop r
   assert.match(notify.focus, /badge counts/);
   assert.match(install.focus, /entitlement narrowing/);
 
-  const market = findById(webSkeletonManifest.pages, 'market');
-  const mySkill = findById(webSkeletonManifest.pages, 'my-skill');
-  const reviewPage = findById(webSkeletonManifest.pages, 'review');
-  const skillManagement = findById(webSkeletonManifest.pages, 'skill-management');
-  const notifications = findById(webSkeletonManifest.pages, 'notifications');
+  const skillSync = findById(desktopSkeletonManifest.modules, 'skill-sync');
+  const desktopNotify = findById(desktopSkeletonManifest.modules, 'desktop-notify');
+  const conflictResolver = findById(desktopSkeletonManifest.modules, 'conflict-resolver');
 
-  assert.deepEqual(market.requiredStates, webSkeletonManifest.sharedStates);
-  assert.deepEqual(mySkill.requiredStates, webSkeletonManifest.sharedStates);
-  assert.deepEqual(reviewPage.requiredStates, webSkeletonManifest.sharedStates);
-  assert.deepEqual(skillManagement.requiredStates, webSkeletonManifest.sharedStates);
-  assert.deepEqual(notifications.requiredStates, webSkeletonManifest.sharedStates);
-
-  assert.match(market.focus, /search/);
-  assert.match(market.focus, /install entry/);
-  assert.match(mySkill.focus, /upload progress/);
-  assert.match(reviewPage.focus, /todo\/in-progress\/done workflow/);
-  assert.match(skillManagement.focus, /history/);
-  assert.match(notifications.focus, /reconnect banner/);
+  assert.match(skillSync.scope, /download, extract, install, activate, repair/);
+  assert.match(desktopNotify.scope, /badge sync/);
+  assert.match(conflictResolver.scope, /conflict/);
 });
 
 test('phase 2 contracts keep minimal search-notify and install authority boundaries stable', () => {

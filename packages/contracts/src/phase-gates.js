@@ -6,7 +6,6 @@ export const PHASE_GATES_FIXTURE = Object.freeze([
       'package.json',
       'pnpm-workspace.yaml',
       'apps/api/src/manifest.js',
-      'apps/web/src/manifest.js',
       'apps/desktop/src/manifest.js',
       'packages/migrations/postgres/sql/0001_initial_foundation.sql',
       'packages/migrations/postgres/sql/0002_mvp_read_models.sql',
@@ -17,7 +16,7 @@ export const PHASE_GATES_FIXTURE = Object.freeze([
   },
   {
     gate: 'gate-0.5-contract-freeze',
-    description: 'Shared fixtures are frozen and consumed across backend, web, and desktop scaffolds.',
+    description: 'Shared fixtures are frozen and consumed across backend and desktop scaffolds.',
     requiredArtifacts: [
       'packages/contracts/fixtures/auth-error-envelope.fixture.json',
       'packages/contracts/fixtures/auth-org-convergence.fixture.json',
@@ -34,13 +33,13 @@ export const CONTRACT_OWNERSHIP_FIXTURE = Object.freeze([
     contract: 'auth-error-envelope',
     canonicalSource: 'packages/contracts/src/auth.js',
     fixture: 'packages/contracts/fixtures/auth-error-envelope.fixture.json',
-    consumers: ['apps/api', 'apps/web', 'apps/desktop'],
+    consumers: ['apps/api', 'apps/desktop'],
   },
   {
     contract: 'auth-org-convergence',
     canonicalSource: 'packages/contracts/src/convergence.js',
     fixture: 'packages/contracts/fixtures/auth-org-convergence.fixture.json',
-    consumers: ['apps/api', 'apps/web'],
+    consumers: ['apps/api'],
   },
   {
     contract: 'install-reconcile-status',
@@ -52,7 +51,7 @@ export const CONTRACT_OWNERSHIP_FIXTURE = Object.freeze([
     contract: 'sse-payload',
     canonicalSource: 'packages/contracts/src/notify.js',
     fixture: 'packages/contracts/fixtures/sse-payload.fixture.json',
-    consumers: ['apps/api', 'apps/web', 'apps/desktop'],
+    consumers: ['apps/api', 'apps/desktop'],
   },
   {
     contract: 'source-of-truth-matrix',

@@ -22,21 +22,6 @@ const approvedPackageDependencyNames = {
   'apps/desktop/package.json': {
     dependencies: ['@enterprise-agent-hub/contracts'],
   },
-  'apps/web/package.json': {
-    dependencies: [
-      '@ant-design/colors',
-      '@ant-design/icons',
-      '@enterprise-agent-hub/contracts',
-      '@tanstack/react-query',
-      'antd',
-      'lucide-react',
-      'react',
-      'react-dom',
-      'react-router-dom',
-      'zustand',
-    ],
-    devDependencies: ['@vitejs/plugin-react', 'vite', 'vite-plugin-node-polyfills'],
-  },
   'packages/contracts/package.json': {},
   'packages/migrations/package.json': {},
 };

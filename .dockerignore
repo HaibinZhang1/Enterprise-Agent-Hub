@@ -7,7 +7,6 @@ apps/*/node_modules
 packages/*/node_modules
 apps/desktop/.data
 apps/desktop/src-tauri/target
-apps/web/dist
 packages/*/dist
 infra/.env.production.local
 infra/.env.production.test

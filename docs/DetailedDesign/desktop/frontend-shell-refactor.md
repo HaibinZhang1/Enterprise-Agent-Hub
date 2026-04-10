@@ -69,7 +69,7 @@ While implementation continues, keep these documentation rules stable:
 1. Treat `apps/desktop` as the only maintained product/demo UI for the current release.
 2. Describe the Desktop UI as a shell with first-level routes, not as a long stacked dashboard.
 3. Keep page docs under `docs/DetailedDesign/frontend-pages/*.md` interpreted inside their own route boundary, not as home-page sections.
-4. Keep `apps/web` documented as historical/non-product unless scope is explicitly reopened.
+4. Keep current-release UI guidance scoped to `apps/desktop`.
 5. Keep local-control-plane actions (`tools`, `projects`) single-target and preview-confirm in V1 docs.
 
 ## Acceptance-critical reminders
