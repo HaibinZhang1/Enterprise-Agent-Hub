@@ -46,6 +46,7 @@ test('desktop router normalizes empty and unauthorized hash routes', () => {
   assert.equal(resolvePageRoute('', null), 'home');
   assert.equal(resolvePageRoute('#review', makeSession('member')), 'home');
   assert.equal(resolvePageRoute('#management', makeSession('system_admin')), 'management');
+  assert.equal(resolvePageRoute('#not-a-real-page', null), 'home');
 });
 
 test('desktop api response classifier distinguishes auth, forbidden, html, and generic failures', async () => {
