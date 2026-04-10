@@ -248,3 +248,68 @@ test('desktop shell proxies upload -> submit -> claim -> approve through the liv
   assert.equal(notifications.payload.items.some((entry) => entry.title === 'Skill published'), true);
   assert.equal(publisherDesktop.store.listCaches().length > 0, true);
 });
+
+test('desktop shell proxies notification read and read-all mutations through the desktop surface', async (t) => {
+  const api = await startApi();
+  const publisherDesktop = await startDesktop(api.baseUrl);
+  t.after(() => {
+    api.server.close();
+    publisherDesktop.server.close();
+  });
+
+  const loginResult = await requestDesktop(publisherDesktop.baseUrl, '/api/login', {
+    method: 'POST',
+    body: { username: 'publisher', password: 'publisher' },
+  });
+  assert.equal(loginResult.response.status, 200, JSON.stringify(loginResult.payload));
+
+  api.context.notifyService.notify({
+    userId: '00000000-0000-0000-0000-000000000010',
+    category: 'system',
+    title: 'Desktop unread A',
+    body: 'First desktop unread notification.',
+  });
+  api.context.notifyService.notify({
+    userId: '00000000-0000-0000-0000-000000000010',
+    category: 'system',
+    title: 'Desktop unread B',
+    body: 'Second desktop unread notification.',
+  });
+
+  const before = await requestDesktop(publisherDesktop.baseUrl, '/api/notifications');
+  assert.equal(before.response.status, 200, JSON.stringify(before.payload));
+  const target = before.payload.items.find((entry) => entry.title === 'Desktop unread A');
+  assert.ok(target, 'expected seeded desktop notification');
+  assert.equal(before.payload.badges.unreadCount >= 2, true);
+
+  const markRead = await requestDesktop(
+    publisherDesktop.baseUrl,
+    `/api/notifications/${target.id}/read`,
+    {
+      method: 'POST',
+      body: {},
+    },
+  );
+  assert.equal(markRead.response.status, 200, JSON.stringify(markRead.payload));
+  assert.equal(markRead.payload.notificationId, target.id);
+  assert.equal(markRead.payload.badges.unreadCount, before.payload.badges.unreadCount - 1);
+  assert.equal(typeof markRead.payload.updatedAt, 'string');
+
+  const afterSingleRead = await requestDesktop(publisherDesktop.baseUrl, '/api/notifications');
+  assert.equal(afterSingleRead.response.status, 200, JSON.stringify(afterSingleRead.payload));
+  assert.equal(afterSingleRead.payload.items.find((entry) => entry.id === target.id)?.readAt !== null, true);
+
+  const readAll = await requestDesktop(publisherDesktop.baseUrl, '/api/notifications/read-all', {
+    method: 'POST',
+    body: {},
+  });
+  assert.equal(readAll.response.status, 200, JSON.stringify(readAll.payload));
+  assert.equal(readAll.payload.readAll, true);
+  assert.equal(readAll.payload.badges.unreadCount, 0);
+  assert.equal(typeof readAll.payload.updatedAt, 'string');
+
+  const afterAllRead = await requestDesktop(publisherDesktop.baseUrl, '/api/notifications');
+  assert.equal(afterAllRead.response.status, 200, JSON.stringify(afterAllRead.payload));
+  assert.equal(afterAllRead.payload.badges.unreadCount, 0);
+  assert.equal(afterAllRead.payload.items.every((entry) => entry.readAt !== null), true);
+});

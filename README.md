@@ -38,27 +38,51 @@ For the current release path, `apps/desktop` is the maintained product/demo surf
 - `infra` — deployment scaffolding for Compose + nginx
 - `docs` — requirement, design, runbook, and review documents
 
-## Desktop scope implemented today
+## Desktop frontend refactor track
 
-The connected Desktop shell currently exposes these user-facing flows:
+The maintained Desktop UI target is now a modular shell rather than a long stacked dashboard. The planned product shape for `apps/desktop` is:
 
-- login
-- visible API connection status and configured server URL
-- market list / search / browse
-- notifications and SSE/live event status
-- My Skill list
-- publish workbench:
-  - package upload
-  - review submission
-- review workbench:
-  - review queue
-  - claim
-  - approve
-- skill management read surface for administrator sessions
+- persistent left navigation
+- top bar with search, connection state, notifications, and account entry
+- a single active first-level page viewport
+- centralized login / dialog host
+- explicit guest, authenticated, and admin route handling
+
+The maintained first-level page map is:
+
+- `home` — summary only
+- `market`
+- `my-skill`
+- `review` — admin only
+- `management` — admin only
+- `tools`
+- `projects`
+- `notifications`
+- `settings`
+
+Top-bar search should route intent into `market`, and protected actions should resolve to guarded page states or an immediate login prompt rather than scattered request failures.
+
+## Current implementation baseline
+
+The repository already contains the first phase of this refactor under `apps/desktop/ui`:
+
+- shell-oriented primitives in `ui/core/*`
+- navigation and top-bar components in `ui/components/*`
+- per-domain data modules in `ui/features/*`
+
+Code-quality review of the current baseline:
+
+- `ui/core/page-registry.js` is the current source of truth for route visibility, badges, and admin gating
+- `ui/components/nav.js` and `ui/components/topbar.js` already express the intended shell composition
+- `ui/features/notifications.js` and `ui/features/settings.js` already model the PRD-required mutation surfaces
+- `ui/app.js` is still the main extraction target and currently retains most render/orchestration ownership
+- `ui/index.html` and the overlapping `ui/style.css` / `ui/styles.css` layers still carry legacy stacked-layout assumptions and should be treated as finish-pass cleanup targets
+
+For the maintained architecture and documentation boundary, see `docs/DetailedDesign/desktop/frontend-shell-refactor.md`.
 
 ## Desktop scope still pending
 
-The following Desktop-first capabilities are still incomplete and remain the next major implementation target:
+The following Desktop-first capabilities are still incomplete and remain active follow-up work within the refactor track:
 
 - Tools page
 - Projects page
@@ -73,9 +97,9 @@ These are already represented in the desktop/domain design, but are not yet fini
 
 ## Approved local-control-plane slice guardrails
 
-This approved slice extends the maintained Desktop shell with `Tools`, `Projects`, and `Settings` while preserving the already-shipped publish/review workbench. The documentation and verification boundary for this slice is:
+This approved slice extends the maintained Desktop shell with `Tools`, `Projects`, and `Settings` while preserving the already-shipped publish workbench and review workbench. The documentation and verification boundary for this slice is:
 
-- preserve the current publish and review surfaces while the new local-control-plane pages land
+- preserve the current publish workbench and review workbench surfaces while the new local-control-plane pages land
 - keep SQLite built in and hidden from normal product UI; do not add a user-editable database path field
 - preserve `/health` and `DESKTOP_SQLITE_PATH` as operational smoke/dev contracts
 - keep `apps/web` historical/non-product during this slice
@@ -218,11 +242,11 @@ macOS `.app` output, if present, is development evidence only and must not be us
 
 ## Recommended next implementation order
 
-1. Complete Desktop Tools surface
-2. Complete Desktop Projects surface
-3. Complete Desktop Settings surface
-4. Wire desktop-local execution flows for scan / validate / path management / conflict presentation
-5. Continue hardening install / enable / update / uninstall execution on the Desktop path
+1. Finish extracting `apps/desktop/ui/app.js` into page-owned modules while keeping `ui/core/*` as the shared shell/runtime layer
+2. Replace the long stacked `ui/index.html` structure with a single-page shell outlet and centralized dialog host
+3. Harden route guards, login/logout invalidation, and connection/error handling across guest/user/admin flows
+4. Complete page-separated delivery for `home`, `market`, `my-skill`, `notifications`, `review`, `management`, `tools`, `projects`, and `settings`
+5. Collapse overlapping style layers and remove obsolete DOM anchors/selectors after page migration is complete
 6. Keep `apps/web` frozen as historical/non-product code unless product scope explicitly reopens browser UI
 
 ## Key docs
@@ -230,6 +254,7 @@ macOS `.app` output, if present, is development evidence only and must not be us
 * `docs/DetailedDesign/README.md`
 * `docs/DetailedDesign/architecture/01_system_architecture.md`
 * `docs/DetailedDesign/desktop/README.md`
+* `docs/DetailedDesign/desktop/frontend-shell-refactor.md`
 * `docs/desktop-release-runbook.md`
 * `docs/phase-1-2-review.md`
 

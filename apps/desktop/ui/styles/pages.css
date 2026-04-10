@@ -1,0 +1,21 @@
+.page-screen {
+  display: grid;
+  gap: 20px;
+}
+
+.page-screen--workspace,
+.page-screen--local,
+.page-screen--admin {
+  align-content: start;
+}
+
+.page-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.page-grid--local,
+.page-grid--workspace,
+.page-grid--admin {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}

@@ -2,7 +2,7 @@
 import { createServer } from 'node:http';
 import { constants as fsConstants } from 'node:fs';
 import { access, readFile, stat } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, extname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +12,13 @@ import { createLocalSqliteStore } from './local-sqlite-store.js';
 const moduleFile = fileURLToPath(import.meta.url);
 const packageRoot = dirname(moduleFile);
 const uiRoot = resolve(packageRoot, '..', 'ui');
+const STATIC_CONTENT_TYPES = Object.freeze({
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+});
 
 const DEFAULT_TOOL_COMMANDS = Object.freeze(['node', 'pnpm', 'git', 'python3', 'sqlite3', 'cargo']);
 const DEFAULT_TOOL_LABELS = Object.freeze({
@@ -173,6 +180,16 @@ export function validatePreviewConfirmation(input) {
     return validateBindingMaterializationPreview(preview);
   }
   return Object.freeze({ ok: true, reason: 'valid_preview' });
+}
+
+function resolveStaticAsset(pathname) {
+  const normalized = pathname === '/' ? '/index.html' : pathname;
+  const candidate = resolve(uiRoot, `.${normalized}`);
+  if (!candidate.startsWith(uiRoot)) {
+    return null;
+  }
+  const type = STATIC_CONTENT_TYPES[extname(candidate)] ?? 'application/octet-stream';
+  return Object.freeze({ filePath: candidate, type });
 }
 
 async function inspectPath(targetPath) {
@@ -561,12 +578,6 @@ export async function createDesktopServer(config = {}) {
     );
   }
 
-  const staticFiles = new Map([
-    ['/', { file: 'index.html', type: 'text/html; charset=utf-8' }],
-    ['/app.js', { file: 'app.js', type: 'application/javascript; charset=utf-8' }],
-    ['/styles.css', { file: 'styles.css', type: 'text/css; charset=utf-8' }],
-    ['/style.css', { file: 'styles.css', type: 'text/css; charset=utf-8' }],
-  ]);
   const proxyRoutes = new Map([
     ['/api/market', '/api/market'],
     ['/api/notifications', '/api/notifications'],
@@ -585,12 +596,20 @@ export async function createDesktopServer(config = {}) {
     const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
 
     try {
-      const staticAsset = staticFiles.get(url.pathname);
-      if (request.method === 'GET' && staticAsset) {
-        const body = await readFile(resolve(uiRoot, staticAsset.file), 'utf8');
-        response.writeHead(200, { 'content-type': staticAsset.type, 'cache-control': 'no-store' });
-        response.end(body);
-        return;
+      if (request.method === 'GET' && !url.pathname.startsWith('/api/') && url.pathname !== '/health') {
+        const staticAsset = resolveStaticAsset(url.pathname === '/style.css' ? '/styles.css' : url.pathname);
+        if (staticAsset) {
+          try {
+            const body = await readFile(staticAsset.filePath, 'utf8');
+            response.writeHead(200, { 'content-type': staticAsset.type, 'cache-control': 'no-store' });
+            response.end(body);
+            return;
+          } catch (error) {
+            if (error?.code !== 'ENOENT') {
+              throw error;
+            }
+          }
+        }
       }
 
       if (request.method === 'GET' && url.pathname === '/health') {
@@ -1087,6 +1106,32 @@ export async function createDesktopServer(config = {}) {
       }
 
       if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'approve') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson(url.pathname, {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'notifications' && segments[3] === 'read') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson(url.pathname, {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/notifications/read-all') {
         if (!requireSession(response)) {
           return;
         }

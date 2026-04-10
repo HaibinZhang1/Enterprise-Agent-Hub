@@ -1,0 +1,144 @@
+.workspace-shell {
+  display: grid;
+  grid-template-columns: var(--desktop-nav-width) minmax(0, 1fr);
+  gap: var(--desktop-shell-gap);
+  align-items: start;
+}
+
+.workspace-main {
+  display: grid;
+  gap: 20px;
+}
+
+.nav-panel,
+.topbar {
+  border-radius: var(--desktop-shell-radius);
+  min-height: 88px;
+}
+
+.nav-panel {
+  position: sticky;
+  top: 24px;
+  padding: 24px 18px;
+  display: grid;
+  gap: 18px;
+}
+
+.nav-panel__brand {
+  display: grid;
+  gap: 6px;
+  padding: 4px 8px 16px;
+}
+
+.nav-panel__brand p,
+.nav-panel__brand span {
+  margin: 0;
+}
+
+.nav-panel__brand p {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.nav-panel__brand span {
+  color: #5b708d;
+  font-size: 13px;
+}
+
+.nav-panel__group,
+.nav-panel__footer {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-item {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #20314b;
+  cursor: pointer;
+}
+
+.nav-item.is-active {
+  background: rgba(20, 32, 51, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(20, 32, 51, 0.06);
+}
+
+.nav-item__label {
+  flex: 1;
+  text-align: left;
+}
+
+.nav-item__badge,
+.utility-chip span {
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #13233b;
+  color: #fff;
+  font-size: 12px;
+}
+
+.topbar {
+  padding: 18px 22px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.topbar__left,
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar__right {
+  justify-content: flex-end;
+}
+
+.identity-chip,
+.utility-chip {
+  border: 0;
+  border-radius: 16px;
+  padding: 10px 14px;
+  background: rgba(20, 32, 51, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
+.identity-chip {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.identity-chip__eyebrow {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.topbar__search {
+  display: flex;
+  gap: 10px;
+}
+
+.topbar__search input {
+  min-width: 0;
+  width: 100%;
+}
+
+.page-outlet {
+  display: grid;
+  gap: 20px;
+}
+
+.page-screen[hidden] {
+  display: none !important;
+}

@@ -7,7 +7,12 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
+    <main class="workspace-shell shell">
+      <aside id="nav-panel" class="nav-panel glass-panel" aria-label="Primary navigation"></aside>
+      <section class="workspace-main">
+        <header id="topbar" class="topbar glass-panel" aria-label="Global toolbar"></header>
+        <section id="page-outlet" class="page-outlet" aria-live="polite"></section>
+        <section id="legacy-shell-source" hidden aria-hidden="true">
       <section class="hero glass-panel">
         <div>
           <p class="eyebrow">Windows-first desktop release</p>
@@ -55,7 +60,7 @@
         <button id="reload-all" type="button" class="secondary">Refresh read views</button>
       </section>
 
-      <section class="local-control-grid">
+      <section class="page-grid page-grid--local">
         <article class="content-panel glass-panel" aria-labelledby="tools-heading">
           <div class="content-header">
             <div>
@@ -198,7 +203,7 @@
         </div>
       </section>
 
-      <section class="dashboard-grid">
+      <section class="page-grid page-grid--workspace">
         <article class="content-panel glass-panel" aria-labelledby="my-skills-heading">
           <div class="content-header">
             <div>
@@ -244,7 +249,7 @@
         </article>
       </section>
 
-      <section class="workbench-grid">
+      <section class="page-grid page-grid--admin">
         <article class="content-panel glass-panel" aria-labelledby="publish-heading">
           <div class="content-header">
             <div>
@@ -341,6 +346,9 @@
           </div>
           <div id="management-output" class="data-view empty-state">Manageable skills load here for administrator sessions.</div>
         </article>
+      </section>
+        </section>
+        <div id="dialog-host" class="dialog-host" aria-live="polite"></div>
       </section>
     </main>
 

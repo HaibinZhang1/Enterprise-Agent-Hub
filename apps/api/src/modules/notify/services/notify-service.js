@@ -39,6 +39,20 @@ export function createNotifyService(input) {
     },
 
     /**
+     * @param {{ userId: string; notificationId: string; now?: Date }} inputValue
+     */
+    markRead(inputValue) {
+      return input.notificationRepository.markRead(inputValue);
+    },
+
+    /**
+     * @param {{ userId: string; now?: Date }} inputValue
+     */
+    readAll(inputValue) {
+      return input.notificationRepository.readAll(inputValue);
+    },
+
+    /**
      * @param {string} userId
      */
     drainEvents(userId) {
