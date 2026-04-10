@@ -12,8 +12,12 @@ const PAGE_ENTRIES = Object.freeze([
   { id: 'settings', label: '设置', shortLabel: 'Settings', icon: '☰', visibility: () => true, section: 'footer' },
 ]);
 
+function findPageEntry(pageId) {
+  return PAGE_ENTRIES.find((entry) => entry.id === pageId) ?? null;
+}
+
 export function getPageEntry(pageId) {
-  return PAGE_ENTRIES.find((entry) => entry.id === pageId) ?? PAGE_ENTRIES[0];
+  return findPageEntry(pageId) ?? PAGE_ENTRIES[0];
 }
 
 export function getVisiblePages(session) {
@@ -21,7 +25,7 @@ export function getVisiblePages(session) {
 }
 
 export function canAccessPage(pageId, session) {
-  const entry = getPageEntry(pageId);
+  const entry = findPageEntry(pageId);
   return Boolean(entry?.visibility(session));
 }
 
@@ -33,6 +37,9 @@ export function getDefaultPage(session) {
 }
 
 export function getSafeFallback(pageId, session) {
+  if (!findPageEntry(pageId)) {
+    return getDefaultPage(session);
+  }
   if (pageId === 'review' || pageId === 'management') {
     return getDefaultPage(session);
   }

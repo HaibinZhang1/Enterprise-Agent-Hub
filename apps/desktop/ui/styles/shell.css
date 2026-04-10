@@ -1,0 +1,22 @@
+.workspace-shell {
+  display: grid;
+  grid-template-columns: var(--desktop-nav-width) minmax(0, 1fr);
+  gap: var(--desktop-shell-gap);
+  align-items: start;
+}
+
+.workspace-main {
+  display: grid;
+  gap: 20px;
+}
+
+.nav-panel,
+.topbar {
+  border-radius: var(--desktop-shell-radius);
+  min-height: 88px;
+}
+
+.page-outlet {
+  display: grid;
+  gap: 20px;
+}
