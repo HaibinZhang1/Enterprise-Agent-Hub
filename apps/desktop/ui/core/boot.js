@@ -113,9 +113,9 @@ const shellState = {
   },
 };
 
-function createPageScreen(pageId, ...nodes) {
+function createPageScreen(pageId, layout, ...nodes) {
   const section = document.createElement('section');
-  section.className = 'page-screen';
+  section.className = `page-screen page-screen--${layout}`;
   section.dataset.pageId = pageId;
   section.hidden = true;
   for (const node of nodes.filter(Boolean)) {
@@ -141,15 +141,15 @@ function setupShellPages() {
   const managementArticle = document.getElementById('management-heading')?.closest('article');
 
   const screens = [
-    createPageScreen('home', hero, releaseBoundary, loginPanelSection),
-    createPageScreen('market', toolbarSection, marketArticle),
-    createPageScreen('my-skill', mySkillsArticle, publishArticle),
-    createPageScreen('tools', toolsArticle, previewPanel),
-    createPageScreen('projects', projectsArticle),
-    createPageScreen('notifications', notificationsArticle, eventsArticle),
-    createPageScreen('settings', settingsArticle),
-    createPageScreen('review', reviewArticle),
-    createPageScreen('management', managementArticle),
+    createPageScreen('home', 'home', hero, releaseBoundary, loginPanelSection),
+    createPageScreen('market', 'workspace', toolbarSection, marketArticle),
+    createPageScreen('my-skill', 'workspace', mySkillsArticle, publishArticle),
+    createPageScreen('tools', 'local', toolsArticle, previewPanel),
+    createPageScreen('projects', 'local', projectsArticle),
+    createPageScreen('notifications', 'workspace', notificationsArticle, eventsArticle),
+    createPageScreen('settings', 'local', settingsArticle),
+    createPageScreen('review', 'admin', reviewArticle),
+    createPageScreen('management', 'admin', managementArticle),
   ];
 
   routedPages = new Map(screens.map((screen) => [screen.dataset.pageId, screen]));
@@ -172,13 +172,14 @@ function focusLoginEntry() {
 }
 
 function showRoute(pageId) {
-  currentRoute = pageId;
-  shellState.route = pageId;
+  const target = routedPages.has(pageId) ? pageId : 'home';
+  currentRoute = target;
+  shellState.route = target;
   for (const [candidateId, screen] of routedPages.entries()) {
-    screen.hidden = candidateId !== pageId;
+    screen.hidden = candidateId !== target;
   }
   if (loginForm) {
-    loginForm.closest('.login-panel').hidden = Boolean(currentSession?.user) || pageId !== 'home';
+    loginForm.closest('.login-panel').hidden = Boolean(currentSession?.user) || target !== 'home';
   }
   renderShellChrome();
 }

@@ -1,4 +1,4 @@
-import { canAccessPage, getDefaultPage, getSafeFallback } from './page-registry.js';
+import { canAccessPage, getSafeFallback } from './page-registry.js';
 
 export function parseHashRoute(hashValue) {
   const hash = String(hashValue ?? '').replace(/^#/, '').trim();
@@ -37,7 +37,7 @@ export function createRouter({ onRouteChange, getSession }) {
   }
 
   function navigate(pageId, { replace = false } = {}) {
-    const target = canAccessPage(pageId, getSession()) ? pageId : getDefaultPage(getSession());
+    const target = canAccessPage(pageId, getSession()) ? pageId : getSafeFallback(pageId, getSession());
     if (replace) {
       window.history.replaceState(null, '', `#${target}`);
       onRouteChange(target);
