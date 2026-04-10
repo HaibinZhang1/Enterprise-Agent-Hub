@@ -14,7 +14,6 @@ class WorkspaceScaffoldTests(unittest.TestCase):
             "tsconfig.json",
             "docs/phase-1-2-review.md",
             "apps/api/src/manifest.js",
-            "apps/web/src/manifest.js",
             "apps/desktop/src/manifest.js",
             "packages/contracts/src/index.js",
             "packages/migrations/src/index.js",

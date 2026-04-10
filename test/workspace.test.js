@@ -7,7 +7,6 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import { apiSkeletonManifest } from '../apps/api/src/index.js';
-import { webSkeletonManifest } from '../apps/web/src/index.js';
 import { desktopSkeletonManifest } from '../apps/desktop/src/index.js';
 import {
   AUTH_PENDING_CODE,
@@ -29,19 +28,11 @@ function runNode(args) {
   return result.stdout.trim();
 }
 
-test('api/web/desktop manifests stay aligned to the approved phase-gate contract', () => {
+test('api and desktop manifests stay aligned to the approved phase-gate contract', () => {
   assert.equal(apiSkeletonManifest.requestContext.authPendingCode, AUTH_PENDING_CODE);
   assert.deepEqual(
     apiSkeletonManifest.domains.map((domain) => domain.id),
     ['auth', 'org', 'skill', 'package', 'review', 'install', 'search', 'notify', 'audit'],
-  );
-
-  assert.equal(webSkeletonManifest.authPendingCode, AUTH_PENDING_CODE);
-  assert.equal(webSkeletonManifest.realtime.fallback, 'polling');
-  assert.equal(
-    webSkeletonManifest.pages.every((page) =>
-      assert.deepEqual(page.requiredStates, webSkeletonManifest.sharedStates) === undefined),
-    true,
   );
 
   assert.equal(desktopSkeletonManifest.sessionStorageRule.includes('never in SQLite'), true);
@@ -50,15 +41,12 @@ test('api/web/desktop manifests stay aligned to the approved phase-gate contract
 
 test('app build scripts emit manifests that match the runtime source of truth', async () => {
   runNode(['apps/api/build.js']);
-  runNode(['apps/web/build.js']);
   runNode(['apps/desktop/build.js']);
 
   const apiDist = JSON.parse(await readFile(resolve(repoRoot, 'apps/api/dist/manifest.json'), 'utf8'));
-  const webDist = JSON.parse(await readFile(resolve(repoRoot, 'apps/web/dist/manifest.json'), 'utf8'));
   const desktopDist = JSON.parse(await readFile(resolve(repoRoot, 'apps/desktop/dist/manifest.json'), 'utf8'));
 
   assert.deepEqual(apiDist, apiSkeletonManifest);
-  assert.deepEqual(webDist, webSkeletonManifest);
   assert.deepEqual(desktopDist, desktopSkeletonManifest);
 });
 

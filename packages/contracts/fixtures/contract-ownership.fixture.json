@@ -5,7 +5,6 @@
     "fixture": "packages/contracts/fixtures/auth-error-envelope.fixture.json",
     "consumers": [
       "apps/api",
-      "apps/web",
       "apps/desktop"
     ]
   },
@@ -14,8 +13,7 @@
     "canonicalSource": "packages/contracts/src/convergence.js",
     "fixture": "packages/contracts/fixtures/auth-org-convergence.fixture.json",
     "consumers": [
-      "apps/api",
-      "apps/web"
+      "apps/api"
     ]
   },
   {
@@ -33,7 +31,6 @@
     "fixture": "packages/contracts/fixtures/sse-payload.fixture.json",
     "consumers": [
       "apps/api",
-      "apps/web",
       "apps/desktop"
     ]
   },

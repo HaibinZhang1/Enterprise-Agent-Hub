@@ -18,35 +18,37 @@ function visibleText(markup) {
     .trim();
 }
 
-function appsWebPromotionLines(markdown) {
-  return markdown
-    .split(/\r?\n/)
-    .filter((line) => /apps\/web/i.test(line))
-    .filter((line) => /maintained|product|demo|reference UI|reference surface/i.test(line))
-    .filter((line) => !/not|do not|historical|non-product|prior|memory-runtime/i.test(line));
-}
+test('desktop release UI exposes modal auth, publish/review workbench, and admin management structure on the routed shell', async () => {
+  const [html, app, boot, dialogs, topbar, mySkillPage, reviewPage, managementPage, mySkillFeature, reviewFeature] = await Promise.all([
+    read('apps/desktop/ui/index.html'),
+    read('apps/desktop/ui/app.js'),
+    read('apps/desktop/ui/core/boot.js'),
+    read('apps/desktop/ui/components/dialogs.js'),
+    read('apps/desktop/ui/components/topbar.js'),
+    read('apps/desktop/ui/pages/my-skill.js'),
+    read('apps/desktop/ui/pages/review.js'),
+    read('apps/desktop/ui/pages/management.js'),
+    read('apps/desktop/ui/features/my-skill.js'),
+    read('apps/desktop/ui/features/review.js'),
+  ]);
+  const runtimeEntry = `${app}\n${boot}\n${dialogs}\n${topbar}\n${mySkillPage}\n${reviewPage}\n${managementPage}\n${mySkillFeature}\n${reviewFeature}`;
+  const text = visibleText(`${dialogs}\n${mySkillPage}\n${reviewPage}\n${managementPage}`);
 
-test('desktop release UI exposes the resumed minimum publish/review workbench without reopening broader review scope', async () => {
-  const html = await read('apps/desktop/ui/index.html');
-  const app = await read('apps/desktop/ui/app.js');
-  const boot = await read('apps/desktop/ui/core/boot.js');
-  const text = visibleText(html);
-  const runtimeEntry = `${app}\n${boot}`;
-
-  assert.match(html, /id=["']login-form["']/);
-  assert.match(text, /connection status|api connection|server status|api status/i);
-  assert.match(text, /server url|api url|configured server/i);
-  assert.match(text, /my skills?/i);
-  assert.match(text, /market|browse|search/i);
-  assert.match(text, /notifications?|status/i);
-  assert.match(html, /href=["']\/style\.css["']|href=["']\/styles\.css["']/);
+  assert.match(html, /id=["']dialog-host["']/);
+  assert.doesNotMatch(html, /id=["']login-form["']/);
+  assert.match(runtimeEntry, /data-open-auth=/);
+  assert.match(runtimeEntry, /data-login-form=/);
+  assert.match(runtimeEntry, /Publish Workbench/);
+  assert.match(runtimeEntry, /部门管理/);
+  assert.match(runtimeEntry, /用户管理/);
+  assert.match(runtimeEntry, /Skill 管理/);
   assert.match(text, /publish workbench|upload \+ submit/i);
-  assert.match(text, /review queue/i);
-  assert.match(text, /skill management/i);
-  assert.match(runtimeEntry, /publishForm/);
+  assert.match(text, /review/i);
+  assert.match(text, /management/i);
   assert.match(runtimeEntry, /\/api\/reviews\/submit/);
-  assert.match(runtimeEntry, /\/api\/reviews\/\$\{ticketId\}\/claim/);
-  assert.match(runtimeEntry, /\/api\/reviews\/\$\{ticketId\}\/approve/);
+  assert.match(runtimeEntry, /\/api\/reviews\/\$\{encodeURIComponent\(ticketId\)\}\/claim/);
+  assert.match(runtimeEntry, /\/api\/reviews\/\$\{encodeURIComponent\(ticketId\)\}\/approve/);
+  assert.doesNotMatch(runtimeEntry, /focusLoginEntry/);
   assert.doesNotMatch(text, /reject ticket|withdraw submission|reassign reviewer|comment thread|review history|multi-reviewer/i);
 });
 
@@ -82,14 +84,13 @@ test('desktop shell keeps publish and review proxy routes available for resumed 
   assert.match(server, /'\/api\/reviews'/);
 });
 
-test('documentation keeps apps/web out of the Windows-first product/demo path', async () => {
+test('documentation keeps the Windows-first product/demo path desktop-only', async () => {
   const readme = await read('README.md');
   const runbook = await read('docs/desktop-release-runbook.md');
   const combined = `${readme}\n${runbook}`;
 
   assert.match(combined, /apps\/desktop[^\n]*(only|primary|maintained).*(product|demo|release)|only[^\n]*(product|demo|release)[^\n]*apps\/desktop/i);
-  assert.deepEqual(appsWebPromotionLines(combined), []);
-  assert.doesNotMatch(combined, /pnpm --filter @enterprise-agent-hub\/web dev/i);
+  assert.doesNotMatch(combined, /apps\/web/i);
   assert.match(combined, /Windows/i);
   assert.match(combined, /installer|package artifact/i);
   assert.match(combined, /INTRANET_BASE_URL|PRODUCTION_BASE_URL|LAN URL/i);

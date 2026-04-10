@@ -99,6 +99,10 @@
   gap: 12px;
 }
 
+.topbar__left {
+  position: relative;
+}
+
 .topbar__right {
   justify-content: flex-end;
 }

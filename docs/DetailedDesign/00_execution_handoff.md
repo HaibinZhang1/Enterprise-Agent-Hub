@@ -4,12 +4,12 @@
 本文档将详细设计包转换为“可执行的落地入口”，用于帮助实施、测试、评审三类角色在真正开始编码前对齐：
 - 先做什么，后做什么
 - 哪些契约必须先冻结
-- 哪些设计文档分别约束 backend / web / desktop / deployment
+- 哪些设计文档分别约束 backend / desktop / deployment
 - 每一阶段以什么证据作为通过标准
 
 > 约束说明：当前仓库仍以需求文档与详细设计文档为主，尚未存在可复用的应用骨架、共享契约包或自动化测试基线，因此实施必须先完成基础骨架与 Phase 0.5 契约冻结，再进入并行编码。
 
-> 当前发布边界（2026-04-09）：本交接文档中的 web/frontend 并行 lane 是完整产品蓝图的历史实施建议；Windows-first 内网生产发布的产品/演示入口仅为 `apps/desktop`。本轮不得把 `apps/web`、发布/审核页面或 Web MVP 作为发布验收依赖。
+> 当前发布边界（2026-04-09）：Windows-first 内网生产发布的产品/演示入口仅为 `apps/desktop`。本轮不得把其他界面蓝图、发布/审核页面或历史 MVP 作为发布验收依赖。
 
 ## 2. 当前审阅结论
 
@@ -19,14 +19,14 @@
 - 前端页面、服务端模块、桌面端模块都已按领域拆分，具备按垂直切片实施的条件。
 
 ### 2.2 当前仍缺失的落地前置项
-- **缺少仓库级工程骨架**：尚无 backend / web / desktop / shared-contracts / test-harness 的实际目录与脚手架。
+- **缺少仓库级工程骨架**：尚无 backend / desktop / shared-contracts / test-harness 的完整实际目录与脚手架。
 - **缺少契约冻结产物**：`AUTHZ_RECALC_PENDING`、auth/org 收敛语义、install/reconcile 状态枚举、SSE payload、事实权威矩阵仍未以共享 fixture 形式固化。
 - **缺少阶段门禁证据模板**：如果直接并行开发，容易在 DTO、枚举、错误码、SSE 事件上产生漂移。
 
 ### 2.3 实施结论
 1. 必须先完成 **Phase 0（工程骨架）**。
 2. 紧接着完成 **Phase 0.5（共享契约冻结）**。
-3. 只有在 0.5 门禁通过后，才能拆成 backend / web / desktop / infra / QA 并行工作。
+3. 只有在 0.5 门禁通过后，才能拆成 backend / desktop / infra / QA 并行工作。
 
 ## 3. 建议阅读顺序
 1. [总体架构](./architecture/01_system_architecture.md)
@@ -42,8 +42,8 @@
 
 | 阶段 | 目标 | 主要输出 | 主要约束文档 | 通过标准 |
 | --- | --- | --- | --- | --- |
-| Phase 0 | 建立可编码骨架 | Monorepo 目录、backend/web/desktop/shared 包、配置与迁移入口 | architecture / data / deployment | 本地可构建；PostgreSQL 与 SQLite 迁移链路可执行 |
-| Phase 0.5 | 冻结共享契约 | 错误码 fixture、DTO/event fixture、安装/收敛状态枚举、事实权威矩阵 | auth / backend / desktop / frontend-pages | backend、web、desktop 共用同一份契约产物，无重复定义 |
+| Phase 0 | 建立可编码骨架 | Monorepo 目录、backend/desktop/shared 包、配置与迁移入口 | architecture / data / deployment | 本地可构建；PostgreSQL 与 SQLite 迁移链路可执行 |
+| Phase 0.5 | 冻结共享契约 | 错误码 fixture、DTO/event fixture、安装/收敛状态枚举、事实权威矩阵 | auth / backend / desktop / frontend-pages | backend、desktop 共用同一份契约产物，无重复定义 |
 | Phase 1 | 落地身份与治理底座 | auth、org、audit、notify、管理类基础流程 | auth / backend / frontend-pages | 登录、首登改密、组织调整、冻结/解冻、通知/审计链路打通 |
 | Phase 2 | 落地发布-审核-最小搜索通知闭环 | package / skill / review / 最小 search / notify 页面联通 | backend/package、skill、review、search、frontend-pages | 上传->审核->发布->可见->通知红点 最小闭环通过 |
 | Phase 3 | 落地安装与桌面执行闭环 | install、desktop local-state、skill-sync、冲突处理、工具/项目联动 | backend/install + desktop/* + tools/projects 页面 | 安装/启停/卸载/重试/收敛恢复可用，且服务端与桌面权威边界不混淆 |
@@ -85,7 +85,6 @@
 ```text
 apps/
   api/
-  web/
   desktop/
 packages/
   shared-contracts/
@@ -103,7 +102,6 @@ tests/
 
 ### 目录职责建议
 - `apps/api`：NestJS 模块单体，按 auth/org/skill/package/review/install/search/notify/audit 分域
-- `apps/web`：React 管理台与终端用户页面
 - `apps/desktop`：Tauri shell + Rust/TS bridge + 本地状态能力
 - `packages/shared-contracts`：错误码、DTO、枚举、SSE payload、source-of-truth schema
 - `packages/test-fixtures`：Phase 0.5 冻结的 fixture 与 snapshot
@@ -116,9 +114,9 @@ tests/
 | --- | --- |
 | auth error / convergence 契约 | backend governance lane |
 | install/reconcile/source-of-truth 契约 | backend marketplace lane + desktop lane 联合评审 |
-| SSE / badge / notify payload | backend governance lane，web/desktop 只消费 |
+| SSE / badge / notify payload | backend governance lane，desktop 只消费 |
 | Phase gate fixture / traceability | QA / verifier lane |
-| 页面状态矩阵与权限态说明 | web lane |
+| 页面状态矩阵与权限态说明 | desktop lane |
 
 ## 8. 文档使用建议
 - 详细设计文档继续作为**业务与技术约束源**。

@@ -6,7 +6,6 @@
       "package.json",
       "pnpm-workspace.yaml",
       "apps/api/src/manifest.js",
-      "apps/web/src/manifest.js",
       "apps/desktop/src/manifest.js",
       "packages/migrations/postgres/sql/0001_initial_foundation.sql",
       "packages/migrations/postgres/sql/0002_mvp_read_models.sql",
@@ -21,7 +20,7 @@
   },
   {
     "gate": "gate-0.5-contract-freeze",
-    "description": "Shared fixtures are frozen and consumed across backend, web, and desktop scaffolds.",
+    "description": "Shared fixtures are frozen and consumed across backend and desktop scaffolds.",
     "requiredArtifacts": [
       "packages/contracts/fixtures/auth-error-envelope.fixture.json",
       "packages/contracts/fixtures/auth-org-convergence.fixture.json",

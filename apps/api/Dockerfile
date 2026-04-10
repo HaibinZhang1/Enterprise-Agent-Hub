@@ -28,7 +28,6 @@ WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/desktop/package.json apps/desktop/package.json
-COPY apps/web/package.json apps/web/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/migrations/package.json packages/migrations/package.json
 

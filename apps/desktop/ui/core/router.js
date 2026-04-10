@@ -1,4 +1,5 @@
-import { canAccessPage, getSafeFallback } from './page-registry.js';
+import { canAccessPage, getProtectedPrompt, getSafeFallback, requiresAuthentication } from './page-registry.js';
+import { createRouteIntent } from './protected-intent.js';
 
 export function parseHashRoute(hashValue) {
   const hash = String(hashValue ?? '').replace(/^#/, '').trim();
@@ -9,22 +10,36 @@ export function parseHashRoute(hashValue) {
   return { pageId: pageId || 'home' };
 }
 
-export function resolvePageRoute(hashValue, session) {
-  const parsed = parseHashRoute(hashValue);
-  if (canAccessPage(parsed.pageId, session)) {
-    return parsed.pageId;
+export function resolveNavigationTarget(pageId, session) {
+  const shouldPrompt = requiresAuthentication(pageId) && !session?.user;
+  if (canAccessPage(pageId, session) && !shouldPrompt) {
+    return { pageId, blocked: false, pendingIntent: null, prompt: null };
   }
-  return getSafeFallback(parsed.pageId, session);
+
+  const fallback = getSafeFallback(pageId, session);
+  return {
+    pageId: fallback,
+    blocked: shouldPrompt,
+    pendingIntent: shouldPrompt ? createRouteIntent(pageId) : null,
+    prompt: shouldPrompt ? getProtectedPrompt(pageId) : null,
+  };
 }
 
-export function createRouter({ onRouteChange, getSession }) {
-  function currentPage() {
-    return resolvePageRoute(window.location.hash, getSession());
-  }
+export function resolvePageRoute(hashValue, session) {
+  const parsed = parseHashRoute(hashValue);
+  return resolveNavigationTarget(parsed.pageId, session).pageId;
+}
 
+export function createRouter({ onRouteChange, onBlockedRoute, getSession }) {
   function applyRoute(replace = false) {
-    const target = currentPage();
-    const nextHash = `#${target}`;
+    const parsed = parseHashRoute(window.location.hash);
+    const resolved = resolveNavigationTarget(parsed.pageId, getSession());
+    const nextHash = `#${resolved.pageId}`;
+
+    if (resolved.blocked) {
+      onBlockedRoute?.(resolved);
+    }
+
     if (window.location.hash !== nextHash) {
       if (replace) {
         window.history.replaceState(null, '', nextHash);
@@ -33,21 +48,29 @@ export function createRouter({ onRouteChange, getSession }) {
         return;
       }
     }
-    onRouteChange(target);
+
+    onRouteChange(resolved.pageId, { blocked: resolved.blocked, requestedPageId: parsed.pageId });
   }
 
   function navigate(pageId, { replace = false } = {}) {
-    const target = canAccessPage(pageId, getSession()) ? pageId : getSafeFallback(pageId, getSession());
+    const resolved = resolveNavigationTarget(pageId, getSession());
+    if (resolved.blocked) {
+      onBlockedRoute?.(resolved);
+    }
+
+    const nextHash = `#${resolved.pageId}`;
     if (replace) {
-      window.history.replaceState(null, '', `#${target}`);
-      onRouteChange(target);
+      window.history.replaceState(null, '', nextHash);
+      onRouteChange(resolved.pageId, { blocked: resolved.blocked, requestedPageId: pageId });
       return;
     }
-    if (window.location.hash === `#${target}`) {
-      onRouteChange(target);
+
+    if (window.location.hash === nextHash) {
+      onRouteChange(resolved.pageId, { blocked: resolved.blocked, requestedPageId: pageId });
       return;
     }
-    window.location.hash = `#${target}`;
+
+    window.location.hash = nextHash;
   }
 
   function start() {
@@ -56,8 +79,10 @@ export function createRouter({ onRouteChange, getSession }) {
   }
 
   return Object.freeze({
-    currentPage,
     navigate,
     start,
+    currentPage() {
+      return resolvePageRoute(window.location.hash, getSession());
+    },
   });
 }

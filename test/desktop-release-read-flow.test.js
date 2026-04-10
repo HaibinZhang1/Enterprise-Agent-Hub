@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { createDesktopServer } from '../apps/desktop/src/server.js';
+
+const repoRoot = resolve(import.meta.dirname, '..');
 
 function listen(server, host = '127.0.0.1') {
   return new Promise((resolvePromise) => {
@@ -98,16 +100,13 @@ test('desktop release smoke covers login, My Skill, market, notifications, and c
     const health = await readJson(await fetch(`${desktopBaseUrl}/health`));
     assert.equal(health.ok, true);
     assert.equal(health.apiBaseUrl, apiBaseUrl);
-    assert.match(shellHtml, /Release boundary:/);
-    assert.match(shellHtml, /Tools/);
-    assert.match(shellHtml, /Projects/);
-    assert.match(shellHtml, /Settings/);
-    assert.match(shellHtml, /Publish Workbench/);
-    assert.match(shellHtml, /Review Queue/);
-    assert.match(shellHtml, /Pending local change/);
-    assert.match(shellHtml, /apps\/web/);
+    assert.match(shellHtml, /id="nav-panel"/);
+    assert.match(shellHtml, /id="topbar"/);
+    assert.match(shellHtml, /id="page-outlet"/);
+    assert.match(shellHtml, /id="dialog-host"/);
     assert.doesNotMatch(shellHtml, /sqlite path/i);
     assert.doesNotMatch(shellHtml, /DESKTOP_SQLITE_PATH/);
+    assert.doesNotMatch(shellHtml, /legacy-shell-source/);
 
     const beforeLogin = await readJson(await fetch(`${desktopBaseUrl}/api/skills/my`));
     assert.deepEqual(beforeLogin, { ok: false, reason: 'session_required' });
@@ -147,7 +146,7 @@ test('desktop release smoke covers login, My Skill, market, notifications, and c
   }
 });
 
-test('desktop release shell keeps publish-review boundary copy while hiding SQLite path details from product UI', async () => {
+test('desktop release shell keeps publish-review boundary modules while hiding SQLite path details from product HTML', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'desktop-release-shell-'));
   const desktop = await createDesktopServer({
     port: 0,
@@ -160,19 +159,26 @@ test('desktop release shell keeps publish-review boundary copy while hiding SQLi
     assert.equal(typeof desktopAddress, 'object');
     const desktopBaseUrl = `http://127.0.0.1:${desktopAddress.port}`;
 
-    const html = await readText(await fetch(`${desktopBaseUrl}/`));
+    const [html, mySkillPage, reviewPage, managementPage, dialogs] = await Promise.all([
+      readText(await fetch(`${desktopBaseUrl}/`)),
+      readFile(resolve(repoRoot, 'apps/desktop/ui/pages/my-skill.js'), 'utf8'),
+      readFile(resolve(repoRoot, 'apps/desktop/ui/pages/review.js'), 'utf8'),
+      readFile(resolve(repoRoot, 'apps/desktop/ui/pages/management.js'), 'utf8'),
+      readFile(resolve(repoRoot, 'apps/desktop/ui/components/dialogs.js'), 'utf8'),
+    ]);
 
-    assert.match(html, /Release boundary:/);
-    assert.match(html, /Tools/);
-    assert.match(html, /Projects/);
-    assert.match(html, /Settings/);
-    assert.match(html, /publish\/review workbench path/i);
-    assert.match(html, /apps\/web.*historical\/non-product/i);
-    assert.match(html, /Publish Workbench/);
-    assert.match(html, /Review Queue/);
-    assert.match(html, /Pending local change/);
+    assert.match(html, /id="nav-panel"/);
+    assert.match(html, /id="topbar"/);
+    assert.match(html, /id="page-outlet"/);
+    assert.match(html, /id="dialog-host"/);
     assert.doesNotMatch(html, /DESKTOP_SQLITE_PATH/);
     assert.doesNotMatch(html, /sqlite path/i);
+    assert.match(mySkillPage, /Publish Workbench/);
+    assert.match(reviewPage, /Review/);
+    assert.match(managementPage, /部门管理/);
+    assert.match(managementPage, /用户管理/);
+    assert.match(managementPage, /Skill 管理/);
+    assert.match(dialogs, /data-login-form=/);
   } finally {
     await close(desktop.server);
   }

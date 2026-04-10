@@ -25,7 +25,6 @@
     "apps/desktop/apps/**/*",
     "apps/desktop/src/desktop-shell/**/*",
     "apps/desktop/src-tauri/target/**/*",
-    "apps/desktop/ui/**/*",
-    "apps/web/**/*"
+    "apps/desktop/ui/**/*"
   ]
 }

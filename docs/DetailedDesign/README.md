@@ -3,7 +3,7 @@
 ## 设计包说明
 本目录基于需求文档、deep-interview 规格与已批准的 auth 方案，沉淀准实施级详细设计。
 
-> 当前发布边界（2026-04-09）：Windows-first 内网生产交付以 `apps/desktop` 为唯一维护的产品/演示入口。本文档包仍保留完整产品蓝图（含前端页面与审核模块），但本轮发布验收不得把 `apps/web` 或发布/审核页面作为当前产品 UI、演示 UI、参考 UI或退出条件。
+> 当前发布边界（2026-04-09）：Windows-first 内网生产交付以 `apps/desktop` 为唯一维护的产品/演示入口。本文档包仍保留完整产品蓝图（含前端页面与审核模块），但本轮发布验收必须以 Desktop 路径为准，不得把其他界面蓝图当作当前产品 UI、演示 UI、参考 UI或退出条件。
 
 ## 目录总览
 - [实施交接说明](./00_execution_handoff.md)
@@ -28,6 +28,26 @@
 - 阅读顺序：总体架构 -> Auth -> 服务端/桌面端/前端 -> 数据/部署 -> [实施交接说明](./00_execution_handoff.md)
 - 进入编码前，先冻结共享契约（Auth 错误码与收敛语义、install/reconcile 状态、SSE payload、事实权威矩阵），再拆分并行开发任务
 - 若仓库中尚无工程骨架，应优先完成 Phase 0/0.5，而不是直接从业务模块横向铺开
+
+## OMX 运行与规划工件
+- 本仓库当前按 `oh-my-codex / omx 0.12.4` 维护与验证。
+- 规划、访谈、状态与追踪工件默认写入仓库根目录下的 `.omx/`。
+- 建议在进入设计/实施前先执行：
+
+```bash
+omx --version
+omx setup --force --scope user --verbose
+omx doctor
+```
+
+- 若需要检查当前会话/规划状态，优先使用：
+
+```bash
+omx state
+omx notepad
+omx project-memory
+omx trace
+```
 
 ## 模块范围
 ### 服务端
