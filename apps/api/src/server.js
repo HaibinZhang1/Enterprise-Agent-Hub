@@ -265,6 +265,34 @@ export async function createApiServer(config = {}) {
         return;
       }
 
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'notifications' && segments[3] === 'read') {
+        const notificationId = segments[2];
+        const badges = context.notifyService.markRead({
+          userId: authorized.user.userId,
+          notificationId,
+        });
+        sendJson(response, 200, {
+          ok: true,
+          notificationId,
+          badges,
+          updatedAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/notifications/read-all') {
+        const badges = context.notifyService.readAll({
+          userId: authorized.user.userId,
+        });
+        sendJson(response, 200, {
+          ok: true,
+          readAll: true,
+          badges,
+          updatedAt: new Date().toISOString(),
+        });
+        return;
+      }
+
       if (request.method === 'GET' && url.pathname === '/api/skills/my') {
         sendJson(response, 200, { ok: true, skills: context.skillCatalogService.listOwnedSkills(authorized.user.userId) });
         return;
