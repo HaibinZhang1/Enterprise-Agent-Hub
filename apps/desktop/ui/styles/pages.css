@@ -1,3 +1,14 @@
+.page-screen {
+  display: grid;
+  gap: 20px;
+}
+
+.page-screen--workspace,
+.page-screen--local,
+.page-screen--admin {
+  align-content: start;
+}
+
 .page-grid {
   display: grid;
   gap: 20px;

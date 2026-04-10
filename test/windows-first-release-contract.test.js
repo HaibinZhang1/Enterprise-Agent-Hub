@@ -29,7 +29,9 @@ function appsWebPromotionLines(markdown) {
 test('desktop release UI exposes the resumed minimum publish/review workbench without reopening broader review scope', async () => {
   const html = await read('apps/desktop/ui/index.html');
   const app = await read('apps/desktop/ui/app.js');
+  const boot = await read('apps/desktop/ui/core/boot.js');
   const text = visibleText(html);
+  const runtimeEntry = `${app}\n${boot}`;
 
   assert.match(html, /id=["']login-form["']/);
   assert.match(text, /connection status|api connection|server status|api status/i);
@@ -41,10 +43,10 @@ test('desktop release UI exposes the resumed minimum publish/review workbench wi
   assert.match(text, /publish workbench|upload \+ submit/i);
   assert.match(text, /review queue/i);
   assert.match(text, /skill management/i);
-  assert.match(app, /publishForm/);
-  assert.match(app, /\/api\/reviews\/submit/);
-  assert.match(app, /\/api\/reviews\/\$\{ticketId\}\/claim/);
-  assert.match(app, /\/api\/reviews\/\$\{ticketId\}\/approve/);
+  assert.match(runtimeEntry, /publishForm/);
+  assert.match(runtimeEntry, /\/api\/reviews\/submit/);
+  assert.match(runtimeEntry, /\/api\/reviews\/\$\{ticketId\}\/claim/);
+  assert.match(runtimeEntry, /\/api\/reviews\/\$\{ticketId\}\/approve/);
   assert.doesNotMatch(text, /reject ticket|withdraw submission|reassign reviewer|comment thread|review history|multi-reviewer/i);
 });
 
