@@ -2,6 +2,7 @@
 import { access, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,17 +54,14 @@ if (!sqlitePath) {
   throw new Error('Set SQLITE_PATH or use --dry-run / --emit');
 }
 
-const sqliteBinary = spawnSync('sqlite3', ['--version'], { encoding: 'utf8' });
-if (sqliteBinary.status !== 0) {
-  throw new Error('sqlite3 is required for direct execution; use --dry-run if unavailable');
-}
-
 const bundle = await loadSqlBundle(sqlFiles);
 for (const file of sqlFiles) {
   await access(file, constants.R_OK);
-  const run = spawnSync('sqlite3', [sqlitePath], { input: bundle, stdio: ['pipe', 'inherit', 'inherit'] });
-  if (run.status !== 0) {
-    throw new Error(`sqlite3 failed for ${file}`);
+  const database = new DatabaseSync(sqlitePath);
+  try {
+    database.exec(bundle);
+  } finally {
+    database.close();
   }
   break;
 }

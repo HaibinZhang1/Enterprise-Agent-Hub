@@ -11,16 +11,28 @@ ARG PNPM_REGISTRY_URL=https://registry.npmjs.org
 
 COPY --from=node_runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node_runtime /usr/local/bin/corepack /usr/local/bin/corepack
-COPY --from=node_runtime /usr/local/bin/pnpm /usr/local/bin/pnpm
-COPY --from=node_runtime /usr/local/bin/pnpx /usr/local/bin/pnpx
 COPY --from=node_runtime /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/corepack
-COPY --from=node_runtime /lib/ld-musl-aarch64.so.1 /lib/ld-musl-aarch64.so.1
-COPY --from=node_runtime /usr/lib/libstdc++.so.6 /usr/lib/libstdc++.so.6
-COPY --from=node_runtime /usr/lib/libstdc++.so.6.0.34 /usr/lib/libstdc++.so.6.0.34
-COPY --from=node_runtime /usr/lib/libgcc_s.so.1 /usr/lib/libgcc_s.so.1
 
-RUN if [ "$API_HAS_POSTGRES_CLIENT" != "1" ]; then apk add --no-cache postgresql-client; fi
-RUN if [ "$API_OFFLINE_WORKSPACE" != "1" ]; then corepack enable || true; fi
+RUN if command -v apk >/dev/null 2>&1; then \
+      apk add --no-cache ca-certificates libgcc libstdc++; \
+    elif command -v apt-get >/dev/null 2>&1; then \
+      apt-get update && \
+      apt-get install -y --no-install-recommends ca-certificates libstdc++6 && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+RUN if [ "$API_HAS_POSTGRES_CLIENT" != "1" ]; then \
+      if command -v apk >/dev/null 2>&1; then \
+        apk add --no-cache postgresql-client; \
+      elif command -v apt-get >/dev/null 2>&1; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends postgresql-client && \
+        rm -rf /var/lib/apt/lists/*; \
+      else \
+        echo "Unsupported base image: no apk or apt-get available for postgresql-client install." >&2; \
+        exit 1; \
+      fi; \
+    fi
+RUN if [ "$API_OFFLINE_WORKSPACE" != "1" ]; then corepack enable || true; corepack prepare pnpm@10.33.0 --activate; fi
 RUN if [ "$API_OFFLINE_WORKSPACE" != "1" ]; then pnpm config set registry "${PNPM_REGISTRY_URL}"; fi
 
 WORKDIR /workspace

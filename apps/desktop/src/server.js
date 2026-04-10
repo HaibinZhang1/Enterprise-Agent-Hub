@@ -20,11 +20,12 @@ const STATIC_CONTENT_TYPES = Object.freeze({
   '.svg': 'image/svg+xml',
 });
 
-const DEFAULT_TOOL_COMMANDS = Object.freeze(['node', 'pnpm', 'git', 'python3', 'sqlite3', 'cargo']);
+const DEFAULT_TOOL_COMMANDS = Object.freeze(['node', 'pnpm', 'git', 'python', 'sqlite3', 'cargo']);
 const DEFAULT_TOOL_LABELS = Object.freeze({
   node: 'Node.js',
   pnpm: 'pnpm',
   git: 'Git',
+  python: 'Python',
   python3: 'Python 3',
   sqlite3: 'SQLite 3',
   cargo: 'Rust Cargo',
@@ -242,8 +243,15 @@ async function inspectPath(targetPath) {
 }
 
 function findExecutable(command) {
-  const result = spawnSync('which', [command], { encoding: 'utf8' });
-  return result.status === 0 ? result.stdout.trim() : null;
+  const locator = process.platform === 'win32' ? 'where.exe' : 'which';
+  const result = spawnSync(locator, [command], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    return null;
+  }
+  return result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean) ?? null;
 }
 
 async function inspectTool(command) {
