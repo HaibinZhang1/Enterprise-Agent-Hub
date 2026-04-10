@@ -1,3 +1,8 @@
+import { renderNav } from '../components/nav.js';
+import { renderTopbar } from '../components/topbar.js';
+import { createRouter } from './router.js';
+import { computeReviewTodoCount, computeUnreadCount } from './utils.js';
+
 const loginForm = document.getElementById('login-form');
 const loginStatus = document.getElementById('login-status');
 const sessionMeta = document.getElementById('session-meta');
@@ -28,6 +33,9 @@ const previewPathInput = document.getElementById('preview-path-input');
 const previewBuild = document.getElementById('preview-build');
 const previewConfirm = document.getElementById('preview-confirm');
 const previewCancel = document.getElementById('preview-cancel');
+const navPanel = document.getElementById('nav-panel');
+const topbar = document.getElementById('topbar');
+const pageOutlet = document.getElementById('page-outlet');
 
 const views = {
   tools: {
@@ -90,6 +98,90 @@ let eventSource = null;
 let currentSession = null;
 let currentProjects = [];
 let previewContext = null;
+let currentRoute = 'home';
+let routedPages = new Map();
+let router = null;
+const shellState = {
+  route: 'home',
+  session: null,
+  searchQuery: '',
+  notificationBadge: 0,
+  reviewBadge: 0,
+  health: {
+    status: 'checking',
+    label: 'Checking…',
+  },
+};
+
+function createPageScreen(pageId, ...nodes) {
+  const section = document.createElement('section');
+  section.className = 'page-screen';
+  section.dataset.pageId = pageId;
+  section.hidden = true;
+  for (const node of nodes.filter(Boolean)) {
+    section.append(node);
+  }
+  return section;
+}
+
+function setupShellPages() {
+  const hero = document.querySelector('.hero');
+  const loginPanelSection = document.querySelector('.login-panel');
+  const releaseBoundary = document.querySelector('.release-boundary');
+  const toolbarSection = document.querySelector('.toolbar');
+  const toolsArticle = document.getElementById('tools-heading')?.closest('article');
+  const projectsArticle = document.getElementById('projects-heading')?.closest('article');
+  const settingsArticle = document.getElementById('settings-heading')?.closest('article');
+  const marketArticle = document.getElementById('market-heading')?.closest('article');
+  const mySkillsArticle = document.getElementById('my-skills-heading')?.closest('article');
+  const notificationsArticle = document.getElementById('notifications-heading')?.closest('article');
+  const eventsArticle = document.getElementById('events-heading')?.closest('article');
+  const publishArticle = document.getElementById('publish-heading')?.closest('article');
+  const reviewArticle = document.getElementById('review-queue-heading')?.closest('article');
+  const managementArticle = document.getElementById('management-heading')?.closest('article');
+
+  const screens = [
+    createPageScreen('home', hero, releaseBoundary, loginPanelSection),
+    createPageScreen('market', toolbarSection, marketArticle),
+    createPageScreen('my-skill', mySkillsArticle, publishArticle),
+    createPageScreen('tools', toolsArticle, previewPanel),
+    createPageScreen('projects', projectsArticle),
+    createPageScreen('notifications', notificationsArticle, eventsArticle),
+    createPageScreen('settings', settingsArticle),
+    createPageScreen('review', reviewArticle),
+    createPageScreen('management', managementArticle),
+  ];
+
+  routedPages = new Map(screens.map((screen) => [screen.dataset.pageId, screen]));
+  pageOutlet.replaceChildren(...screens);
+}
+
+function renderShellChrome() {
+  if (navPanel) {
+    navPanel.innerHTML = renderNav(shellState);
+  }
+  if (topbar) {
+    topbar.innerHTML = renderTopbar(shellState);
+  }
+}
+
+function focusLoginEntry() {
+  router?.navigate('home');
+  loginForm?.querySelector('input[name="username"]')?.focus();
+  loginForm?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function showRoute(pageId) {
+  currentRoute = pageId;
+  shellState.route = pageId;
+  for (const [candidateId, screen] of routedPages.entries()) {
+    screen.hidden = candidateId !== pageId;
+  }
+  if (loginForm) {
+    loginForm.closest('.login-panel').hidden = Boolean(currentSession?.user) || pageId !== 'home';
+  }
+  renderShellChrome();
+}
 
 function setState(viewName, state, label) {
   const view = views[viewName];
@@ -217,7 +309,9 @@ function setPublishEnabled(enabled) {
 
 function updateSession(session) {
   currentSession = session ?? null;
+  shellState.session = currentSession;
   sessionMeta.textContent = session?.user ? `${session.user.username} (${session.user.roleCode ?? 'user'})` : 'Not signed in';
+  renderShellChrome();
 }
 
 function formatIssues(issues) {
@@ -754,10 +848,19 @@ async function refreshConnectionStatus() {
     const health = await json('/health');
     connectionStatus.textContent = health.ok ? 'Online' : 'Unavailable';
     serverUrl.textContent = health.apiBaseUrl ?? 'Not configured';
+    shellState.health = {
+      status: health.ok ? 'online' : 'offline',
+      label: health.ok ? 'Online' : 'Unavailable',
+    };
   } catch (error) {
     connectionStatus.textContent = 'Offline';
     serverUrl.textContent = error instanceof Error ? error.message : 'Health check failed';
+    shellState.health = {
+      status: 'offline',
+      label: 'Offline',
+    };
   }
+  renderShellChrome();
 }
 
 async function loadLocalViews() {
@@ -813,6 +916,9 @@ async function loadRemoteViews(session) {
   }
 
   if (!session?.user) {
+    shellState.notificationBadge = 0;
+    shellState.reviewBadge = 0;
+    renderShellChrome();
     renderSignedOutRemoteState();
     return;
   }
@@ -852,24 +958,29 @@ async function loadRemoteViews(session) {
   }
 
   if (notifications.status === 'fulfilled') {
+    shellState.notificationBadge = notifications.value.badges?.unreadCount ?? computeUnreadCount(notifications.value.items ?? []);
     renderCards('notifications', notifications.value.items ?? [], (item) => ({
       title: item.title ?? item.category ?? 'Notification',
       body: item.body ?? item.message ?? '',
       meta: [item.category, item.createdAt, item.readAt ? 'read' : 'unread'].filter(Boolean),
     }));
   } else {
+    shellState.notificationBadge = 0;
     renderError('notifications', notifications.reason);
   }
 
   if (canReview(session)) {
     if (reviewQueue.status === 'fulfilled') {
+      shellState.reviewBadge = computeReviewTodoCount(reviewQueue.value?.queue);
       reviewStatus.textContent = 'Assigned review tickets load here. Claim a todo ticket before approving it.';
       renderReviewQueue(reviewQueue.value?.queue);
     } else {
+      shellState.reviewBadge = 0;
       renderError('reviewQueue', reviewQueue.reason);
       reviewStatus.textContent = reviewQueue.reason instanceof Error ? reviewQueue.reason.message : 'Review queue failed.';
     }
   } else {
+    shellState.reviewBadge = 0;
     setState('reviewQueue', 'empty', 'Role gated');
     clearView('reviewQueue', 'Review queue unlocks for review_admin and system_admin roles.');
     reviewStatus.textContent = 'Review actions unlock for review_admin and system_admin roles.';
@@ -885,6 +996,8 @@ async function loadRemoteViews(session) {
     setState('management', 'empty', 'Role gated');
     clearView('management', 'Skill management is reserved for administrator sessions.');
   }
+
+  renderShellChrome();
 }
 
 async function loadAll() {
@@ -939,6 +1052,46 @@ function connectEvents() {
   eventSource.onerror = () => {
     setState('events', 'error', 'Disconnected');
   };
+}
+
+function attachShellInteractions() {
+  navPanel?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-route]');
+    if (!button) {
+      return;
+    }
+    router?.navigate(button.dataset.route);
+  });
+
+  topbar?.addEventListener('click', (event) => {
+    const authTrigger = event.target.closest('[data-open-auth]');
+    if (authTrigger) {
+      focusLoginEntry();
+      return;
+    }
+
+    const routeTrigger = event.target.closest('[data-route]');
+    if (routeTrigger) {
+      router?.navigate(routeTrigger.dataset.route);
+    }
+  });
+
+  topbar?.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-search-form]');
+    if (!form) {
+      return;
+    }
+    event.preventDefault();
+    const searchForm = new FormData(form);
+    const query = String(searchForm.get('query') ?? '').trim();
+    shellState.searchQuery = query;
+    if (marketQuery) {
+      marketQuery.value = query;
+    }
+    renderShellChrome();
+    router?.navigate('market');
+    loadRemoteViews(currentSession).catch(() => {});
+  });
 }
 
 loginForm.addEventListener('submit', async (event) => {
@@ -1321,8 +1474,19 @@ reloadAll.addEventListener('click', async () => {
 });
 
 marketQuery.addEventListener('input', () => {
+  shellState.searchQuery = marketQuery.value || '';
+  renderShellChrome();
   loadRemoteViews(currentSession).catch(() => {});
 });
+
+setupShellPages();
+router = createRouter({
+  getSession: () => currentSession,
+  onRouteChange: (pageId) => showRoute(pageId),
+});
+attachShellInteractions();
+renderShellChrome();
+router.start();
 
 setPublishEnabled(false);
 refreshConnectionStatus();
