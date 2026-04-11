@@ -7,6 +7,9 @@ function parseDepartmentIds(value) {
 
 export function createMySkillFeature(app) {
   return Object.freeze({
+    async loadInstalledSkills() {
+      return app.api.request('/api/skills/installed');
+    },
     async loadOwnedSkills() {
       return app.api.request('/api/skills/my');
     },

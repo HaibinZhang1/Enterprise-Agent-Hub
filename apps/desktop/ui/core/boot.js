@@ -38,14 +38,6 @@ let renderedRoute = null;
 let renderVersion = 0;
 let router = null;
 
-function showMessage(title, message) {
-  store.setState((state) => ({
-    ...state,
-    dialog: { type: 'message', title, message },
-    userMenuOpen: false,
-  }));
-}
-
 function closeDialog() {
   store.setState((state) => ({
     ...state,
@@ -223,9 +215,10 @@ async function refreshHealth() {
 }
 
 async function loadLocalData() {
-  const [toolsResult, projectsResult, settingsResult] = await Promise.allSettled([
+  const [toolsResult, projectsResult, installedSkillsResult, settingsResult] = await Promise.allSettled([
     app.features.tools.loadTools(),
     app.features.projects.loadProjects(),
+    app.features.mySkill.loadInstalledSkills(),
     app.features.settings.loadSettings(),
   ]);
 
@@ -258,6 +251,20 @@ async function loadLocalData() {
               currentProjectId: null,
               message: describeApiError(projectsResult.reason),
             },
+      installedSkills:
+        installedSkillsResult.status === 'fulfilled'
+          ? {
+              status: 'loaded',
+              items: installedSkillsResult.value.skills ?? [],
+              message: installedSkillsResult.value.skills?.length
+                ? '桌面本地已安装 Skill 聚合已加载。'
+                : '当前没有本地已安装 Skill。',
+            }
+          : {
+              status: 'error',
+              items: [],
+              message: describeApiError(installedSkillsResult.reason),
+            },
       settings:
         settingsResult.status === 'fulfilled'
           ? {
@@ -274,6 +281,25 @@ async function loadLocalData() {
   }));
 }
 
+function reviewTicketIds(queue) {
+  return [
+    ...(queue?.todo ?? []),
+    ...(queue?.inProgress ?? []),
+    ...(queue?.done ?? []),
+  ].map((ticket) => ticket.ticketId);
+}
+
+function pickReviewSelectionId(queue, currentId) {
+  const ids = reviewTicketIds(queue);
+  if (!ids.length) {
+    return null;
+  }
+  if (currentId && ids.includes(currentId)) {
+    return currentId;
+  }
+  return ids[0];
+}
+
 async function loadRemoteData(session) {
   if (!session?.user) {
     store.setState((state) => ({
@@ -284,7 +310,7 @@ async function loadRemoteData(session) {
         market: { status: 'empty', results: [], message: '登录后可浏览市场。' },
         mySkills: { status: 'empty', items: [], message: '登录后可查看我的 Skill 与发布工作台。' },
         notifications: { status: 'empty', items: [], message: '登录后可查看通知。' },
-        review: { status: 'empty', queue: null, message: '审核入口仅对 reviewer / admin 可见。' },
+        review: { status: 'empty', queue: null, selectedTicketId: null, ticket: null, history: [], message: '审核入口仅对 reviewer / admin 可见。' },
         management: { status: 'empty', skills: [], message: '管理入口仅对管理员开放。' },
       },
     }));
@@ -302,6 +328,14 @@ async function loadRemoteData(session) {
 
   const notificationsPayload = notificationsResult.status === 'fulfilled' ? notificationsResult.value : null;
   const reviewQueue = reviewResult.status === 'fulfilled' ? reviewResult.value?.queue ?? null : null;
+  const selectedTicketId = pickReviewSelectionId(reviewQueue, store.getState().remote.review?.selectedTicketId ?? null);
+  const [reviewTicketResult, reviewHistoryResult] =
+    canReview(session) && selectedTicketId
+      ? await Promise.allSettled([
+          app.features.review.loadTicket(selectedTicketId),
+          app.features.review.loadHistory(selectedTicketId),
+        ])
+      : [null, null];
 
   store.setState((state) => ({
     ...state,
@@ -350,16 +384,28 @@ async function loadRemoteData(session) {
             ? {
                 status: 'loaded',
                 queue: reviewQueue,
+                selectedTicketId,
+                ticket:
+                  reviewTicketResult?.status === 'fulfilled' && reviewTicketResult.value.ticket
+                    ? { ...reviewTicketResult.value.ticket, skill: reviewTicketResult.value.skill ?? null }
+                    : null,
+                history: reviewHistoryResult?.status === 'fulfilled' ? reviewHistoryResult.value.history ?? [] : [],
                 message: reviewQueue?.todo?.length ? '审核队列已加载。' : '当前没有待审核条目。',
               }
             : {
                 status: 'error',
                 queue: null,
+                selectedTicketId: null,
+                ticket: null,
+                history: [],
                 message: describeApiError(reviewResult.reason),
               }
           : {
               status: 'empty',
               queue: null,
+              selectedTicketId: null,
+              ticket: null,
+              history: [],
               message: '审核入口仅对 reviewer / admin 可见。',
             },
       management:
@@ -503,7 +549,7 @@ async function handlePreviewConfirm() {
   try {
     await preview.onConfirm();
     resetPreview();
-    await loadLocalData();
+    await Promise.all([loadLocalData(), loadRemoteData(store.getState().session)]);
     updateFlash('本地变更已确认并刷新。', 'success');
   } catch (error) {
     updateFlash(error instanceof Error ? error.message : '确认变更失败。', 'danger');
@@ -610,6 +656,137 @@ async function submitSettings(form) {
   }
 }
 
+function coerceEnabled(value) {
+  return String(value ?? 'true').trim().toLowerCase() !== 'false';
+}
+
+function getTargetLabel(targetType, targetId) {
+  const state = store.getState();
+  if (targetType === 'project') {
+    const project = state.local.projects.items.find((entry) => entry.projectId === targetId);
+    return project?.displayName ?? targetId;
+  }
+  const tool = state.local.tools.items.find((entry) => entry.toolId === targetId);
+  return tool?.displayName ?? targetId;
+}
+
+function getDefaultSkillsDirectory(targetType, targetId) {
+  const state = store.getState();
+  if (targetType === 'project') {
+    return state.local.projects.items.find((entry) => entry.projectId === targetId)?.skillsDirectory ?? '';
+  }
+  return state.local.tools.items.find((entry) => entry.toolId === targetId)?.skillsDirectory ?? '';
+}
+
+async function openSkillBindingPreview({ owner, targetType, targetId, skillId, packageId, version, enabled, skillsDirectory }) {
+  const payload = {
+    packageId,
+    version,
+    enabled,
+    skillsDirectory: skillsDirectory || getDefaultSkillsDirectory(targetType, targetId),
+  };
+  const titleTarget = getTargetLabel(targetType, targetId);
+  const confirmLabel = enabled ? '确认绑定' : '确认停用';
+  const builder = targetType === 'project'
+    ? app.features.projects.buildSkillBindingPreview
+    : app.features.tools.buildSkillBindingPreview;
+  const confirmer = targetType === 'project'
+    ? app.features.projects.confirmSkillBinding
+    : app.features.tools.confirmSkillBinding;
+  const result = await builder(targetId, skillId, payload);
+  showConfirmPreview({
+    owner,
+    title: `${enabled ? '配置' : '停用'} ${skillId} · ${titleTarget}`,
+    preview: result.preview,
+    statusMessage: '该变更会先展示完整预览，再执行真实的本地绑定 / 物化调整。',
+    confirmLabel,
+    onConfirm: async () => {
+      await confirmer(targetId, skillId, result.preview.previewId);
+      if (owner === 'market') {
+        await loadRemoteData(store.getState().session);
+      }
+    },
+  });
+}
+
+async function submitProjectSkill(form) {
+  const formData = new FormData(form);
+  const projectId = String(formData.get('projectId') ?? '').trim();
+  const skillId = String(formData.get('skillId') ?? '').trim();
+  if (!projectId || !skillId) {
+    updateFlash('项目与 Skill 标识不能为空。', 'danger');
+    return;
+  }
+  try {
+    await openSkillBindingPreview({
+      owner: 'projects',
+      targetType: 'project',
+      targetId: projectId,
+      skillId,
+      packageId: String(formData.get('packageId') ?? '').trim(),
+      version: String(formData.get('version') ?? '').trim(),
+      enabled: coerceEnabled(formData.get('enabled')),
+      skillsDirectory: String(formData.get('skillsDirectory') ?? '').trim(),
+    });
+  } catch (error) {
+    updateFlash(describeApiError(error), 'danger');
+  }
+}
+
+async function submitToolSkill(form) {
+  const formData = new FormData(form);
+  const toolId = String(formData.get('toolId') ?? '').trim();
+  const skillId = String(formData.get('skillId') ?? '').trim();
+  if (!toolId || !skillId) {
+    updateFlash('工具与 Skill 标识不能为空。', 'danger');
+    return;
+  }
+  try {
+    await openSkillBindingPreview({
+      owner: 'tools',
+      targetType: 'tool',
+      targetId: toolId,
+      skillId,
+      packageId: String(formData.get('packageId') ?? '').trim(),
+      version: String(formData.get('version') ?? '').trim(),
+      enabled: coerceEnabled(formData.get('enabled')),
+      skillsDirectory: String(formData.get('skillsDirectory') ?? '').trim(),
+    });
+  } catch (error) {
+    updateFlash(describeApiError(error), 'danger');
+  }
+}
+
+async function submitMarketInstall(form) {
+  if (!store.getState().session?.user) {
+    rememberProtectedAction('market-install', 'market', '继续安装 / 启用 Skill', '该功能需要登录后使用。');
+    return;
+  }
+  const formData = new FormData(form);
+  const skillId = String(formData.get('skillId') ?? '').trim();
+  const targetType = String(formData.get('targetType') ?? '').trim();
+  const targetId = String(formData.get('targetId') ?? '').trim();
+  if (!skillId || !['project', 'tool'].includes(targetType) || !targetId) {
+    updateFlash('请选择一个目标类型和一个本地目标后再继续。', 'danger');
+    return;
+  }
+  try {
+    const result = await app.features.market.requestInstallCandidate({ skillId, targetType, targetId });
+    await openSkillBindingPreview({
+      owner: 'market',
+      targetType,
+      targetId,
+      skillId,
+      packageId: result.candidate.packageId,
+      version: result.candidate.version,
+      enabled: true,
+      skillsDirectory: getDefaultSkillsDirectory(targetType, targetId),
+    });
+  } catch (error) {
+    updateFlash(describeApiError(error), 'danger');
+  }
+}
+
 async function performProjectAction(action, projectId) {
   try {
     if (action === 'validate') {
@@ -665,6 +842,29 @@ async function performProjectAction(action, projectId) {
   }
 }
 
+async function loadReviewSelection(ticketId) {
+  try {
+    const [ticketResult, historyResult] = await Promise.all([
+      app.features.review.loadTicket(ticketId),
+      app.features.review.loadHistory(ticketId),
+    ]);
+    store.setState((state) => ({
+      ...state,
+      remote: {
+        ...state.remote,
+        review: {
+          ...state.remote.review,
+          selectedTicketId: ticketId,
+          ticket: ticketResult.ticket ? { ...ticketResult.ticket, skill: ticketResult.skill ?? null } : null,
+          history: historyResult.history ?? [],
+        },
+      },
+    }));
+  } catch (error) {
+    updateFlash(describeApiError(error), 'danger');
+  }
+}
+
 async function performReviewAction(action, ticketId) {
   if (action === 'noop') {
     return;
@@ -678,6 +878,16 @@ async function performReviewAction(action, ticketId) {
       const comment = window.prompt('Approval comment', 'Approved through desktop workbench.') ?? '';
       await app.features.review.approve(ticketId, comment);
       updateFlash(`已批准审核 ${ticketId}。`, 'success');
+    }
+    if (action === 'reject') {
+      const comment = window.prompt('Reject comment', 'Rejected through desktop workbench.') ?? '';
+      await app.features.review.reject(ticketId, comment);
+      updateFlash(`已拒绝审核 ${ticketId}。`, 'success');
+    }
+    if (action === 'return') {
+      const comment = window.prompt('Return comment', 'Please revise and resubmit.') ?? '';
+      await app.features.review.returnForModification(ticketId, comment);
+      updateFlash(`已退回审核 ${ticketId}。`, 'success');
     }
     await loadRemoteData(store.getState().session);
   } catch (error) {
@@ -789,6 +999,21 @@ async function handlePageClick(event) {
     return;
   }
 
+  const reviewSelect = event.target.closest('[data-review-select]');
+  if (reviewSelect?.dataset.reviewSelect) {
+    await loadReviewSelection(reviewSelect.dataset.reviewSelect);
+    return;
+  }
+
+  const mySkillTab = event.target.closest('[data-my-skill-tab]');
+  if (mySkillTab?.dataset.mySkillTab) {
+    store.setState((state) => ({
+      ...state,
+      mySkillTab: mySkillTab.dataset.mySkillTab,
+    }));
+    return;
+  }
+
   const tab = event.target.closest('[data-tab]');
   if (tab?.dataset.tab) {
     store.setState((state) => ({
@@ -809,10 +1034,6 @@ async function handlePageClick(event) {
     return;
   }
 
-  const marketInstall = event.target.closest('[data-market-install]');
-  if (marketInstall?.dataset.marketInstall) {
-    showMessage('安装 / 启用', `已连接统一登录拦截；当前可继续对 ${marketInstall.dataset.marketInstall} 接入真实安装流程。`);
-  }
 }
 
 async function handleDialogClick(event) {
@@ -882,6 +1103,18 @@ function attachInteractions() {
     }
     if (form.matches('[data-project-form]')) {
       void submitProject(form);
+      return;
+    }
+    if (form.matches('[data-project-skill-form]')) {
+      void submitProjectSkill(form);
+      return;
+    }
+    if (form.matches('[data-tool-skill-form]')) {
+      void submitToolSkill(form);
+      return;
+    }
+    if (form.matches('[data-market-install-form]')) {
+      void submitMarketInstall(form);
       return;
     }
     if (form.matches('[data-settings-form]')) {

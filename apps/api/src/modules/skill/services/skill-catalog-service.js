@@ -1,4 +1,4 @@
-import { createSkillDraft, publishApprovedSkill, submitSkillVersion } from '../core/catalog-policy.js';
+import { createSkillDraft, publishApprovedSkill, resolveSubmittedSkillVersion, submitSkillVersion } from '../core/catalog-policy.js';
 
 /**
  * @param {{
@@ -76,6 +76,35 @@ export function createSkillCatalogService(input) {
         }),
       );
       return publishedSkill;
+    },
+
+    /**
+     * @param {{
+     *   requestId: string;
+     *   actor: { userId: string; username: string; roleCode: string; departmentId?: string | null };
+     *   skillId: string;
+     *   action: 'reject' | 'return';
+     *   now?: Date;
+     * }} resolveInput
+     */
+    resolveSubmittedVersion(resolveInput) {
+      const resolvedSkill = input.skillCatalogRepository.save(
+        resolveSubmittedSkillVersion({
+          skill: requireSkill(resolveInput.skillId),
+          action: resolveInput.action,
+          resolvedAt: resolveInput.now,
+        }),
+      );
+      input.auditService.record({
+        requestId: resolveInput.requestId,
+        actor: resolveInput.actor,
+        targetType: 'skill',
+        targetId: resolveInput.skillId,
+        action: `skill.version.${resolveInput.action}ed`,
+        details: { action: resolveInput.action },
+        occurredAt: resolveInput.now,
+      });
+      return resolvedSkill;
     },
 
     /**

@@ -1,6 +1,21 @@
 export function createMemoryReviewTicketRepository() {
   /** @type {Map<string, any>} */
   const tickets = new Map();
+  /** @type {Map<string, any[]>} */
+  const historyByTicketId = new Map();
+
+  /**
+   * @param {any[]} entries
+   */
+  function sortHistory(entries) {
+    return [...entries].sort((left, right) => {
+      const timeDelta = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+      if (timeDelta !== 0) {
+        return timeDelta;
+      }
+      return (left.sequence ?? 0) - (right.sequence ?? 0);
+    });
+  }
 
   return Object.freeze({
     /**
@@ -33,6 +48,27 @@ export function createMemoryReviewTicketRepository() {
           return true;
         }),
       );
+    },
+
+    /**
+     * @param {{ ticketId: string; action: string; fromStatus: string | null; toStatus: string; actorId: string; comment: string; createdAt: string; metadata?: Record<string, unknown> }} entry
+     */
+    appendHistory(entry) {
+      const existing = historyByTicketId.get(entry.ticketId) ?? [];
+      const stored = Object.freeze({
+        ...entry,
+        sequence: existing.length + 1,
+        metadata: Object.freeze({ ...(entry.metadata ?? {}) }),
+      });
+      historyByTicketId.set(entry.ticketId, [...existing, stored]);
+      return stored;
+    },
+
+    /**
+     * @param {string} ticketId
+     */
+    listHistory(ticketId) {
+      return Object.freeze(sortHistory(historyByTicketId.get(ticketId) ?? []));
     },
   });
 }

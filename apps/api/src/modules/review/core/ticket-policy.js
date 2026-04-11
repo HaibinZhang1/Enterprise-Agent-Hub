@@ -3,6 +3,7 @@ export const REVIEW_EVENTS = Object.freeze({
   claimed: 'review.ticket.claimed',
   approved: 'review.ticket.approved',
   rejected: 'review.ticket.rejected',
+  returned: 'review.ticket.returned',
 });
 
 export const REVIEW_ACTION_EVENTS = REVIEW_EVENTS;
@@ -29,7 +30,9 @@ export function createReviewTicket(input) {
     createdAt: createdAt.toISOString(),
     claimedBy: null,
     claimedAt: null,
+    claimExpiresAt: null,
     decision: null,
+    resolution: null,
     lastEvent: REVIEW_EVENTS.created,
   });
 }
@@ -48,7 +51,7 @@ export function createReviewTicket(input) {
  *     submittedAt?: string;
  *     dueAt?: string;
  *     claimedBy: string | null;
-  *     claimedAt: string | null;
+ *     claimedAt: string | null;
  *     claimExpiresAt?: string | null;
  *     decision: { outcome: string; comment: string; approvedAt: string; approvedBy: string } | null;
  *     resolution?: { action: string; comment: string; resolvedBy: string; resolvedAt: string } | null;
@@ -97,7 +100,9 @@ export function claimReviewTicket(input) {
  *     createdAt: string;
  *     claimedBy: string | null;
  *     claimedAt: string | null;
+ *     claimExpiresAt?: string | null;
  *     decision: { outcome: string; comment: string; approvedAt: string; approvedBy: string } | null;
+ *     resolution?: { action: string; comment: string; resolvedBy: string; resolvedAt: string } | null;
  *     lastEvent: string;
  *   };
  *   reviewerId: string;
@@ -119,6 +124,12 @@ export function approveReviewTicket(input) {
       comment: input.comment,
       approvedAt: approvedAt.toISOString(),
       approvedBy: input.reviewerId,
+    }),
+    resolution: Object.freeze({
+      action: 'approve',
+      comment: input.comment,
+      resolvedBy: input.reviewerId,
+      resolvedAt: approvedAt.toISOString(),
     }),
     lastEvent: REVIEW_EVENTS.approved,
   });
@@ -146,15 +157,23 @@ export function resolveReviewTicket(input) {
     return Object.freeze({ ok: false, reason: 'claim_required', ticket: input.ticket });
   }
 
+  const nextStatus = input.action === 'approve' ? 'approved' : input.action === 'return' ? 'returned' : 'rejected';
+  const lastEvent = input.action === 'approve'
+    ? REVIEW_EVENTS.approved
+    : input.action === 'return'
+      ? REVIEW_EVENTS.returned
+      : REVIEW_EVENTS.rejected;
+
   const resolvedTicket = Object.freeze({
     ...input.ticket,
-    status: input.action === 'approve' ? 'approved' : input.action === 'return' ? 'returned' : 'rejected',
+    status: nextStatus,
     resolution: Object.freeze({
       action: input.action,
       comment: input.comment,
       resolvedBy: input.reviewerId,
       resolvedAt: input.now.toISOString(),
     }),
+    lastEvent,
   });
 
   return Object.freeze({ ok: true, ticket: resolvedTicket });

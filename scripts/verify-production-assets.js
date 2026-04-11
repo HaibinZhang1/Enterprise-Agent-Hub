@@ -6,14 +6,17 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const desktopTargetRoot = resolve(repoRoot, 'apps/desktop/src-tauri/target');
+const desktopTargetRoot = resolve(
+  repoRoot,
+  process.env.VERIFY_PROD_DESKTOP_TARGET_ROOT ?? 'apps/desktop/src-tauri/target',
+);
 const desktopAppPath = resolve(
   repoRoot,
-  'apps/desktop/src-tauri/target/release/bundle/macos/Enterprise Agent Hub Desktop.app',
+  process.env.VERIFY_PROD_DESKTOP_APP_PATH ?? 'apps/desktop/src-tauri/target/release/bundle/macos/Enterprise Agent Hub Desktop.app',
 );
 const desktopBinaryPath = resolve(
   repoRoot,
-  'apps/desktop/src-tauri/target/release/enterprise-agent-hub-desktop',
+  process.env.VERIFY_PROD_DESKTOP_BINARY_PATH ?? 'apps/desktop/src-tauri/target/release/enterprise-agent-hub-desktop',
 );
 const composePath = resolve(repoRoot, 'infra/docker-compose.production.yml');
 const envExamplePath = resolve(repoRoot, 'infra/.env.production.example');

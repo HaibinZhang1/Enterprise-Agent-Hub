@@ -6,6 +6,9 @@ export function renderPreviewPanel(previewState) {
   }
 
   const isDraft = previewState.mode === 'draft';
+  const currentSummary = isDraft
+    ? previewState.currentSummary
+    : summarizePreviewSide(previewState.preview.currentLocalSummary ?? previewState.preview.currentSummary);
 
   return `
     <aside class="preview-drawer" aria-label="本地预览确认">
@@ -19,7 +22,7 @@ export function renderPreviewPanel(previewState) {
       <div class="preview-drawer__body">
         <div class="preview-block">
           <span>当前状态</span>
-          <strong>${escapeHtml(isDraft ? previewState.currentSummary : summarizePreviewSide(previewState.preview.currentLocalSummary))}</strong>
+          <strong>${escapeHtml(currentSummary)}</strong>
         </div>
         <div class="preview-block">
           <span>即将变更</span>

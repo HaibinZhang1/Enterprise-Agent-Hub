@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { createDesktopServer } from '../apps/desktop/src/server.js';
+import { createDesktopServer, validateBindingMaterializationPreview } from '../apps/desktop/src/server.js';
 
 function listen(server, host = '127.0.0.1') {
   return new Promise((resolvePromise) => {
@@ -24,23 +24,14 @@ async function readJson(response) {
 }
 
 function assertSkillPreviewContract(preview) {
-  for (const field of [
-    'previewId',
-    'action',
-    'targetType',
-    'targetId',
-    'skillId',
-    'currentSummary',
-    'incomingSummary',
-    'plannedOperations',
-    'consequenceSummary',
-  ]) {
-    assert.notEqual(preview[field], undefined, `Expected preview.${field} to be present.`);
-  }
-  assert.equal(Array.isArray(preview.plannedOperations), true);
+  assert.deepEqual(validateBindingMaterializationPreview(preview), {
+    ok: true,
+    reason: 'valid_preview',
+    missingFields: [],
+  });
 }
 
-test('desktop skill-management read models keep disabled tools visible and expose project bindings', async () => {
+test('desktop skill-management read models keep disabled tools visible and expose project + tool bindings', async () => {
   const tempDir = await mkdtemp(join(tmpdir(), 'desktop-skill-management-read-'));
   const sqlitePath = join(tempDir, 'desktop.db');
   const desktop = await createDesktopServer({
@@ -81,6 +72,14 @@ test('desktop skill-management read models keep disabled tools visible and expos
       version: '1.0.0',
       enabled: true,
     });
+    desktop.store.saveSkillTargetBinding({
+      targetType: 'tool',
+      targetId: 'codex',
+      skillId: 'skill-tool-only',
+      packageId: 'pkg-tool-1',
+      version: '2.0.0',
+      enabled: true,
+    });
 
     const tools = await fetch(`${baseUrl}/api/tools`).then(readJson);
     assert.equal(tools.ok, true);
@@ -90,6 +89,19 @@ test('desktop skill-management read models keep disabled tools visible and expos
     assert.equal(disabledTool.materializationEnabled, false);
     assert.equal(disabledTool.actions.canMaterialize, false);
     assert.equal(disabledTool.actions.canRescan, true);
+    assert.match(disabledTool.skillsDirectorySummary, /codex\/skills/);
+    assert.deepEqual(disabledTool.skillBindings, [
+      {
+        targetType: 'tool',
+        targetId: 'codex',
+        skillId: 'skill-tool-only',
+        packageId: 'pkg-tool-1',
+        version: '2.0.0',
+        enabled: true,
+        materializationStatus: null,
+        effectiveSummary: 'Enabled · 2.0.0',
+      },
+    ]);
 
     const projects = await fetch(`${baseUrl}/api/projects`).then(readJson);
     assert.equal(projects.ok, true);
@@ -105,8 +117,10 @@ test('desktop skill-management read models keep disabled tools visible and expos
         version: '1.0.0',
         enabled: true,
         materializationStatus: null,
+        effectiveSummary: 'Enabled · 1.0.0',
       },
     ]);
+    assert.match(project.effectiveSummary, /1 skill binding/i);
   } finally {
     await close(desktop.server);
   }
@@ -155,10 +169,15 @@ test('desktop skill-management mutations are preview-first and cancel leaves sta
     }).then(readJson);
     assert.equal(preview.ok, true);
     assertSkillPreviewContract(preview.preview);
+    assert.equal(preview.preview.action, 'bind-skill-target');
     assert.equal(preview.preview.targetType, 'project');
     assert.equal(preview.preview.targetId, 'project-alpha');
+    assert.equal(preview.preview.targetKey, 'project:project-alpha');
     assert.equal(preview.preview.skillId, 'skill-shared');
     assert.equal(preview.preview.incomingSummary.version, '1.0.0');
+    assert.equal(preview.preview.effectiveVersion, '1.0.0');
+    assert.equal(preview.preview.fallbackMode, 'copy');
+    assert.equal(preview.preview.plannedFilesystemOperations.length, 1);
 
     const cancelled = await fetch(`${baseUrl}/api/previews/${encodeURIComponent(preview.preview.previewId)}/cancel`, {
       method: 'POST',
@@ -181,6 +200,48 @@ test('desktop skill-management mutations are preview-first and cancel leaves sta
     assert.equal(confirmed.ok, true);
     assert.equal(confirmed.binding.skillId, 'skill-shared');
     assert.equal(confirmed.binding.version, '1.0.0');
+    const refreshedProjects = await fetch(`${baseUrl}/api/projects`).then(readJson);
+    const refreshedProject = refreshedProjects.projects.find((entry) => entry.projectId === 'project-alpha');
+    assert.equal(refreshedProject.skillBindings[0].materializationStatus?.status, 'pending');
+
+    desktop.store.saveTool({
+      toolId: 'codex',
+      displayName: 'Codex',
+      installPath: '/usr/local/bin/codex',
+      healthState: 'ready',
+      skillsDirectory: join(tempDir, 'codex', 'skills'),
+      materializationEnabled: true,
+    });
+
+    const toolPreviewPayload = {
+      packageId: 'pkg-tool-1',
+      version: '2.0.0',
+      skillsDirectory: join(tempDir, 'codex', 'skills'),
+      enabled: true,
+    };
+    const toolPreview = await fetch(`${baseUrl}/api/tools/codex/skills/skill-tool-only/bind-preview`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(toolPreviewPayload),
+    }).then(readJson);
+    assert.equal(toolPreview.ok, true);
+    assertSkillPreviewContract(toolPreview.preview);
+    assert.equal(toolPreview.preview.targetType, 'tool');
+    assert.equal(toolPreview.preview.targetId, 'codex');
+    assert.equal(toolPreview.preview.targetKey, 'tool:codex');
+    assert.equal(toolPreview.preview.effectiveVersion, '2.0.0');
+
+    const confirmedToolBinding = await fetch(`${baseUrl}/api/tools/codex/skills/skill-tool-only/bind`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ previewId: toolPreview.preview.previewId }),
+    }).then(readJson);
+    assert.equal(confirmedToolBinding.ok, true);
+    assert.equal(confirmedToolBinding.binding.targetType, 'tool');
+    assert.equal(confirmedToolBinding.binding.skillId, 'skill-tool-only');
+    const refreshedTools = await fetch(`${baseUrl}/api/tools`).then(readJson);
+    const refreshedTool = refreshedTools.tools.find((entry) => entry.toolId === 'codex');
+    assert.equal(refreshedTool.skillBindings[0].materializationStatus?.status, 'pending');
   } finally {
     await close(desktop.server);
   }

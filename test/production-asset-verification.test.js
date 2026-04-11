@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join, relative, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const repoRoot = resolve(import.meta.dirname, '..');
 
 test('production asset verification script reports local, Windows, and deploy readiness evidence', async () => {
-  const fixtureDir = resolve(repoRoot, 'apps/desktop/src-tauri/target/release/bundle/nsis');
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'enterprise-agent-hub-prod-assets-'));
+  const fixtureDir = resolve(fixtureRoot, 'release/bundle/nsis');
   const fixtureArtifact = resolve(fixtureDir, 'Enterprise Agent Hub Desktop_0.0.0_x64-setup.exe');
-  const macFixtureDir = resolve(repoRoot, 'apps/desktop/src-tauri/target/release/bundle/macos/Enterprise Agent Hub Desktop.app');
-  const binaryFixture = resolve(repoRoot, 'apps/desktop/src-tauri/target/release/enterprise-agent-hub-desktop');
+  const macFixtureDir = resolve(fixtureRoot, 'release/bundle/macos/Enterprise Agent Hub Desktop.app');
+  const binaryFixture = resolve(fixtureRoot, 'release/enterprise-agent-hub-desktop');
 
   await mkdir(fixtureDir, { recursive: true });
   await mkdir(macFixtureDir, { recursive: true });
@@ -25,6 +27,9 @@ test('production asset verification script reports local, Windows, and deploy re
         ...process.env,
         WINDOWS_BUILD_COMMAND: 'pnpm --filter @enterprise-agent-hub/desktop tauri:build:windows',
         WINDOWS_BUILD_RUNNER: 'node-test-fixture',
+        VERIFY_PROD_DESKTOP_TARGET_ROOT: relative(repoRoot, fixtureRoot),
+        VERIFY_PROD_DESKTOP_APP_PATH: relative(repoRoot, macFixtureDir),
+        VERIFY_PROD_DESKTOP_BINARY_PATH: relative(repoRoot, binaryFixture),
       },
     });
 
@@ -51,8 +56,6 @@ test('production asset verification script reports local, Windows, and deploy re
     assert.equal(summary.deployReadiness.composeServiceCount >= 3, true);
     assert.equal(Array.isArray(summary.warnings), true);
   } finally {
-    await rm(fixtureArtifact, { force: true });
-    await rm(binaryFixture, { force: true });
-    await rm(macFixtureDir, { recursive: true, force: true });
+    await rm(fixtureRoot, { recursive: true, force: true });
   }
 });

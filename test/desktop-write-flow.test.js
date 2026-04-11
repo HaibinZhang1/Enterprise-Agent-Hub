@@ -235,6 +235,49 @@ test('desktop shell proxies upload -> submit -> claim -> approve through the liv
   assert.equal(market.response.status, 200, JSON.stringify(market.payload));
   assert.equal(market.payload.results.some((entry) => entry.skillId === 'skill-desktop-flow-1'), true);
 
+  const localProject = await requestDesktop(publisherDesktop.baseUrl, '/api/projects', {
+    method: 'POST',
+    body: {
+      projectId: 'project-alpha',
+      displayName: 'Project Alpha',
+      projectPath: join(tmpdir(), 'desktop-flow-project-alpha'),
+    },
+  });
+  assert.equal(localProject.response.status, 200, JSON.stringify(localProject.payload));
+
+  const installCandidate = await requestDesktop(publisherDesktop.baseUrl, '/api/market/install-candidate', {
+    method: 'POST',
+    body: {
+      skillId: 'skill-desktop-flow-1',
+      targetType: 'project',
+      targetId: 'project-alpha',
+    },
+  });
+  assert.equal(installCandidate.response.status, 200, JSON.stringify(installCandidate.payload));
+  assert.deepEqual(installCandidate.payload.candidate, {
+    skillId: 'skill-desktop-flow-1',
+    packageId: 'pkg-desktop-flow-1',
+    version: '3.0.0',
+    targetType: 'project',
+    targetId: 'project-alpha',
+  });
+
+  const bindPreview = await requestDesktop(
+    publisherDesktop.baseUrl,
+    '/api/projects/project-alpha/skills/skill-desktop-flow-1/bind-preview',
+    {
+      method: 'POST',
+      body: {
+        packageId: installCandidate.payload.candidate.packageId,
+        version: installCandidate.payload.candidate.version,
+        enabled: true,
+      },
+    },
+  );
+  assert.equal(bindPreview.response.status, 200, JSON.stringify(bindPreview.payload));
+  assert.equal(bindPreview.payload.preview.targetType, 'project');
+  assert.equal(bindPreview.payload.preview.skillId, 'skill-desktop-flow-1');
+
   const artifact = await requestDesktop(
     publisherDesktop.baseUrl,
     '/api/packages/pkg-desktop-flow-1/files/README.md',

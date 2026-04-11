@@ -98,3 +98,33 @@ test('desktop notification and realtime helpers retain explicit read/read-all an
   assert.match(refresh, /dirtyPages/);
   assert.match(refresh, /deferred-refresh/);
 });
+
+test('Phase A desktop follow-up surfaces replace placeholders with real project, tool, and market install forms', async () => {
+  const [projectsPage, toolsPage, marketPage, projectsFeature, toolsFeature, marketFeature, boot] = await Promise.all([
+    read('apps/desktop/ui/pages/projects.js'),
+    read('apps/desktop/ui/pages/tools.js'),
+    read('apps/desktop/ui/pages/market.js'),
+    read('apps/desktop/ui/features/projects.js'),
+    read('apps/desktop/ui/features/tools.js'),
+    read('apps/desktop/ui/features/market.js'),
+    read('apps/desktop/ui/core/boot.js'),
+  ]);
+
+  assert.match(projectsPage, /data-project-skill-form/);
+  assert.match(projectsPage, /Bound skills|绑定 Skill/);
+  assert.match(toolsPage, /data-tool-skill-form/);
+  assert.match(toolsPage, /Skills directory|技能目录/);
+  assert.match(marketPage, /data-market-install-form/);
+  assert.match(marketPage, /targetType|targetId/);
+
+  assert.match(projectsFeature, /projectSkillPath|bind-preview/);
+  assert.match(projectsFeature, /projectSkillPath|bind/);
+  assert.match(toolsFeature, /toolSkillPath|bind-preview/);
+  assert.match(toolsFeature, /toolSkillPath|bind/);
+  assert.match(marketFeature, /\/api\/market\/install-candidate/);
+
+  assert.match(boot, /data-project-skill-form/);
+  assert.match(boot, /data-tool-skill-form/);
+  assert.match(boot, /data-market-install-form/);
+  assert.doesNotMatch(boot, /当前可继续对 .* 接入真实安装流程/);
+});

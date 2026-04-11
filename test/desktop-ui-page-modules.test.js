@@ -32,3 +32,49 @@ test('desktop page modules keep explicit route ownership and continuation-pass s
     assert.doesNotMatch(source, /\/api\//, pageId);
   }
 });
+
+test('desktop Phase A pages expose real single-target skill-management contracts in source', async () => {
+  const [projectsPage, toolsPage, marketPage] = await Promise.all([
+    read('apps/desktop/ui/pages/projects.js'),
+    read('apps/desktop/ui/pages/tools.js'),
+    read('apps/desktop/ui/pages/market.js'),
+  ]);
+
+  assert.match(projectsPage, /Skill management/i);
+  assert.match(projectsPage, /data-project-skill-form=/);
+  assert.match(projectsPage, /effective local summary/i);
+
+  assert.match(toolsPage, /Skill management|Bound Skill/i);
+  assert.match(toolsPage, /data-tool-skill-form=/);
+  assert.match(toolsPage, /skillsDirectorySummary/);
+
+  assert.match(marketPage, /Single target selection|One target type · one target/i);
+  assert.match(marketPage, /Project target/i);
+  assert.match(marketPage, /Tool target/i);
+  assert.match(marketPage, /data-market-install-form=/);
+});
+
+test('desktop Phase A pages expose concrete skill-management and market install selectors instead of placeholder stubs', async () => {
+  const [projectsPage, toolsPage, marketPage, marketFeature, boot] = await Promise.all([
+    read('apps/desktop/ui/pages/projects.js'),
+    read('apps/desktop/ui/pages/tools.js'),
+    read('apps/desktop/ui/pages/market.js'),
+    read('apps/desktop/ui/features/market.js'),
+    read('apps/desktop/ui/core/boot.js'),
+  ]);
+
+  assert.match(projectsPage, /data-project-skill-form=/);
+  assert.match(projectsPage, /data-project-skill-form="toggle"/);
+  assert.match(projectsPage, /Materialization|生效/);
+
+  assert.match(toolsPage, /data-tool-skill-form=/);
+  assert.match(toolsPage, /data-tool-skill-form="toggle"/);
+  assert.match(toolsPage, /skills directory|技能目录/i);
+
+  assert.match(marketPage, /data-market-install-form=/);
+  assert.match(marketPage, /name="targetType"/);
+  assert.match(marketPage, /name="targetId"/);
+  assert.match(marketFeature, /\/api\/market\/install-candidate/);
+
+  assert.doesNotMatch(boot, /已连接统一登录拦截；当前可继续对 .* 接入真实安装流程。/);
+});

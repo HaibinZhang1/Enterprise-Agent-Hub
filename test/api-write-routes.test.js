@@ -238,9 +238,206 @@ test('api server exposes real submit/claim/approve write routes over the live se
   assert.equal(market.response.status, 200, JSON.stringify(market.payload));
   assert.equal(market.payload.results.some((entry) => entry.skillId === 'skill-api-flow-1'), true);
 
+  const installCandidate = await requestJson(created.baseUrl, '/api/market/install-candidate', publisherSessionId, {
+    method: 'POST',
+    body: {
+      skillId: 'skill-api-flow-1',
+      targetType: 'project',
+      targetId: 'project-alpha',
+    },
+  });
+  assert.equal(installCandidate.response.status, 200, JSON.stringify(installCandidate.payload));
+  assert.deepEqual(installCandidate.payload.candidate, {
+    skillId: 'skill-api-flow-1',
+    packageId: 'pkg-api-flow-1',
+    version: '2.0.0',
+    targetType: 'project',
+    targetId: 'project-alpha',
+  });
+
   const notifications = await requestJson(created.baseUrl, '/api/notifications', publisherSessionId);
   assert.equal(notifications.response.status, 200, JSON.stringify(notifications.payload));
   assert.equal(notifications.payload.items.some((entry) => entry.title === 'Skill published'), true);
+});
+
+test('api server resolves install candidates from the published skill catalog only', async (t) => {
+  const created = await startServer();
+  t.after(() => created.server.close());
+
+  const publisherSessionId = await login(created.baseUrl, 'publisher', 'publisher');
+  const reviewerSessionId = await login(created.baseUrl, 'reviewer', 'reviewer');
+
+  const publishedUpload = await requestJson(created.baseUrl, '/api/packages/upload', publisherSessionId, {
+    method: 'POST',
+    body: {
+      packageId: 'pkg-installable-1',
+      manifest: {
+        skillId: 'skill-installable-1',
+        version: '4.2.0',
+        title: 'Installable Candidate Skill',
+        summary: 'Used to verify install-candidate resolution.',
+      },
+      files: [
+        { path: 'README.md', contentText: '# installable\n' },
+        { path: 'SKILL.md', contentText: 'name: installable-candidate\n' },
+      ],
+    },
+  });
+  assert.equal(publishedUpload.response.status, 201, JSON.stringify(publishedUpload.payload));
+
+  const publishedSubmit = await requestJson(created.baseUrl, '/api/reviews/submit', publisherSessionId, {
+    method: 'POST',
+    body: {
+      packageId: 'pkg-installable-1',
+      reviewerId: '00000000-0000-0000-0000-000000000011',
+      visibility: 'global_installable',
+    },
+  });
+  assert.equal(publishedSubmit.response.status, 201, JSON.stringify(publishedSubmit.payload));
+
+  const publishedClaim = await requestJson(
+    created.baseUrl,
+    `/api/reviews/${publishedSubmit.payload.ticket.ticketId}/claim`,
+    reviewerSessionId,
+    { method: 'POST', body: {} },
+  );
+  assert.equal(publishedClaim.response.status, 200, JSON.stringify(publishedClaim.payload));
+
+  const publishedApprove = await requestJson(
+    created.baseUrl,
+    `/api/reviews/${publishedSubmit.payload.ticket.ticketId}/approve`,
+    reviewerSessionId,
+    { method: 'POST', body: { comment: 'ready for install' } },
+  );
+  assert.equal(publishedApprove.response.status, 200, JSON.stringify(publishedApprove.payload));
+
+  const candidate = await requestJson(created.baseUrl, '/api/market/install-candidate', publisherSessionId, {
+    method: 'POST',
+    body: {
+      skillId: 'skill-installable-1',
+      targetType: 'project',
+      targetId: 'project-alpha',
+    },
+  });
+  assert.equal(candidate.response.status, 200, JSON.stringify(candidate.payload));
+  assert.deepEqual(candidate.payload.candidate, {
+    skillId: 'skill-installable-1',
+    packageId: 'pkg-installable-1',
+    version: '4.2.0',
+    targetType: 'project',
+    targetId: 'project-alpha',
+  });
+
+  const draftUpload = await requestJson(created.baseUrl, '/api/packages/upload', publisherSessionId, {
+    method: 'POST',
+    body: {
+      packageId: 'pkg-pending-1',
+      manifest: {
+        skillId: 'skill-pending-1',
+        version: '0.5.0',
+        title: 'Pending Review Skill',
+        summary: 'Should not resolve to an install candidate before publish.',
+      },
+      files: [
+        { path: 'README.md', contentText: '# pending\n' },
+        { path: 'SKILL.md', contentText: 'name: pending-review-skill\n' },
+      ],
+    },
+  });
+  assert.equal(draftUpload.response.status, 201, JSON.stringify(draftUpload.payload));
+
+  const draftSubmit = await requestJson(created.baseUrl, '/api/reviews/submit', publisherSessionId, {
+    method: 'POST',
+    body: {
+      packageId: 'pkg-pending-1',
+      reviewerId: '00000000-0000-0000-0000-000000000011',
+      visibility: 'global_installable',
+    },
+  });
+  assert.equal(draftSubmit.response.status, 201, JSON.stringify(draftSubmit.payload));
+
+  const missingCandidate = await requestJson(created.baseUrl, '/api/market/install-candidate', publisherSessionId, {
+    method: 'POST',
+    body: {
+      skillId: 'skill-pending-1',
+      targetType: 'tool',
+      targetId: 'codex',
+    },
+  });
+  assert.equal(missingCandidate.response.status, 409, JSON.stringify(missingCandidate.payload));
+  assert.equal(missingCandidate.payload.reason, 'skill_not_installable');
+});
+
+test('api market install-candidate rejects browseable but non-installable skills', async (t) => {
+  const created = await startServer();
+  t.after(() => created.server.close());
+
+  const publisherSessionId = await login(created.baseUrl, 'publisher', 'publisher');
+  const reviewerSessionId = await login(created.baseUrl, 'reviewer', 'reviewer');
+
+  const upload = await requestJson(created.baseUrl, '/api/packages/upload', publisherSessionId, {
+    method: 'POST',
+    body: {
+      packageId: 'pkg-api-detail-only-1',
+      manifest: {
+        skillId: 'skill-api-detail-only-1',
+        version: '1.5.0',
+        title: 'Detail Visible Only',
+        summary: 'Searchable but not installable.',
+      },
+      files: [
+        { path: 'README.md', contentText: '# detail visible only\n' },
+        { path: 'SKILL.md', contentText: 'name: detail-visible-only\n' },
+      ],
+    },
+  });
+  assert.equal(upload.response.status, 201, JSON.stringify(upload.payload));
+
+  const submit = await requestJson(created.baseUrl, '/api/reviews/submit', publisherSessionId, {
+    method: 'POST',
+    body: {
+      packageId: 'pkg-api-detail-only-1',
+      reviewerId: '00000000-0000-0000-0000-000000000011',
+      visibility: 'detail_public',
+    },
+  });
+  assert.equal(submit.response.status, 201, JSON.stringify(submit.payload));
+
+  const claim = await requestJson(
+    created.baseUrl,
+    `/api/reviews/${submit.payload.ticket.ticketId}/claim`,
+    reviewerSessionId,
+    { method: 'POST', body: {} },
+  );
+  assert.equal(claim.response.status, 200, JSON.stringify(claim.payload));
+
+  const approve = await requestJson(
+    created.baseUrl,
+    `/api/reviews/${submit.payload.ticket.ticketId}/approve`,
+    reviewerSessionId,
+    { method: 'POST', body: { comment: 'Published for detail-only access.' } },
+  );
+  assert.equal(approve.response.status, 200, JSON.stringify(approve.payload));
+
+  const market = await requestJson(created.baseUrl, '/api/market?query=Detail%20Visible', publisherSessionId);
+  assert.equal(market.response.status, 200, JSON.stringify(market.payload));
+  assert.equal(market.payload.results.some((entry) => entry.skillId === 'skill-api-detail-only-1'), true);
+  assert.equal(
+    market.payload.results.find((entry) => entry.skillId === 'skill-api-detail-only-1')?.canInstall,
+    false,
+  );
+
+  const rejectedCandidate = await requestJson(created.baseUrl, '/api/market/install-candidate', publisherSessionId, {
+    method: 'POST',
+    body: {
+      skillId: 'skill-api-detail-only-1',
+      targetType: 'tool',
+      targetId: 'codex',
+    },
+  });
+  assert.equal(rejectedCandidate.response.status, 409, JSON.stringify(rejectedCandidate.payload));
+  assert.equal(rejectedCandidate.payload.ok, false);
+  assert.equal(rejectedCandidate.payload.reason, 'skill_not_installable');
 });
 
 test('api server marks one notification read and then read-all with server-confirmed badges', async (t) => {

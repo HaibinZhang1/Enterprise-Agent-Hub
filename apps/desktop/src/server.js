@@ -295,6 +295,170 @@ function healthSummary(healthState) {
   }
 }
 
+function summarizeSkillsDirectory(skillsDirectory, source = null) {
+  if (!skillsDirectory) {
+    return 'Skills directory pending configuration.';
+  }
+  if (source) {
+    return `${skillsDirectory} (${source})`;
+  }
+  return skillsDirectory;
+}
+
+function summarizeBindingState(skillBindings) {
+  const enabledCount = skillBindings.filter((binding) => binding.enabled).length;
+  const pendingCount = skillBindings.filter((binding) => binding.materializationStatus?.status === 'pending').length;
+  return `${skillBindings.length} skill binding${skillBindings.length === 1 ? '' : 's'} · ${enabledCount} enabled · ${pendingCount} pending materializations`;
+}
+
+function latestTimestamp(...values) {
+  const timestamps = values.filter(Boolean).map((value) => new Date(value).getTime()).filter((value) => Number.isFinite(value));
+  if (!timestamps.length) {
+    return null;
+  }
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function buildTargetSkillBindings(store, targetType, targetId) {
+  return store.listSkillTargetBindings({ targetType, targetId }).map((binding) => {
+    const materializationStatus = store.getSkillMaterializationStatus({
+      targetType: binding.targetType,
+      targetId: binding.targetId,
+      skillId: binding.skillId,
+    });
+    return Object.freeze({
+      targetType: binding.targetType,
+      targetId: binding.targetId,
+      skillId: binding.skillId,
+      packageId: binding.packageId,
+      version: binding.version,
+      enabled: binding.enabled,
+      materializationStatus,
+      effectiveSummary: `${binding.enabled ? 'Enabled' : 'Disabled'} · ${binding.version ?? 'No version'}${materializationStatus ? ` · ${materializationStatus.status}` : ''}`,
+    });
+  });
+}
+
+function buildInstalledSkillsModel(store) {
+  const toolById = new Map(store.listTools().map((tool) => [tool.toolId, tool]));
+  const projectById = new Map(store.listProjects().map((project) => [project.projectId, project]));
+  const bindings = store.listSkillTargetBindings();
+  const statuses = store.listSkillMaterializationStatuses();
+  const skillIds = new Set([
+    ...bindings.map((binding) => binding.skillId),
+    ...statuses.map((status) => status.skillId),
+  ]);
+
+  return Object.freeze(
+    [...skillIds]
+      .sort()
+      .map((skillId) => {
+        const skillBindings = bindings.filter((binding) => binding.skillId === skillId);
+        const skillStatuses = statuses.filter((status) => status.skillId === skillId);
+        const versions = [];
+        const seenVersions = new Set();
+        for (const entry of [...skillBindings, ...skillStatuses]) {
+          const key = `${entry.version ?? ''}::${entry.packageId ?? ''}`;
+          if (seenVersions.has(key)) {
+            continue;
+          }
+          seenVersions.add(key);
+          versions.push(
+            Object.freeze({
+              version: entry.version ?? null,
+              packageId: entry.packageId ?? null,
+            }),
+          );
+        }
+
+        const enabledTools = skillBindings
+          .filter((binding) => binding.targetType === 'tool' && binding.enabled)
+          .map((binding) => {
+            const tool = toolById.get(binding.targetId);
+            return Object.freeze({
+              toolId: binding.targetId,
+              displayName: tool?.displayName ?? binding.targetId,
+            });
+          });
+        const enabledProjects = skillBindings
+          .filter((binding) => binding.targetType === 'project' && binding.enabled)
+          .map((binding) => {
+            const project = projectById.get(binding.targetId);
+            return Object.freeze({
+              projectId: binding.targetId,
+              displayName: project?.displayName ?? binding.targetId,
+            });
+          });
+        const materialization = skillStatuses.map((status) =>
+          Object.freeze({
+            targetType: status.targetType,
+            targetId: status.targetId,
+            status: status.status,
+            mode: status.mode,
+            lastError: status.lastError,
+          }),
+        );
+
+        const enabledCount = skillBindings.filter((binding) => binding.enabled).length;
+        const effectiveState =
+          skillBindings.length === 0
+            ? 'disabled'
+            : enabledCount === skillBindings.length
+              ? 'enabled'
+              : enabledCount === 0
+                ? 'disabled'
+                : 'mixed';
+
+        let restrictionNote = null;
+        if (materialization.some((entry) => ['access_denied', 'offline_blocked', 'error'].includes(entry.status))) {
+          restrictionNote = 'Some targets currently cannot materialize this skill from the desktop control plane.';
+        } else if (effectiveState === 'disabled' && skillBindings.length > 0) {
+          restrictionNote = 'Installed locally but currently disabled on all targets.';
+        }
+
+        return Object.freeze({
+          skillId,
+          versions: Object.freeze(versions),
+          enabledTools: Object.freeze(enabledTools),
+          enabledProjects: Object.freeze(enabledProjects),
+          materialization: Object.freeze(materialization),
+          effectiveState,
+          restrictionNote,
+          updatedAt: latestTimestamp(
+            ...skillBindings.map((binding) => binding.updatedAt),
+            ...skillStatuses.map((status) => status.updatedAt),
+          ),
+        });
+      }),
+  );
+}
+
+function materializationStateForPreview(preview, targetHealthState) {
+  if (preview.incomingSummary?.enabled === false) {
+    return {
+      mode: 'none',
+      status: 'removed',
+      reportStatus: 'available',
+      targetPath: resolve(preview.incomingSkillsDirectory, preview.skillId),
+      sourcePath: null,
+      driftDetails: null,
+      lastError: null,
+      lastReconciledAt: new Date().toISOString(),
+    };
+  }
+  const blocked = targetHealthState === 'read_only' ? 'access_denied' : targetHealthState !== 'ready';
+  return {
+    mode: 'symlink',
+    status: blocked ? (targetHealthState === 'read_only' ? 'access_denied' : 'offline_blocked') : 'pending',
+    reportStatus: blocked ? (targetHealthState === 'read_only' ? 'access_denied' : 'offline') : 'available',
+    targetPath: resolve(preview.incomingSkillsDirectory, preview.skillId),
+    sourcePath: null,
+    driftDetails: null,
+    lastError: blocked ? `Target is currently ${targetHealthState}.` : null,
+    lastReconciledAt: null,
+  };
+}
+
 export async function createDesktopServer(config = {}) {
   const port = Number(config.port ?? process.env.DESKTOP_PORT ?? 4174);
   const configuredApiBaseUrl =
@@ -443,16 +607,19 @@ export async function createDesktopServer(config = {}) {
       if (healthState === 'read_only') {
         issues.push('Discovered binary is not writable by the desktop shell.');
       }
+      const skillBindings = buildTargetSkillBindings(store, 'tool', row.toolId);
       return Object.freeze({
         toolId: row.toolId,
         displayName: row.displayName,
         installPath: row.installPath,
         skillsDirectory: row.skillsDirectory,
+        skillsDirectorySummary: summarizeSkillsDirectory(row.skillsDirectory, row.skillsDirectorySource),
         materializationEnabled: Boolean(row.materializationEnabled),
         healthState,
         healthLabel: healthSummary(healthState),
         updatedAt: row.updatedAt,
         issues,
+        skillBindings,
         actions: Object.freeze({
           canRepair: healthState !== 'ready',
           canRescan: true,
@@ -472,6 +639,7 @@ export async function createDesktopServer(config = {}) {
     if (conflictingProjectIds.length > 0) {
       issues.unshift(`Registered path conflicts with ${conflictingProjectIds.join(', ')}.`);
     }
+    const skillBindings = buildTargetSkillBindings(store, 'project', project.projectId);
     return Object.freeze({
       projectId: project.projectId,
       displayName: project.displayName,
@@ -487,33 +655,9 @@ export async function createDesktopServer(config = {}) {
         writable: validation.writable,
       },
       conflictingProjectIds,
-      skillBindings: store.listSkillTargetBindings({ targetType: 'project', targetId: project.projectId }).map((binding) => Object.freeze({
-        targetType: binding.targetType,
-        targetId: binding.targetId,
-        skillId: binding.skillId,
-        packageId: binding.packageId,
-        version: binding.version,
-        enabled: binding.enabled,
-        materializationStatus: store.getSkillMaterializationStatus({
-          targetType: binding.targetType,
-          targetId: binding.targetId,
-          skillId: binding.skillId,
-        }),
-      })),
+      skillBindings,
+      effectiveSummary: summarizeBindingState(skillBindings),
       issues,
-      skillBindings: store.listSkillTargetBindings({ targetType: 'project', targetId: project.projectId }).map((binding) => Object.freeze({
-        targetType: binding.targetType,
-        targetId: binding.targetId,
-        skillId: binding.skillId,
-        packageId: binding.packageId,
-        version: binding.version,
-        enabled: binding.enabled,
-        materializationStatus: store.getSkillMaterializationStatus({
-          targetType: binding.targetType,
-          targetId: binding.targetId,
-          skillId: binding.skillId,
-        }),
-      })),
       actions: Object.freeze({ canSwitch: true, canRepair: healthState !== 'ready', canRemove: true, canRescan: true }),
     });
   }
@@ -576,6 +720,98 @@ export async function createDesktopServer(config = {}) {
         ...input,
       }),
     );
+  }
+
+  function resolveBindingPreviewAction(currentBinding, enabled) {
+    if (!currentBinding) {
+      return 'bind-skill-target';
+    }
+    if (enabled === false && currentBinding.enabled) {
+      return 'disable-skill-target-binding';
+    }
+    if (enabled !== false && currentBinding.enabled === false) {
+      return 'enable-skill-target-binding';
+    }
+    return 'bind-skill-target';
+  }
+
+  function buildBindingFilesystemOperations({ currentBinding, enabled, skillsDirectory, skillId, packageId, version }) {
+    const targetPath = resolve(skillsDirectory, skillId);
+    if (enabled === false) {
+      return Object.freeze([{ operation: 'unlink', path: targetPath }]);
+    }
+    return Object.freeze([
+      {
+        operation: currentBinding ? 'refresh-link' : 'link',
+        path: targetPath,
+        packageId,
+        version,
+      },
+    ]);
+  }
+
+  function createSkillBindingPreview({
+    targetType,
+    targetId,
+    targetLabel,
+    skillId,
+    currentBinding,
+    currentSkillsDirectory,
+    incomingSkillsDirectory,
+    packageId,
+    version,
+    enabled,
+  }) {
+    const nextEnabled = enabled !== false;
+    const action = resolveBindingPreviewAction(currentBinding, nextEnabled);
+    return createPreviewPayload({
+      action,
+      targetType,
+      targetId,
+      targetKey: `${targetType}:${targetId}`,
+      skillId,
+      currentSummary: currentBinding
+        ? {
+            packageId: currentBinding.packageId,
+            version: currentBinding.version,
+            enabled: currentBinding.enabled,
+            skillsDirectory: currentSkillsDirectory,
+          }
+        : {
+            packageId: null,
+            version: null,
+            enabled: false,
+            skillsDirectory: currentSkillsDirectory,
+          },
+      incomingSummary: {
+        packageId,
+        version,
+        enabled: nextEnabled,
+        skillsDirectory: incomingSkillsDirectory,
+      },
+      currentLocalSummary: {
+        displayName: targetLabel,
+        skillId,
+        version: currentBinding?.version ?? null,
+        skillsDirectory: currentSkillsDirectory,
+      },
+      currentSkillsDirectory,
+      incomingSkillsDirectory,
+      effectiveVersion: version,
+      plannedFilesystemOperations: buildBindingFilesystemOperations({
+        currentBinding,
+        enabled: nextEnabled,
+        skillsDirectory: incomingSkillsDirectory,
+        skillId,
+        packageId,
+        version,
+      }),
+      fallbackMode: 'copy',
+      consequenceSummary: nextEnabled
+        ? `Desktop will bind ${skillId} to ${targetLabel} and materialize it in ${incomingSkillsDirectory}.`
+        : `Desktop will disable ${skillId} for ${targetLabel} and stop materializing it from ${incomingSkillsDirectory}.`,
+      issues: [],
+    });
   }
 
   const proxyRoutes = new Map([
@@ -698,6 +934,80 @@ export async function createDesktopServer(config = {}) {
         });
         deletePreview(preview.previewId);
         sendJson(response, 200, { ok: true, tool });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'tools' && segments[3] === 'skills' && segments[5] === 'bind-preview') {
+        const toolId = segments[2];
+        const skillId = segments[4];
+        const tool = store.getTool(toolId);
+        if (!tool) {
+          sendJson(response, 404, { ok: false, reason: 'tool_not_found' });
+          return;
+        }
+        const body = await parseBody(request);
+        const skillsDirectory = resolve(String(body.skillsDirectory ?? tool.skillsDirectory ?? resolve(dirname(tool.installPath), 'skills')));
+        const currentBinding = store.getSkillTargetBinding({ targetType: 'tool', targetId: toolId, skillId });
+        const preview = createSkillBindingPreview({
+          targetType: 'tool',
+          targetId: toolId,
+          targetLabel: tool.displayName,
+          skillId,
+          currentBinding,
+          currentSkillsDirectory: tool.skillsDirectory,
+          incomingSkillsDirectory: skillsDirectory,
+          packageId: String(body.packageId),
+          version: String(body.version),
+          enabled: body.enabled,
+        });
+        sendJson(response, 200, { ok: true, preview });
+        return;
+      }
+
+      if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'tools' && segments[3] === 'skills' && segments[5] === 'bind') {
+        const toolId = segments[2];
+        const skillId = segments[4];
+        const body = await parseBody(request);
+        const preview = getPreview(body.previewId);
+        const confirmation = validatePreviewConfirmation({
+          body,
+          preview,
+          targetType: 'tool',
+          targetId: toolId,
+          skillId,
+          requireBindingMaterializationPreview: true,
+        });
+        if (!confirmation.ok) {
+          sendJson(response, 409, { ok: false, reason: confirmation.reason, missingFields: confirmation.missingFields ?? [] });
+          return;
+        }
+        const existing = store.getTool(toolId);
+        if (!existing) {
+          sendJson(response, 404, { ok: false, reason: 'tool_not_found' });
+          return;
+        }
+        store.saveTool({
+          ...existing,
+          skillsDirectory: preview.incomingSkillsDirectory,
+        });
+        const binding = store.saveSkillTargetBinding({
+          targetType: 'tool',
+          targetId: toolId,
+          skillId,
+          packageId: preview.incomingSummary.packageId,
+          version: preview.incomingSummary.version,
+          enabled: preview.incomingSummary.enabled,
+        });
+        store.saveSkillMaterializationStatus({
+          targetType: 'tool',
+          targetId: toolId,
+          skillId,
+          packageId: preview.incomingSummary.packageId,
+          version: preview.incomingSummary.version,
+          ...materializationStateForPreview(preview, existing.healthState),
+        });
+        deletePreview(preview.previewId);
+        sendJson(response, 200, { ok: true, binding });
         return;
       }
 
@@ -903,41 +1213,17 @@ export async function createDesktopServer(config = {}) {
         const body = await parseBody(request);
         const skillsDirectory = resolve(String(body.skillsDirectory ?? project.skillsDirectory ?? resolve(project.projectPath, 'skills')));
         const currentBinding = store.getSkillTargetBinding({ targetType: 'project', targetId: projectId, skillId });
-        const preview = createPreviewPayload({
-          action: 'bind-project-skill',
+        const preview = createSkillBindingPreview({
           targetType: 'project',
           targetId: projectId,
+          targetLabel: project.displayName,
           skillId,
-          currentSummary: currentBinding
-            ? {
-                packageId: currentBinding.packageId,
-                version: currentBinding.version,
-                enabled: currentBinding.enabled,
-                skillsDirectory: project.skillsDirectory,
-              }
-            : {
-                packageId: null,
-                version: null,
-                enabled: false,
-                skillsDirectory: project.skillsDirectory,
-              },
-          incomingSummary: {
-            packageId: String(body.packageId),
-            version: String(body.version),
-            enabled: body.enabled ?? true,
-            skillsDirectory,
-          },
+          currentBinding,
           currentSkillsDirectory: project.skillsDirectory,
           incomingSkillsDirectory: skillsDirectory,
-          plannedOperations: [
-            {
-              operation: body.enabled === false ? 'remove' : 'link',
-              targetPath: resolve(skillsDirectory, skillId),
-              fallbackMode: 'copy',
-            },
-          ],
-          consequenceSummary: `Desktop will bind ${skillId} to ${project.displayName} and materialize it in ${skillsDirectory}.`,
-          blockingIssues: [],
+          packageId: String(body.packageId),
+          version: String(body.version),
+          enabled: body.enabled,
         });
         sendJson(response, 200, { ok: true, preview });
         return;
@@ -948,8 +1234,16 @@ export async function createDesktopServer(config = {}) {
         const skillId = segments[4];
         const body = await parseBody(request);
         const preview = getPreview(body.previewId);
-        if (!preview || preview.action !== 'bind-project-skill' || preview.targetType !== 'project' || preview.targetId !== projectId || preview.skillId !== skillId) {
-          sendJson(response, 409, { ok: false, reason: 'invalid_preview' });
+        const confirmation = validatePreviewConfirmation({
+          body,
+          preview,
+          targetType: 'project',
+          targetId: projectId,
+          skillId,
+          requireBindingMaterializationPreview: true,
+        });
+        if (!confirmation.ok) {
+          sendJson(response, 409, { ok: false, reason: confirmation.reason, missingFields: confirmation.missingFields ?? [] });
           return;
         }
         const existing = store.getProject(projectId);
@@ -959,7 +1253,7 @@ export async function createDesktopServer(config = {}) {
         }
         store.saveProject({
           ...existing,
-          skillsDirectory: preview.incomingSummary.skillsDirectory,
+          skillsDirectory: preview.incomingSkillsDirectory,
         });
         const binding = store.saveSkillTargetBinding({
           targetType: 'project',
@@ -968,6 +1262,14 @@ export async function createDesktopServer(config = {}) {
           packageId: preview.incomingSummary.packageId,
           version: preview.incomingSummary.version,
           enabled: preview.incomingSummary.enabled,
+        });
+        store.saveSkillMaterializationStatus({
+          targetType: 'project',
+          targetId: projectId,
+          skillId,
+          packageId: preview.incomingSummary.packageId,
+          version: preview.incomingSummary.version,
+          ...materializationStateForPreview(preview, existing.healthState),
         });
         deletePreview(preview.previewId);
         sendJson(response, 200, { ok: true, binding });
@@ -981,6 +1283,14 @@ export async function createDesktopServer(config = {}) {
           setCurrentProject(null);
         }
         sendJson(response, 200, { ok: true, projectId });
+        return;
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/skills/installed') {
+        sendJson(response, 200, {
+          ok: true,
+          skills: buildInstalledSkillsModel(store),
+        });
         return;
       }
 
@@ -1031,6 +1341,19 @@ export async function createDesktopServer(config = {}) {
         store.saveState('session', sessionState);
         store.saveState('last-user', result.data.user);
         sendJson(response, 200, { ok: true, session: sessionState, user: result.data.user });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/market/install-candidate') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson('/api/market/install-candidate', {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
         return;
       }
 
@@ -1092,6 +1415,19 @@ export async function createDesktopServer(config = {}) {
         return;
       }
 
+      if (request.method === 'POST' && url.pathname === '/api/market/install-candidate') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson('/api/market/install-candidate', {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
       if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'claim') {
         if (!requireSession(response)) {
           return;
@@ -1106,6 +1442,42 @@ export async function createDesktopServer(config = {}) {
       }
 
       if (request.method === 'POST' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'approve') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const body = await parseBody(request);
+        const result = await proxyJson(url.pathname, {
+          method: 'POST',
+          body,
+        });
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'reviews' && segments.length === 3) {
+        if (!requireSession(response)) {
+          return;
+        }
+        const result = await proxyJson(url.pathname);
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'history') {
+        if (!requireSession(response)) {
+          return;
+        }
+        const result = await proxyJson(url.pathname);
+        sendJson(response, result.status, result.data);
+        return;
+      }
+
+      if (
+        request.method === 'POST' &&
+        segments[0] === 'api' &&
+        segments[1] === 'reviews' &&
+        ['reject', 'return'].includes(segments[3])
+      ) {
         if (!requireSession(response)) {
           return;
         }

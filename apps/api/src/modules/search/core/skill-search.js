@@ -38,7 +38,7 @@ export function buildSkillSearchDocument(skill) {
  * @param {{ visibility: string; ownerUserId: string; allowedDepartmentIds: readonly string[] }} document
  * @param {{ userId: string; departmentIds?: string[] }} viewer
  */
-function resolveViewerAccess(document, viewer) {
+export function resolveViewerAccess(document, viewer) {
   if (document.visibility === 'private') {
     return Object.freeze({ visible: viewer.userId === document.ownerUserId, detailVisible: true, canInstall: false });
   }

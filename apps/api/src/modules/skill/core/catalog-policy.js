@@ -2,6 +2,8 @@ export const SKILL_EVENTS = Object.freeze({
   created: 'skill.created',
   versionSubmitted: 'skill.version.submitted',
   published: 'skill.published',
+  versionRejected: 'skill.version.rejected',
+  versionReturned: 'skill.version.returned',
 });
 
 /**
@@ -103,5 +105,53 @@ export function publishApprovedSkill(input) {
       ),
     ),
     lastEvent: SKILL_EVENTS.published,
+  });
+}
+
+/**
+ * @param {{
+ *   skill: {
+ *     skillId: string;
+ *     ownerUserId: string;
+ *     title: string;
+ *     summary: string;
+ *     visibility: 'private' | 'summary_public' | 'detail_public' | 'department' | 'global_installable';
+ *     allowedDepartmentIds: readonly string[];
+ *     status: string;
+ *     versions: readonly { version: string; packageId: string; submittedAt: string; status: string; publishedAt?: string }[];
+ *     publishedVersion: string | null;
+ *   };
+ *   action: 'reject' | 'return';
+ *   resolvedAt?: Date;
+ * }} input
+ */
+export function resolveSubmittedSkillVersion(input) {
+  const resolvedAt = input.resolvedAt ?? new Date();
+  const nextStatus = input.action === 'return' ? 'changes_requested' : 'rejected';
+  const versions = [...input.skill.versions];
+  let resolved = false;
+  for (let index = versions.length - 1; index >= 0; index -= 1) {
+    const entry = versions[index];
+    if (entry.version === input.skill.publishedVersion || entry.status === 'published') {
+      continue;
+    }
+    versions[index] = Object.freeze({
+      ...entry,
+      status: nextStatus,
+      resolvedAt: resolvedAt.toISOString(),
+    });
+    resolved = true;
+    break;
+  }
+
+  if (!resolved) {
+    throw new Error('Cannot resolve review for a skill without a non-published submitted version.');
+  }
+
+  return Object.freeze({
+    ...input.skill,
+    status: nextStatus,
+    versions: Object.freeze(versions),
+    lastEvent: input.action === 'return' ? SKILL_EVENTS.versionReturned : SKILL_EVENTS.versionRejected,
   });
 }

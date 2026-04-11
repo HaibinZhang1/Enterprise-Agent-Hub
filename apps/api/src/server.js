@@ -8,6 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { SSE_PAYLOAD_FIXTURE } from '@enterprise-agent-hub/contracts';
 
 import { createMvpContext } from './create-mvp-context.js';
+import { resolveViewerAccess } from './modules/search/core/skill-search.js';
 
 const moduleFile = fileURLToPath(import.meta.url);
 const packageRoot = dirname(moduleFile);
@@ -83,6 +84,13 @@ function sameUserOrAdmin(user, targetUserId) {
 
 function reviewerScopeFilter(user) {
   return user.roleCode.startsWith('system_admin') ? {} : { reviewerId: user.userId };
+}
+
+function marketViewer(user) {
+  return {
+    userId: user.userId,
+    departmentIds: user.departmentId ? [user.departmentId] : [],
+  };
 }
 
 function parseRequestedDate(value) {
@@ -248,11 +256,64 @@ export async function createApiServer(config = {}) {
 
       if (request.method === 'GET' && url.pathname === '/api/market') {
         const query = url.searchParams.get('query') ?? '';
-        const viewer = {
-          userId: authorized.user.userId,
-          departmentIds: authorized.user.departmentId ? [authorized.user.departmentId] : [],
-        };
+        const viewer = marketViewer(authorized.user);
         sendJson(response, 200, { ok: true, results: context.searchService.search({ viewer, query }) });
+        return;
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/market/install-candidate') {
+        const body = await parseBody(request);
+        const targetType = String(body.targetType ?? '').trim();
+        const targetId = String(body.targetId ?? '').trim();
+        const skillId = String(body.skillId ?? '').trim();
+        if (!['project', 'tool'].includes(targetType) || !targetId || !skillId) {
+          sendJson(response, 400, { ok: false, reason: 'invalid_install_candidate_request' });
+          return;
+        }
+
+        let skill = null;
+        try {
+          skill = context.skillCatalogService.getSkill(skillId);
+        } catch {
+          sendJson(response, 404, { ok: false, reason: 'skill_not_found' });
+          return;
+        }
+
+        const access = resolveViewerAccess(
+          {
+            visibility: skill.visibility,
+            ownerUserId: skill.ownerUserId,
+            allowedDepartmentIds: skill.allowedDepartmentIds ?? [],
+          },
+          marketViewer(authorized.user),
+        );
+
+        if (!access.canInstall) {
+          sendJson(response, 409, { ok: false, reason: 'skill_not_installable' });
+          return;
+        }
+
+        if (!skill.publishedVersion) {
+          sendJson(response, 409, { ok: false, reason: 'skill_not_installable' });
+          return;
+        }
+
+        const versionEntry = (skill.versions ?? []).find((entry) => entry.version === skill.publishedVersion);
+        if (!versionEntry?.packageId) {
+          sendJson(response, 409, { ok: false, reason: 'install_candidate_unavailable' });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          candidate: {
+            skillId,
+            packageId: versionEntry.packageId,
+            version: versionEntry.version,
+            targetType,
+            targetId,
+          },
+        });
         return;
       }
 
@@ -317,6 +378,40 @@ export async function createApiServer(config = {}) {
         }
         const tickets = context.reviewService.listTickets(reviewerScopeFilter(authorized.user));
         sendJson(response, 200, { ok: true, queue: groupQueue(tickets) });
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'reviews' && segments.length === 3) {
+        if (!canReview(authorized.user)) {
+          sendJson(response, 403, { ok: false, reason: 'review_admin_required' });
+          return;
+        }
+        const ticket = context.reviewService.getTicket(segments[2]);
+        if (!authorized.user.roleCode.startsWith('system_admin') && ticket.reviewerId !== authorized.user.userId) {
+          sendJson(response, 403, { ok: false, reason: 'review_scope_denied' });
+          return;
+        }
+        let skill = null;
+        try {
+          skill = context.skillCatalogService.getSkill(ticket.skillId);
+        } catch {
+          skill = null;
+        }
+        sendJson(response, 200, { ok: true, ticket, skill });
+        return;
+      }
+
+      if (request.method === 'GET' && segments[0] === 'api' && segments[1] === 'reviews' && segments[3] === 'history') {
+        if (!canReview(authorized.user)) {
+          sendJson(response, 403, { ok: false, reason: 'review_admin_required' });
+          return;
+        }
+        const ticket = context.reviewService.getTicket(segments[2]);
+        if (!authorized.user.roleCode.startsWith('system_admin') && ticket.reviewerId !== authorized.user.userId) {
+          sendJson(response, 403, { ok: false, reason: 'review_scope_denied' });
+          return;
+        }
+        sendJson(response, 200, { ok: true, history: context.reviewService.listHistory(segments[2]) });
         return;
       }
 
@@ -463,6 +558,48 @@ export async function createApiServer(config = {}) {
           metadata: { ticketId: approvedTicket.ticketId, version: publishedSkill.publishedVersion },
         });
         sendJson(response, 200, { ok: true, ticket: approvedTicket, skill: publishedSkill });
+        return;
+      }
+
+      if (
+        request.method === 'POST' &&
+        segments[0] === 'api' &&
+        segments[1] === 'reviews' &&
+        ['reject', 'return'].includes(segments[3])
+      ) {
+        if (!canReview(authorized.user)) {
+          sendJson(response, 403, { ok: false, reason: 'review_admin_required' });
+          return;
+        }
+        const action = segments[3];
+        const body = await parseBody(request);
+        const resolvedTicket = context.reviewService.resolveTicket({
+          requestId: body.requestId ?? `${action}-${segments[2]}`,
+          actor: authorized.user,
+          ticketId: segments[2],
+          action,
+          comment: body.comment ?? '',
+          now: parseRequestedDate(body.now),
+        });
+        const resolvedSkill = context.skillCatalogService.resolveSubmittedVersion({
+          requestId: body.requestId ?? `${action}-${segments[2]}`,
+          actor: authorized.user,
+          skillId: resolvedTicket.skillId,
+          action,
+          now: parseRequestedDate(body.now),
+        });
+        context.notifyService.notify({
+          userId: resolvedTicket.requestedBy,
+          category: 'review',
+          title: action === 'return' ? 'Skill returned for changes' : 'Skill review rejected',
+          body:
+            action === 'return'
+              ? `${resolvedSkill.title} requires changes before it can continue through review.`
+              : `${resolvedSkill.title} was rejected during review.`,
+          now: parseRequestedDate(body.now),
+          metadata: { ticketId: resolvedTicket.ticketId, action, skillId: resolvedTicket.skillId },
+        });
+        sendJson(response, 200, { ok: true, ticket: resolvedTicket, skill: resolvedSkill });
         return;
       }
 

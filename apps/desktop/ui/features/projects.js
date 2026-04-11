@@ -1,3 +1,7 @@
+function projectSkillPath(projectId, skillId, suffix) {
+  return `/api/projects/${encodeURIComponent(projectId)}/skills/${encodeURIComponent(skillId)}/${suffix}`;
+}
+
 export function createProjectsFeature(app) {
   return Object.freeze({
     async loadProjects() {
@@ -41,6 +45,18 @@ export function createProjectsFeature(app) {
     },
     async confirmRepair(projectId, previewId) {
       return app.api.request(`/api/projects/${encodeURIComponent(projectId)}/repair`, {
+        method: 'POST',
+        body: JSON.stringify({ previewId }),
+      });
+    },
+    async buildSkillBindingPreview(projectId, skillId, payload) {
+      return app.api.request(projectSkillPath(projectId, skillId, 'bind-preview'), {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    async confirmSkillBinding(projectId, skillId, previewId) {
+      return app.api.request(projectSkillPath(projectId, skillId, 'bind'), {
         method: 'POST',
         body: JSON.stringify({ previewId }),
       });
