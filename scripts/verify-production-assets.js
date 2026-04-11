@@ -80,6 +80,20 @@ function detectWindowsArtifactType(path) {
 }
 
 /**
+ * @param {{ type: string, path: string }} artifact
+ */
+function windowsArtifactPriority(artifact) {
+  switch (artifact.type) {
+    case 'nsis-exe':
+      return 0;
+    case 'msi':
+      return 1;
+    default:
+      return artifact.path.toLowerCase().includes('/bundle/') ? 2 : 3;
+  }
+}
+
+/**
  * @param {string} root
  * @param {string[]} extensions
  */
@@ -158,10 +172,17 @@ const appExists = await pathExists(desktopAppPath);
 const binaryExists = await pathExists(desktopBinaryPath);
 const appStat = appExists ? await stat(desktopAppPath) : null;
 const binaryStat = binaryExists ? await stat(desktopBinaryPath) : null;
-const discoveredWindowsArtifactPaths = await findArtifacts(desktopTargetRoot, ['.exe', '.msi']);
+const discoveredWindowsArtifactPaths = await findArtifacts(resolve(desktopTargetRoot, 'release', 'bundle'), ['.exe', '.msi']);
 const windowsArtifactCandidates = await buildWindowsArtifactMetadata([
   ...new Set([...configuredWindowsArtifactPaths(), ...discoveredWindowsArtifactPaths]),
 ]);
+windowsArtifactCandidates.sort((left, right) => {
+  const priorityDelta = windowsArtifactPriority(left) - windowsArtifactPriority(right);
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+  return left.path.localeCompare(right.path);
+});
 const primaryWindowsArtifact = windowsArtifactCandidates[0] ?? null;
 const windowsRuntimeValidated = process.env.WINDOWS_RUNTIME_VALIDATED === '1';
 const windowsRuntimeValidationMode = windowsRuntimeValidated

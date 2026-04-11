@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 
 function fileContentBuffer(file) {
   if (file.contentBase64) {
@@ -23,6 +23,11 @@ function normalizeRelativePath(filePath) {
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
+}
+
+function staysWithinRoot(rootPath, candidatePath) {
+  const relativePath = relative(rootPath, candidatePath);
+  return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath);
 }
 
 /**
@@ -54,7 +59,7 @@ export function createFilesystemPackageArtifactStorage(input) {
         const relativePath = normalizeRelativePath(file.path);
         const content = fileContentBuffer(file);
         const storagePath = resolve(filesRoot, relativePath);
-        if (!storagePath.startsWith(`${filesRoot}/`) && storagePath !== filesRoot) {
+        if (!staysWithinRoot(filesRoot, storagePath)) {
           throw new Error(`Refusing to write package file outside storage root: ${file.path}`);
         }
         mkdirSync(dirname(storagePath), { recursive: true });
@@ -94,7 +99,7 @@ export function createFilesystemPackageArtifactStorage(input) {
       const packageRoot = resolve(rootDir, packageId, 'files');
       const relativePath = normalizeRelativePath(artifactPath);
       const storagePath = resolve(packageRoot, relativePath);
-      if (!storagePath.startsWith(`${packageRoot}/`) && storagePath !== packageRoot) {
+      if (!staysWithinRoot(packageRoot, storagePath)) {
         throw new Error(`Refusing to read package file outside storage root: ${artifactPath}`);
       }
       return readFileSync(storagePath);

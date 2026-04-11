@@ -2,6 +2,7 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = dirname(fileURLToPath(import.meta.url));
@@ -54,12 +55,17 @@ function parseJsonCell(value, fallback = null) {
 }
 
 function runSqlite(sqlitePath, sql, json = false) {
-  const args = json ? ['-json', sqlitePath, sql] : [sqlitePath, sql];
-  const result = spawnSync('sqlite3', args, { encoding: 'utf8' });
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || 'sqlite3 command failed').trim());
+  const database = new DatabaseSync(sqlitePath);
+  try {
+    const normalizedSql = String(sql).trim();
+    if (json) {
+      return JSON.stringify(database.prepare(normalizedSql).all());
+    }
+    database.exec(normalizedSql);
+    return '';
+  } finally {
+    database.close();
   }
-  return result.stdout.trim();
 }
 
 function assertEnum(name, value, allowed) {

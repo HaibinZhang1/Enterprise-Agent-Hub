@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { DatabaseSync } from 'node:sqlite';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,9 +8,12 @@ import test from 'node:test';
 import { createLocalSqliteStore } from '../apps/desktop/src/local-sqlite-store.js';
 
 function readSqliteJson(sqlitePath, sql) {
-  const result = spawnSync('sqlite3', ['-json', sqlitePath, sql], { encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  return result.stdout.trim() ? JSON.parse(result.stdout) : [];
+  const database = new DatabaseSync(sqlitePath);
+  try {
+    return JSON.parse(JSON.stringify(database.prepare(sql).all()));
+  } finally {
+    database.close();
+  }
 }
 
 function assertStoreSkillBindingApi(store) {
