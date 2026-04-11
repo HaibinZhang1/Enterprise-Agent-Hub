@@ -1,7 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const sourceRoot = new URL("../src/", import.meta.url);
+const sourceRoot = fileURLToPath(new URL("../src/", import.meta.url));
 const forbiddenP2Surfaces = ["审核", "管理台", "发布 Skill", "MCP", "插件"];
 const forbiddenPrototypeMutationMarkers = ["ui-prototype/app.js", "ui-prototype/styles.css"];
 
