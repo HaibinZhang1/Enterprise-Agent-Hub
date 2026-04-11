@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "P1 foundation loop verification path",
-  "generatedAt": "2026-04-11T18:51:28.092Z",
+  "generatedAt": "2026-04-11T23:20:15.910Z",
   "strict": true,
   "overallStatus": "pass",
   "summary": {
@@ -180,8 +180,8 @@
       "error": null,
       "stdout": "\n> enterprise-agent-hub@0.1.0 typecheck\n> npm run typecheck --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 typecheck\n> tsc --noEmit -p tsconfig.json\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 typecheck\n> tsc -b --pretty false --noEmit\n\n",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:24.529Z",
-      "endedAt": "2026-04-11T18:51:25.567Z"
+      "startedAt": "2026-04-11T23:20:11.891Z",
+      "endedAt": "2026-04-11T23:20:13.048Z"
     },
     {
       "id": "workspace-test",
@@ -194,10 +194,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> enterprise-agent-hub@0.1.0 test\n> npm run test --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.274166ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.071292ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.046125ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.417167\n\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 test\n> npm run build && node --test test/*.test.mjs\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 build\n> tsc -b\n\n✔ P1 enums preserve documented lower_snake_case values (0.24375ms)\n✔ enable/install mode supports symlink-first and copy fallback (0.217583ms)\n✔ cut-slice route and Tauri command names are centralized (0.050292ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.188625\n\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.4055ms)\n✔ all declared golden fixture files exist (0.168042ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.111584\n",
+      "stdout": "\n> enterprise-agent-hub@0.1.0 test\n> npm run test --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.271ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.079959ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.047083ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 28.207292\n\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 test\n> npm run build && node --test test/*.test.mjs\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 build\n> tsc -b\n\n✔ P1 enums preserve documented lower_snake_case values (0.2495ms)\n✔ enable/install mode supports symlink-first and copy fallback (0.219042ms)\n✔ cut-slice route and Tauri command names are centralized (0.051875ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 28.2655\n\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.49175ms)\n✔ all declared golden fixture files exist (0.179917ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 28.451\n",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:25.567Z",
-      "endedAt": "2026-04-11T18:51:26.541Z"
+      "startedAt": "2026-04-11T23:20:13.049Z",
+      "endedAt": "2026-04-11T23:20:14.030Z"
     },
     {
       "id": "api-test",
@@ -210,10 +210,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.274875ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.072625ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.047666ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.000042\n",
+      "stdout": "\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.307791ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.077917ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.05075ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 29.455417\n",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:26.541Z",
-      "endedAt": "2026-04-11T18:51:26.657Z"
+      "startedAt": "2026-04-11T23:20:14.030Z",
+      "endedAt": "2026-04-11T23:20:14.153Z"
     },
     {
       "id": "desktop-frontend-test",
@@ -228,8 +228,8 @@
       "error": null,
       "stdout": "\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:26.657Z",
-      "endedAt": "2026-04-11T18:51:27.310Z"
+      "startedAt": "2026-04-11T23:20:14.153Z",
+      "endedAt": "2026-04-11T23:20:14.806Z"
     },
     {
       "id": "cargo-check",
@@ -243,9 +243,9 @@
       "signal": null,
       "error": null,
       "stdout": "",
-      "stderr": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s\n",
-      "startedAt": "2026-04-11T18:51:27.310Z",
-      "endedAt": "2026-04-11T18:51:27.328Z"
+      "stderr": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s\n",
+      "startedAt": "2026-04-11T23:20:14.806Z",
+      "endedAt": "2026-04-11T23:20:14.866Z"
     },
     {
       "id": "cargo-test",
@@ -258,10 +258,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\nrunning 22 tests\ntest adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::distribution::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::path_validation::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::tool_detection::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest store::central_store::tests::rejects_path_traversal_segments ... ok\ntest store::hash::tests::hashes_known_vector ... ok\ntest store::sqlite::tests::migration_contains_store_owned_tables ... ok\ntest store::offline_queue::tests::enable_result_json_preserves_requested_resolved_and_fallback ... ok\ntest store::sqlite::tests::persistence_statements_cover_queue_notifications_and_store_metadata ... ok\ntest commands::distribution::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::tool_detection::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::distribution::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::tool_detection::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::path_validation::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::path_validation::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest store::central_store::tests::validates_installs_and_uninstalls_package_atomically ... ok\ntest commands::tool_detection::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::distribution::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::path_validation::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\n\ntest result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stdout": "\nrunning 22 tests\ntest adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::path_validation::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::tool_detection::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::distribution::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest store::central_store::tests::rejects_path_traversal_segments ... ok\ntest store::offline_queue::tests::enable_result_json_preserves_requested_resolved_and_fallback ... ok\ntest store::hash::tests::hashes_known_vector ... ok\ntest store::sqlite::tests::migration_contains_store_owned_tables ... ok\ntest store::sqlite::tests::persistence_statements_cover_queue_notifications_and_store_metadata ... ok\ntest commands::tool_detection::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::distribution::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::distribution::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::path_validation::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::path_validation::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::tool_detection::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest store::central_store::tests::validates_installs_and_uninstalls_package_atomically ... ok\ntest commands::path_validation::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::distribution::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::tool_detection::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\n\ntest result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
       "stderr": "warning: unused imports: `AdapterConfig`, `DetectionConfig`, `DetectionMethod`, `InstallConfig`, `LayoutConfig`, `Platform`, and `TargetConfig`\n  --> src/commands/../adapters/mod.rs:9:23\n   |\n 9 |     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,\n   |                       ^^^^^^^^^^^^^             ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n10 |     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,\n   |                  ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^\n   |\n   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused imports: `AdapterStatus`, `DetectionResult`, `detect_adapter`, and `expand_windows_user_profile`\n  --> src/commands/../adapters/mod.rs:13:5\n   |\n13 |     detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult,\n   |     ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^\n\nwarning: unused imports: `PathValidation`, `ensure_target_root`, `reject_ambiguous_path`, and `validate_target_path`\n  --> src/commands/../adapters/mod.rs:21:5\n   |\n21 |     ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation,\n   |     ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^\n\nwarning: unused imports: `DerivedArtifact` and `validate_skill_id`\n  --> src/commands/../adapters/mod.rs:23:44\n   |\n23 | pub use self::transform::{transform_skill, validate_skill_id, DerivedArtifact};\n   |                                            ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^\n\nwarning: unused imports: `AdapterConfig`, `AdapterID`, `DetectionConfig`, `DetectionMethod`, `InstallConfig`, `LayoutConfig`, `Platform`, and `TargetConfig`\n  --> src/commands/../adapters/mod.rs:9:23\n   |\n 9 |     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,\n   |                       ^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n10 |     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,\n   |                  ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^\n\nwarning: unused imports: `DistributionOutcome` and `enable_artifact`\n  --> src/commands/../adapters/mod.rs:16:29\n   |\n16 |     disable_managed_target, enable_artifact, enable_artifact_with_options, is_managed_target,\n   |                             ^^^^^^^^^^^^^^^\n17 |     DistributionOptions, DistributionOutcome, MANAGED_MARKER_FILE,\n   |                          ^^^^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `ensure_target_root` and `reject_ambiguous_path`\n  --> src/commands/../adapters/mod.rs:21:5\n   |\n21 |     ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation,\n   |     ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `AdapterID`, `DetectionConfig`, `DetectionMethod`, `InstallConfig`, `LayoutConfig`, `Platform`, and `TargetConfig`\n  --> src/commands/../adapters/mod.rs:9:38\n   |\n 9 |     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,\n   |                                      ^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n10 |     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,\n   |                  ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^\n\nwarning: unused imports: `AdapterStatus` and `expand_windows_user_profile`\n  --> src/commands/../adapters/mod.rs:13:21\n   |\n13 |     detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult,\n   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n\nwarning: unused import: `AdapterResult`\n  --> src/commands/../adapters/mod.rs:19:38\n   |\n19 | pub use self::errors::{AdapterError, AdapterResult};\n   |                                      ^^^^^^^^^^^^^\n\nwarning: enum `AdapterStatus` is never used\n --> src/commands/../adapters/detection.rs:7:10\n  |\n7 | pub enum AdapterStatus {\n  |          ^^^^^^^^^^^^^\n  |\n  = note: `#[warn(dead_code)]` (part of `#[warn(un\n...[truncated 3535 chars]",
-      "startedAt": "2026-04-11T18:51:27.328Z",
-      "endedAt": "2026-04-11T18:51:27.393Z"
+      "startedAt": "2026-04-11T23:20:14.866Z",
+      "endedAt": "2026-04-11T23:20:15.098Z"
     },
     {
       "id": "fixture-transform-check",
@@ -274,10 +274,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.409417ms)\n✔ all declared golden fixture files exist (0.173375ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.644083\n",
+      "stdout": "\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.428084ms)\n✔ all declared golden fixture files exist (0.17ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.568791\n",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:27.393Z",
-      "endedAt": "2026-04-11T18:51:27.511Z"
+      "startedAt": "2026-04-11T23:20:15.098Z",
+      "endedAt": "2026-04-11T23:20:15.221Z"
     },
     {
       "id": "docker-config-prod",
@@ -292,8 +292,8 @@
       "error": null,
       "stdout": "name: infra\nservices:\n  api:\n    depends_on:\n      api-seed:\n        condition: service_completed_successfully\n        required: true\n      minio:\n        condition: service_healthy\n        required: true\n      redis:\n        condition: service_healthy\n        required: true\n    environment:\n      API_PORT: \"3000\"\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      JWT_SECRET: change-me-before-deploy\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n      REDIS_URL: redis://redis:6379/0\n    healthcheck:\n      test:\n        - CMD-SHELL\n        - node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"\n      timeout: 5s\n      interval: 15s\n      retries: 12\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 3000\n        published: \"3000\"\n        protocol: tcp\n  api-migrate:\n    command:\n      - npm\n      - run\n      - migrate\n    depends_on:\n      postgres:\n        condition: service_healthy\n        required: true\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  api-seed:\n    command:\n      - npm\n      - run\n      - seed\n    depends_on:\n      api-migrate:\n        condition: service_completed_successfully\n        required: true\n      minio-init:\n        condition: service_completed_successfully\n        required: true\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  minio:\n    command:\n      - server\n      - /data\n      - --console-address\n      - :9001\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n    healthcheck:\n      test:\n        - CMD\n        - curl\n        - -f\n        - http://localhost:9000/minio/health/live\n      timeout: 5s\n      interval: 10s\n      retries: 10\n    image: minio/minio:RELEASE.2024-12-18T13-15-44Z\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 9000\n        published: \"9000\"\n        protocol: tcp\n      - mode: ingress\n        target: 9001\n        published: \"9001\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: minio_data\n        target: /data\n        volume: {}\n  minio-init:\n    depends_on:\n      minio:\n        condition: service_healthy\n        required: true\n    entrypoint:\n      - /bin/sh\n      - -c\n      - ' mc alias set eah http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing eah/$${MINIO_SKILL_PACKAGE_BUCKET:-skill-packages} && mc mb --ignore-existing eah/$${MINIO_SKILL_ASSET_BUCKET:-skill-assets} '\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n    image: minio/mc:RELEASE.2024-11-21T17-21-54Z\n    networks:\n      default: null\n  postgres:\n    environment:\n      POSTGRES_DB: enterprise_agent_hub\n      POSTGRES_PASSWORD: change-me\n      POSTGRES_USER: eah\n    healthcheck:\n      test:\n        - CMD-SHELL\n        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}\n      timeout: 5s\n      interval: 10s\n      retries: 10\n    image: postgres:16.6-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 5432\n        published: \"5432\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: postgres_data\n        target: /var/lib/postgresql/data\n        volume: {}\n  redis:\n    command:\n      - redis-server\n      - --appendonly\n      - \"yes\"\n    healthcheck:\n      test:\n    \n...[truncated 554 chars]",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:27.512Z",
-      "endedAt": "2026-04-11T18:51:27.754Z"
+      "startedAt": "2026-04-11T23:20:15.221Z",
+      "endedAt": "2026-04-11T23:20:15.544Z"
     },
     {
       "id": "docker-config-legacy",
@@ -307,9 +307,9 @@
       "signal": null,
       "error": null,
       "stdout": "name: infra\nservices:\n  api:\n    depends_on:\n      minio:\n        condition: service_started\n        required: true\n      postgres:\n        condition: service_started\n        required: true\n      redis:\n        condition: service_started\n        required: true\n    environment:\n      API_PORT: \"3000\"\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      JWT_SECRET: change-me-before-deploy\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      REDIS_URL: redis://redis:6379/0\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 3000\n        published: \"3000\"\n        protocol: tcp\n  minio:\n    command:\n      - server\n      - /data\n      - --console-address\n      - :9001\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n    image: minio/minio:RELEASE.2024-12-18T13-15-44Z\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 9000\n        published: \"9000\"\n        protocol: tcp\n      - mode: ingress\n        target: 9001\n        published: \"9001\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: minio_data\n        target: /data\n        volume: {}\n  postgres:\n    environment:\n      POSTGRES_DB: enterprise_agent_hub\n      POSTGRES_PASSWORD: change-me\n      POSTGRES_USER: eah\n    image: postgres:16.6-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 5432\n        published: \"5432\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: postgres_data\n        target: /var/lib/postgresql/data\n        volume: {}\n  redis:\n    command:\n      - redis-server\n      - --appendonly\n      - \"yes\"\n    image: redis:7.4.1-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 6379\n        published: \"6379\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: redis_data\n        target: /data\n        volume: {}\nnetworks:\n  default:\n    name: infra_default\nvolumes:\n  minio_data:\n    name: infra_minio_data\n  postgres_data:\n    name: infra_postgres_data\n  redis_data:\n    name: infra_redis_data\n",
-      "stderr": "time=\"2026-04-12T02:51:27+08:00\" level=warning msg=\"/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/infra/docker-compose.legacy.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion\"\n",
-      "startedAt": "2026-04-11T18:51:27.754Z",
-      "endedAt": "2026-04-11T18:51:28.011Z"
+      "stderr": "time=\"2026-04-12T07:20:15+08:00\" level=warning msg=\"/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/infra/docker-compose.legacy.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion\"\n",
+      "startedAt": "2026-04-11T23:20:15.545Z",
+      "endedAt": "2026-04-11T23:20:15.817Z"
     },
     {
       "id": "deploy-script-syntax",
@@ -324,8 +324,8 @@
       "error": null,
       "stdout": "",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:28.011Z",
-      "endedAt": "2026-04-11T18:51:28.025Z"
+      "startedAt": "2026-04-11T23:20:15.817Z",
+      "endedAt": "2026-04-11T23:20:15.832Z"
     },
     {
       "id": "w6-acceptance-matrix-test",
@@ -338,10 +338,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "✔ W6 verification runner and config are present (0.318334ms)\n✔ verification config includes required release-gate command lanes (0.178167ms)\n✔ smoke/e2e spec covers required P1 acceptance scenarios (0.461958ms)\n✔ verification config rejects tracked generated dependency/build artifacts (0.089958ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 32.748458\n",
+      "stdout": "✔ W6 verification runner and config are present (0.283792ms)\n✔ verification config includes required release-gate command lanes (0.161625ms)\n✔ smoke/e2e spec covers required P1 acceptance scenarios (0.450375ms)\n✔ verification config rejects tracked generated dependency/build artifacts (0.085916ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 36.673792\n",
       "stderr": "",
-      "startedAt": "2026-04-11T18:51:28.025Z",
-      "endedAt": "2026-04-11T18:51:28.091Z"
+      "startedAt": "2026-04-11T23:20:15.832Z",
+      "endedAt": "2026-04-11T23:20:15.910Z"
     }
   ],
   "acceptance": {
