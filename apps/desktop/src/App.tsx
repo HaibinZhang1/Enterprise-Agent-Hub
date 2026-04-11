@@ -1,4 +1,4 @@
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import {
   Bell,
@@ -18,10 +18,10 @@ import {
   Star,
   Wrench
 } from "lucide-react";
-import type { MarketFilters, PageID, SkillSummary, TargetType } from "./domain/p1";
+import type { MarketFilters, PageID, SkillSummary } from "./domain/p1";
 import { useP1Workspace } from "./state/useP1Workspace";
 
-const pageMeta: Record<PageID, { label: string; icon: JSX.Element }> = {
+const pageMeta: Record<PageID, { label: string; icon: ReactNode }> = {
   home: { label: "首页", icon: <Home size={18} /> },
   market: { label: "市场", icon: <Boxes size={18} /> },
   my_installed: { label: "我的 Skill", icon: <PackageCheck size={18} /> },
