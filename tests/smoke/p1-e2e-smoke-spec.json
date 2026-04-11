@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "name": "P1 foundation loop smoke/e2e acceptance spec",
+  "sourceRefs": [
+    "docs/DetailedDesign/02_p1_task_design.md#12-p1-t10-验收与打包",
+    "docs/RequirementDocument/20_p1_desktop_prd.md#9-验收标准",
+    "docs/RequirementDocument/21_p1_data_contract.md#8-接口验收",
+    "docs/RequirementDocument/22_p1_tool_adapter_contract.md#11-验收标准",
+    "docs/RequirementDocument/23_p1_interaction_spec.md#15-p1-验收清单"
+  ],
+  "scenarios": [
+    {
+      "id": "bootstrap-login-p1-navigation",
+      "title": "Login then bootstrap exposes only P1 navigation",
+      "coverage": ["auth/login", "GET /desktop/bootstrap", "P1 navigation hides publish/review/admin/MCP/plugin entries"],
+      "preconditions": ["Seed user exists", "API is reachable", "Desktop starts from clean local state"],
+      "steps": [
+        "Log in with the seed P1 user.",
+        "Fetch desktop bootstrap context.",
+        "Open the desktop shell navigation."
+      ],
+      "expectedEvidence": [
+        "Login succeeds and stores an authenticated session.",
+        "Bootstrap returns user, connection, counts, features and navigation.",
+        "Navigation contains home, market, my_installed, tools, projects, notifications, settings only.",
+        "publishSkill, reviewWorkbench, adminManage, mcpManage and pluginManage feature flags are false."
+      ]
+    },
+    {
+      "id": "market-search-filter-sort",
+      "title": "Market search, filter and sort compose correctly",
+      "coverage": ["GET /skills", "search", "department/tool/risk filters", "sort order"],
+      "preconditions": ["Seed market data includes multiple departments, compatible tools and risk levels"],
+      "steps": [
+        "Run a keyword search with compatibleTool and riskLevel filters.",
+        "Change sort from composite to latest_published.",
+        "Verify pagination metadata."
+      ],
+      "expectedEvidence": [
+        "Returned items match the requested filters.",
+        "Sort order changes deterministically.",
+        "Pagination includes page, pageSize, total and hasMore."
+      ]
+    },
+    {
+      "id": "restricted-detail-no-leakage",
+      "title": "Restricted detail does not leak private package data",
+      "coverage": ["GET /skills/{skillID}", "detailAccess=summary", "permission_denied error"],
+      "preconditions": ["Seed includes one summary-only Skill and one inaccessible Skill"],
+      "steps": [
+        "Open a summary-only Skill detail.",
+        "Open a no-access Skill detail or direct URL."
+      ],
+      "expectedEvidence": [
+        "Summary-only response excludes README, audit/review summary, packageURL, packageRef and packageHash.",
+        "No-access response uses stable permission_denied or skill_not_found error code instead of text-only denial."
+      ]
+    },
+    {
+      "id": "install-hash-success-central-store",
+      "title": "Install succeeds after SHA-256 verification and writes Central Store state",
+      "coverage": ["download-ticket", "packageHash", "Central Store", "SQLite local_skill_installs"],
+      "preconditions": ["Installable seed Skill has packageHash=sha256:<hex>", "Central Store is empty"],
+      "steps": [
+        "Request a download-ticket for install.",
+        "Download the package and compute SHA-256.",
+        "Install the package."
+      ],
+      "expectedEvidence": [
+        "download-ticket includes packageURL, packageHash, packageSize, packageFileCount and expiresAt.",
+        "Computed package hash matches the ticket.",
+        "Central Store receives the package atomically after hash validation.",
+        "local_skill_installs records localHash and sourcePackageHash."
+      ]
+    },
+    {
+      "id": "install-hash-failure-preserves-state",
+      "title": "Hash mismatch blocks install and preserves old state",
+      "coverage": ["hash_mismatch", "temp cleanup", "no Central Store pollution"],
+      "preconditions": ["A corrupt/tampered package fixture is available"],
+      "steps": [
+        "Request a ticket whose expected hash does not match the tampered package.",
+        "Attempt install.",
+        "Inspect Central Store and local DB state."
+      ],
+      "expectedEvidence": [
+        "Install fails with hash_mismatch and retryable=true.",
+        "Temporary package files are deleted.",
+        "Central Store and existing local_skill_installs records remain unchanged."
+      ]
+    },
+    {
+      "id": "update-local-hash-change-warning",
+      "title": "Update warns before overwriting locally changed package",
+      "coverage": ["localHash", "sourcePackageHash", "update confirmation"],
+      "preconditions": ["Installed Skill localHash differs from sourcePackageHash", "A newer installable version exists"],
+      "steps": [
+        "Open the update action for the modified local Skill.",
+        "Confirm that overwrite warning is shown.",
+        "Cancel once, then confirm on a second attempt."
+      ],
+      "expectedEvidence": [
+        "UI warns that local content changed and update will overwrite.",
+        "Cancel leaves local state unchanged.",
+        "Confirmed update revalidates hash and replaces Central Store atomically."
+      ]
+    },
+    {
+      "id": "enable-codex-symlink-success",
+      "title": "Enable to Codex succeeds by symlink without copying source content",
+      "coverage": ["adapter=codex", "requestedMode=symlink", "resolvedMode=symlink"],
+      "preconditions": ["Codex target path is writable and supports symlinks", "Skill is installed in Central Store"],
+      "steps": [
+        "Enable the installed Skill to Codex with default mode.",
+        "Inspect target path and local enabled target record.",
+        "Inspect queued local event payload."
+      ],
+      "expectedEvidence": [
+        "Target path is a symlink to the adapter artifact output.",
+        "enabled_targets records requestedMode=symlink, resolvedMode=symlink and fallbackReason=null.",
+        "local event payload includes requestedMode and resolvedMode."
+      ]
+    },
+    {
+      "id": "enable-symlink-failure-copy-fallback",
+      "title": "Symlink failure falls back to copy and records fallbackReason",
+      "coverage": ["symlink failure", "copy fallback", "fallbackReason", "local-events"],
+      "preconditions": ["Target path is configured to reject symlink creation", "Skill is installed"],
+      "steps": [
+        "Enable with requestedMode=symlink into the restricted target.",
+        "Inspect target path and enabled target record.",
+        "Inspect local event payload."
+      ],
+      "expectedEvidence": [
+        "Enable succeeds via copied artifact.",
+        "enabled_targets records requestedMode=symlink, resolvedMode=copy and a structured fallbackReason.",
+        "local event payload includes fallbackReason."
+      ]
+    },
+    {
+      "id": "disable-preserves-central-store",
+      "title": "Disable removes only managed target and preserves Central Store",
+      "coverage": ["disable_skill", "managed symlink/copy cleanup", "Central Store safety"],
+      "preconditions": ["Skill is installed and enabled to at least one target"],
+      "steps": [
+        "Disable one enabled target.",
+        "Inspect target path and Central Store package path.",
+        "Inspect local notification/event state."
+      ],
+      "expectedEvidence": [
+        "Managed target symlink or copy is removed.",
+        "Central Store package remains intact.",
+        "A disable_result notification/event is recorded."
+      ]
+    },
+    {
+      "id": "uninstall-managed-targets-with-confirmation",
+      "title": "Uninstall lists and removes Central Store plus managed targets after confirmation",
+      "coverage": ["uninstall_skill", "managed targets", "confirmation", "partial failures"],
+      "preconditions": ["Skill is installed and enabled to multiple managed targets"],
+      "steps": [
+        "Start uninstall.",
+        "Verify all managed target paths are listed for confirmation.",
+        "Confirm uninstall.",
+        "Inspect Central Store and target directories."
+      ],
+      "expectedEvidence": [
+        "Confirmation lists all managed enabled targets.",
+        "Confirmed uninstall removes Central Store package and managed targets only.",
+        "Partial failures are reported with failed paths if any target cannot be removed."
+      ]
+    },
+    {
+      "id": "offline-enable-disable-queue-restart",
+      "title": "Offline enable/disable queues events and survives app restart",
+      "coverage": ["offline mode", "offline_event_queue", "restart persistence"],
+      "preconditions": ["Skill is installed locally", "API is unreachable or app is forced offline"],
+      "steps": [
+        "Enter offline mode.",
+        "Enable then disable the installed Skill.",
+        "Restart the desktop app.",
+        "Inspect local state and queue."
+      ],
+      "expectedEvidence": [
+        "Market search/install/update are disabled while local installed actions remain available.",
+        "offline_event_queue persists enable/disable events with stable event IDs.",
+        "Restart preserves local installed state, target state and queued events."
+      ]
+    },
+    {
+      "id": "local-events-idempotent-sync",
+      "title": "Restored connection syncs local-events idempotently without governance mutation",
+      "coverage": ["POST /desktop/local-events", "idempotency", "server governance untouched"],
+      "preconditions": ["offline_event_queue contains duplicate/retryable events", "API is reachable again"],
+      "steps": [
+        "Flush local events after network recovery.",
+        "Repeat the flush with the same event IDs.",
+        "Inspect server response and local queue status."
+      ],
+      "expectedEvidence": [
+        "First flush returns acceptedEventIDs for unsynced events.",
+        "Duplicate flush returns ignoredDuplicateEventIDs or equivalent idempotent result.",
+        "Server does not mutate permission, review, publish, delist or version governance state.",
+        "Local queue marks synced events without losing failed/retryable events."
+      ]
+    },
+    {
+      "id": "notifications-read-offline-cache",
+      "title": "Notifications support mark-read and offline cache display",
+      "coverage": ["GET /notifications", "POST /notifications/mark-read", "local_notifications"],
+      "preconditions": ["Seed user has unread notifications", "Desktop has performed one online notification sync"],
+      "steps": [
+        "Open notification center and mark one notification as read.",
+        "Mark all as read.",
+        "Switch offline and reopen notifications."
+      ],
+      "expectedEvidence": [
+        "Unread count updates after single and all mark-read actions.",
+        "local_notifications cache shows recent notifications offline.",
+        "Offline state clearly indicates data is cached."
+      ]
+    }
+  ]
+}

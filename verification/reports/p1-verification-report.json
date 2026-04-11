@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "name": "P1 foundation loop verification path",
+  "generatedAt": "2026-04-11T18:51:28.092Z",
+  "strict": true,
+  "overallStatus": "pass",
+  "summary": {
+    "artifacts": {
+      "pass": 12,
+      "pending": 0,
+      "fail": 0
+    },
+    "generatedArtifacts": {
+      "pass": 1,
+      "pending": 0,
+      "fail": 0
+    },
+    "commands": {
+      "pass": 11,
+      "pending": 0,
+      "fail": 0
+    }
+  },
+  "artifacts": [
+    {
+      "id": "root-workspace-manifest",
+      "label": "Root npm workspace manifest exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-1",
+      "path": "package.json",
+      "resolvedPath": "package.json"
+    },
+    {
+      "id": "shared-contracts-package",
+      "label": "Shared P1 DTO/enums/errors package exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-1",
+      "path": "packages/shared-contracts/src/index.ts",
+      "resolvedPath": "packages/shared-contracts/src/index.ts"
+    },
+    {
+      "id": "api-package",
+      "label": "NestJS API package exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "apps/api/package.json",
+      "resolvedPath": "apps/api/package.json"
+    },
+    {
+      "id": "desktop-package",
+      "label": "Desktop React package exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-3",
+      "path": "apps/desktop/package.json",
+      "resolvedPath": "apps/desktop/package.json"
+    },
+    {
+      "id": "tauri-manifest",
+      "label": "Tauri Rust manifest exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-4/worker-5",
+      "path": "apps/desktop/src-tauri/Cargo.toml",
+      "resolvedPath": "apps/desktop/src-tauri/Cargo.toml"
+    },
+    {
+      "id": "tool-adapter-fixtures",
+      "label": "Tool Adapter golden fixtures exist",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-5",
+      "path": "packages/tool-adapter-fixtures",
+      "resolvedPath": "packages/tool-adapter-fixtures"
+    },
+    {
+      "id": "server-prod-compose",
+      "label": "Production Docker Compose file exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "infra/docker-compose.prod.yml",
+      "resolvedPath": "infra/docker-compose.prod.yml"
+    },
+    {
+      "id": "server-env-example",
+      "label": "Server environment template exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "infra/env/server.env.example",
+      "resolvedPath": "infra/env/server.env.example"
+    },
+    {
+      "id": "server-up-script",
+      "label": "Server deployment script exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "deploy/server-up.sh",
+      "resolvedPath": "deploy/server-up.sh"
+    },
+    {
+      "id": "server-check-script",
+      "label": "Server preflight check script exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "deploy/server-check.sh",
+      "resolvedPath": "deploy/server-check.sh"
+    },
+    {
+      "id": "fixture-acceptance-report",
+      "label": "Fixture acceptance report document exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-6",
+      "path": "docs/Verification/p1-fixture-acceptance-report.md",
+      "resolvedPath": "docs/Verification/p1-fixture-acceptance-report.md"
+    },
+    {
+      "id": "packaging-evidence-doc",
+      "label": "Packaging/deployment evidence document exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-6",
+      "path": "docs/Verification/p1-packaging-deployment-evidence.md",
+      "resolvedPath": "docs/Verification/p1-packaging-deployment-evidence.md"
+    }
+  ],
+  "generatedArtifacts": [
+    {
+      "id": "tracked-generated-artifacts",
+      "label": "No generated dependency/build artifacts are tracked",
+      "type": "generated-artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-6/leader-integration",
+      "disallowedGlobs": [
+        "node_modules/**",
+        "*/node_modules/**",
+        "packages/*/dist/**",
+        "apps/*/dist/**",
+        "apps/*/build/**",
+        "coverage/**",
+        "*/coverage/**"
+      ],
+      "trackedPaths": [],
+      "remediation": "Remove tracked generated artifacts (for example node_modules/ and packages/shared-contracts/dist/) from the integration branch or explicitly report a leader-owned blocker before release sign-off.",
+      "exitCode": 0,
+      "stderr": ""
+    }
+  ],
+  "commands": [
+    {
+      "id": "workspace-typecheck",
+      "label": "Workspace TypeScript typecheck",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm run typecheck",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> enterprise-agent-hub@0.1.0 typecheck\n> npm run typecheck --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 typecheck\n> tsc --noEmit -p tsconfig.json\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 typecheck\n> tsc -b --pretty false --noEmit\n\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:24.529Z",
+      "endedAt": "2026-04-11T18:51:25.567Z"
+    },
+    {
+      "id": "workspace-test",
+      "label": "Workspace test suite",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm test",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> enterprise-agent-hub@0.1.0 test\n> npm run test --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.274166ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.071292ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.046125ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.417167\n\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 test\n> npm run build && node --test test/*.test.mjs\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 build\n> tsc -b\n\n✔ P1 enums preserve documented lower_snake_case values (0.24375ms)\n✔ enable/install mode supports symlink-first and copy fallback (0.217583ms)\n✔ cut-slice route and Tauri command names are centralized (0.050292ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.188625\n\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.4055ms)\n✔ all declared golden fixture files exist (0.168042ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.111584\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:25.567Z",
+      "endedAt": "2026-04-11T18:51:26.541Z"
+    },
+    {
+      "id": "api-test",
+      "label": "API package tests",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm test --workspace apps/api",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.274875ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.072625ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.047666ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.000042\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:26.541Z",
+      "endedAt": "2026-04-11T18:51:26.657Z"
+    },
+    {
+      "id": "desktop-frontend-test",
+      "label": "Desktop frontend tests",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm test --workspace apps/desktop",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:26.657Z",
+      "endedAt": "2026-04-11T18:51:27.310Z"
+    },
+    {
+      "id": "cargo-check",
+      "label": "Tauri Rust cargo check",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.00s\n",
+      "startedAt": "2026-04-11T18:51:27.310Z",
+      "endedAt": "2026-04-11T18:51:27.328Z"
+    },
+    {
+      "id": "cargo-test",
+      "label": "Tauri Rust cargo test",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\nrunning 22 tests\ntest adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::distribution::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::path_validation::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::tool_detection::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest store::central_store::tests::rejects_path_traversal_segments ... ok\ntest store::hash::tests::hashes_known_vector ... ok\ntest store::sqlite::tests::migration_contains_store_owned_tables ... ok\ntest store::offline_queue::tests::enable_result_json_preserves_requested_resolved_and_fallback ... ok\ntest store::sqlite::tests::persistence_statements_cover_queue_notifications_and_store_metadata ... ok\ntest commands::distribution::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::tool_detection::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::distribution::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::tool_detection::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::path_validation::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::path_validation::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest store::central_store::tests::validates_installs_and_uninstalls_package_atomically ... ok\ntest commands::tool_detection::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::distribution::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::path_validation::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\n\ntest result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n",
+      "stderr": "warning: unused imports: `AdapterConfig`, `DetectionConfig`, `DetectionMethod`, `InstallConfig`, `LayoutConfig`, `Platform`, and `TargetConfig`\n  --> src/commands/../adapters/mod.rs:9:23\n   |\n 9 |     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,\n   |                       ^^^^^^^^^^^^^             ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n10 |     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,\n   |                  ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^\n   |\n   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: unused imports: `AdapterStatus`, `DetectionResult`, `detect_adapter`, and `expand_windows_user_profile`\n  --> src/commands/../adapters/mod.rs:13:5\n   |\n13 |     detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult,\n   |     ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^\n\nwarning: unused imports: `PathValidation`, `ensure_target_root`, `reject_ambiguous_path`, and `validate_target_path`\n  --> src/commands/../adapters/mod.rs:21:5\n   |\n21 |     ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation,\n   |     ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^\n\nwarning: unused imports: `DerivedArtifact` and `validate_skill_id`\n  --> src/commands/../adapters/mod.rs:23:44\n   |\n23 | pub use self::transform::{transform_skill, validate_skill_id, DerivedArtifact};\n   |                                            ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^\n\nwarning: unused imports: `AdapterConfig`, `AdapterID`, `DetectionConfig`, `DetectionMethod`, `InstallConfig`, `LayoutConfig`, `Platform`, and `TargetConfig`\n  --> src/commands/../adapters/mod.rs:9:23\n   |\n 9 |     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,\n   |                       ^^^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n10 |     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,\n   |                  ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^\n\nwarning: unused imports: `DistributionOutcome` and `enable_artifact`\n  --> src/commands/../adapters/mod.rs:16:29\n   |\n16 |     disable_managed_target, enable_artifact, enable_artifact_with_options, is_managed_target,\n   |                             ^^^^^^^^^^^^^^^\n17 |     DistributionOptions, DistributionOutcome, MANAGED_MARKER_FILE,\n   |                          ^^^^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `ensure_target_root` and `reject_ambiguous_path`\n  --> src/commands/../adapters/mod.rs:21:5\n   |\n21 |     ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation,\n   |     ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `AdapterID`, `DetectionConfig`, `DetectionMethod`, `InstallConfig`, `LayoutConfig`, `Platform`, and `TargetConfig`\n  --> src/commands/../adapters/mod.rs:9:38\n   |\n 9 |     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,\n   |                                      ^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n10 |     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,\n   |                  ^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^^^^\n\nwarning: unused imports: `AdapterStatus` and `expand_windows_user_profile`\n  --> src/commands/../adapters/mod.rs:13:21\n   |\n13 |     detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult,\n   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^\n\nwarning: unused import: `AdapterResult`\n  --> src/commands/../adapters/mod.rs:19:38\n   |\n19 | pub use self::errors::{AdapterError, AdapterResult};\n   |                                      ^^^^^^^^^^^^^\n\nwarning: enum `AdapterStatus` is never used\n --> src/commands/../adapters/detection.rs:7:10\n  |\n7 | pub enum AdapterStatus {\n  |          ^^^^^^^^^^^^^\n  |\n  = note: `#[warn(dead_code)]` (part of `#[warn(un\n...[truncated 3535 chars]",
+      "startedAt": "2026-04-11T18:51:27.328Z",
+      "endedAt": "2026-04-11T18:51:27.393Z"
+    },
+    {
+      "id": "fixture-transform-check",
+      "label": "Tool Adapter fixture transform checks",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm test --workspace packages/tool-adapter-fixtures",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.409417ms)\n✔ all declared golden fixture files exist (0.173375ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.644083\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:27.393Z",
+      "endedAt": "2026-04-11T18:51:27.511Z"
+    },
+    {
+      "id": "docker-config-prod",
+      "label": "Docker Compose production config validation",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "docker compose -f infra/docker-compose.prod.yml config",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "name: infra\nservices:\n  api:\n    depends_on:\n      api-seed:\n        condition: service_completed_successfully\n        required: true\n      minio:\n        condition: service_healthy\n        required: true\n      redis:\n        condition: service_healthy\n        required: true\n    environment:\n      API_PORT: \"3000\"\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      JWT_SECRET: change-me-before-deploy\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n      REDIS_URL: redis://redis:6379/0\n    healthcheck:\n      test:\n        - CMD-SHELL\n        - node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"\n      timeout: 5s\n      interval: 15s\n      retries: 12\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 3000\n        published: \"3000\"\n        protocol: tcp\n  api-migrate:\n    command:\n      - npm\n      - run\n      - migrate\n    depends_on:\n      postgres:\n        condition: service_healthy\n        required: true\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  api-seed:\n    command:\n      - npm\n      - run\n      - seed\n    depends_on:\n      api-migrate:\n        condition: service_completed_successfully\n        required: true\n      minio-init:\n        condition: service_completed_successfully\n        required: true\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  minio:\n    command:\n      - server\n      - /data\n      - --console-address\n      - :9001\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n    healthcheck:\n      test:\n        - CMD\n        - curl\n        - -f\n        - http://localhost:9000/minio/health/live\n      timeout: 5s\n      interval: 10s\n      retries: 10\n    image: minio/minio:RELEASE.2024-12-18T13-15-44Z\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 9000\n        published: \"9000\"\n        protocol: tcp\n      - mode: ingress\n        target: 9001\n        published: \"9001\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: minio_data\n        target: /data\n        volume: {}\n  minio-init:\n    depends_on:\n      minio:\n        condition: service_healthy\n        required: true\n    entrypoint:\n      - /bin/sh\n      - -c\n      - ' mc alias set eah http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing eah/$${MINIO_SKILL_PACKAGE_BUCKET:-skill-packages} && mc mb --ignore-existing eah/$${MINIO_SKILL_ASSET_BUCKET:-skill-assets} '\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n    image: minio/mc:RELEASE.2024-11-21T17-21-54Z\n    networks:\n      default: null\n  postgres:\n    environment:\n      POSTGRES_DB: enterprise_agent_hub\n      POSTGRES_PASSWORD: change-me\n      POSTGRES_USER: eah\n    healthcheck:\n      test:\n        - CMD-SHELL\n        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}\n      timeout: 5s\n      interval: 10s\n      retries: 10\n    image: postgres:16.6-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 5432\n        published: \"5432\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: postgres_data\n        target: /var/lib/postgresql/data\n        volume: {}\n  redis:\n    command:\n      - redis-server\n      - --appendonly\n      - \"yes\"\n    healthcheck:\n      test:\n    \n...[truncated 554 chars]",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:27.512Z",
+      "endedAt": "2026-04-11T18:51:27.754Z"
+    },
+    {
+      "id": "docker-config-legacy",
+      "label": "Docker Compose legacy config validation",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": false,
+      "command": "docker compose -f infra/docker-compose.legacy.yml config",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "name: infra\nservices:\n  api:\n    depends_on:\n      minio:\n        condition: service_started\n        required: true\n      postgres:\n        condition: service_started\n        required: true\n      redis:\n        condition: service_started\n        required: true\n    environment:\n      API_PORT: \"3000\"\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      JWT_SECRET: change-me-before-deploy\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      REDIS_URL: redis://redis:6379/0\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 3000\n        published: \"3000\"\n        protocol: tcp\n  minio:\n    command:\n      - server\n      - /data\n      - --console-address\n      - :9001\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n    image: minio/minio:RELEASE.2024-12-18T13-15-44Z\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 9000\n        published: \"9000\"\n        protocol: tcp\n      - mode: ingress\n        target: 9001\n        published: \"9001\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: minio_data\n        target: /data\n        volume: {}\n  postgres:\n    environment:\n      POSTGRES_DB: enterprise_agent_hub\n      POSTGRES_PASSWORD: change-me\n      POSTGRES_USER: eah\n    image: postgres:16.6-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 5432\n        published: \"5432\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: postgres_data\n        target: /var/lib/postgresql/data\n        volume: {}\n  redis:\n    command:\n      - redis-server\n      - --appendonly\n      - \"yes\"\n    image: redis:7.4.1-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 6379\n        published: \"6379\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: redis_data\n        target: /data\n        volume: {}\nnetworks:\n  default:\n    name: infra_default\nvolumes:\n  minio_data:\n    name: infra_minio_data\n  postgres_data:\n    name: infra_postgres_data\n  redis_data:\n    name: infra_redis_data\n",
+      "stderr": "time=\"2026-04-12T02:51:27+08:00\" level=warning msg=\"/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/infra/docker-compose.legacy.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion\"\n",
+      "startedAt": "2026-04-11T18:51:27.754Z",
+      "endedAt": "2026-04-11T18:51:28.011Z"
+    },
+    {
+      "id": "deploy-script-syntax",
+      "label": "Deployment shell script syntax",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "bash -n deploy/server-up.sh deploy/server-down.sh deploy/server-check.sh deploy/load-offline-images.sh",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:28.011Z",
+      "endedAt": "2026-04-11T18:51:28.025Z"
+    },
+    {
+      "id": "w6-acceptance-matrix-test",
+      "label": "W6 verification matrix self-test",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "node --test tests/smoke/p1-acceptance-matrix.test.mjs",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "✔ W6 verification runner and config are present (0.318334ms)\n✔ verification config includes required release-gate command lanes (0.178167ms)\n✔ smoke/e2e spec covers required P1 acceptance scenarios (0.461958ms)\n✔ verification config rejects tracked generated dependency/build artifacts (0.089958ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 32.748458\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T18:51:28.025Z",
+      "endedAt": "2026-04-11T18:51:28.091Z"
+    }
+  ],
+  "acceptance": {
+    "expected": 13,
+    "covered": 13,
+    "scenarios": [
+      {
+        "id": "bootstrap-login-p1-navigation",
+        "covered": true
+      },
+      {
+        "id": "market-search-filter-sort",
+        "covered": true
+      },
+      {
+        "id": "restricted-detail-no-leakage",
+        "covered": true
+      },
+      {
+        "id": "install-hash-success-central-store",
+        "covered": true
+      },
+      {
+        "id": "install-hash-failure-preserves-state",
+        "covered": true
+      },
+      {
+        "id": "update-local-hash-change-warning",
+        "covered": true
+      },
+      {
+        "id": "enable-codex-symlink-success",
+        "covered": true
+      },
+      {
+        "id": "enable-symlink-failure-copy-fallback",
+        "covered": true
+      },
+      {
+        "id": "disable-preserves-central-store",
+        "covered": true
+      },
+      {
+        "id": "uninstall-managed-targets-with-confirmation",
+        "covered": true
+      },
+      {
+        "id": "offline-enable-disable-queue-restart",
+        "covered": true
+      },
+      {
+        "id": "local-events-idempotent-sync",
+        "covered": true
+      },
+      {
+        "id": "notifications-read-offline-cache",
+        "covered": true
+      }
+    ]
+  }
+}
