@@ -96,20 +96,70 @@ function renderMarketCard(item, state) {
 }
 
 export function createMarketPage(app) {
+  let selectedId = null;
+
   return createPageModule({
     id: 'market',
     async render({ host }) {
       const state = app.store.getState();
       const results = state.remote.market.results;
+
+      if (!results.length) {
+        host.innerHTML = `<div class="page-screen" style="padding: 24px;">${renderNotice({ title: '暂无市场结果', body: state.remote.market.message || 'No market items found.', tone: 'neutral' })}` + 
+                         (state.remote.market.status === 'error' ? renderNotice({ title: '市场加载失败', body: state.remote.market.message, tone: 'danger' }) : '') + `</div>`;
+        return;
+      }
+
+      if (!selectedId || !results.find(i => i.skillId === selectedId)) {
+        selectedId = results[0].skillId;
+      }
+
+      const listHtml = results.map(item => `
+        <div class="split-view__item ${item.skillId === selectedId ? 'is-active' : ''}" data-id="${escapeHtml(item.skillId)}" style="${item.skillId === selectedId ? 'background: rgba(0,0,0,0.05);' : ''}">
+          <h3 style="margin: 0 0 4px; font-size: 14px;">${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h3>
+          <p style="margin: 0; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
+        </div>
+      `).join('');
+
       host.innerHTML = `
-        ${renderSectionHeader({
-          eyebrow: 'Browse and use',
-          title: 'Market',
-          body: state.searchQuery ? `当前搜索：${state.searchQuery}` : '浏览市场、推荐和最近更新的 Skill，并将它们安装到单个项目或单个工具目标。',
-        })}
-        ${state.remote.market.status === 'error' ? renderNotice({ title: '市场加载失败', body: state.remote.market.message, tone: 'danger' }) : ''}
-        ${results.length ? results.map((item) => renderMarketCard(item, state)).join('') : renderNotice({ title: '暂无市场结果', body: state.remote.market.message, tone: 'neutral' })}
+        <div class="split-view">
+          <div class="split-view__list">
+            <div class="split-view__list-header">
+              <h2>Market</h2>
+              ${state.searchQuery ? `<p style="margin:0;font-size:12px;">Search: ${escapeHtml(state.searchQuery)}</p>` : ''}
+            </div>
+            ${listHtml}
+          </div>
+          <div class="split-view__detail" id="market-detail-container">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
       `;
+
+      const detailContainer = host.querySelector('#market-detail-container');
+      const itemsElements = host.querySelectorAll('.split-view__item');
+
+      const updateDetail = () => {
+        const item = results.find(i => i.skillId === selectedId);
+        if (!item) return;
+
+        detailContainer.innerHTML = renderMarketCard(item, state);
+      };
+
+      itemsElements.forEach(el => {
+        el.addEventListener('click', () => {
+          itemsElements.forEach(i => {
+            i.classList.remove('is-active');
+            i.style.background = '';
+          });
+          el.classList.add('is-active');
+          el.style.background = 'rgba(0,0,0,0.05)';
+          selectedId = el.dataset.id;
+          updateDetail();
+        });
+      });
+
+      updateDetail();
     },
   });
 }

@@ -1,19 +1,86 @@
 .page-screen {
-  display: grid;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
 }
 
 .page-screen[hidden] {
   display: none !important;
 }
 
+.split-view {
+  display: flex;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+.split-view__list {
+  width: 300px;
+  min-width: 300px;
+  border-right: 1px solid var(--border-color, #e0e0e0);
+  background: var(--app-bg, #f3f3f3);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.split-view__list-header {
+  padding: 16px;
+  position: sticky;
+  top: 0;
+  background: var(--app-bg, #f3f3f3);
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  z-index: 10;
+}
+
+.split-view__list-header h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: var(--text-secondary, #5e5e5e);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.split-view__item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  cursor: pointer;
+}
+
+.split-view__item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.split-view__detail {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--panel-bg, #fff);
+  padding: 24px;
+}
+
 .page-section {
-  margin: 0;
+  margin-bottom: 24px;
 }
 
 .management-body {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  gap: 24px;
+  background: var(--panel-bg, #fff);
 }
 
 @media (max-width: 900px) {

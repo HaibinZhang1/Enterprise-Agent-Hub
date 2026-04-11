@@ -126,6 +126,8 @@ function renderPublishWorkbench() {
 }
 
 export function createMySkillPage(app) {
+  let selectedId = null;
+
   return createPageModule({
     id: 'my-skill',
     async render({ host }) {
@@ -134,36 +136,90 @@ export function createMySkillPage(app) {
       const installedSkills = state.local.installedSkills?.items ?? [];
       const publishedSkills = state.remote.mySkills?.items ?? [];
 
-      let content = '';
+      let listData = [];
+      let renderDetailFn = () => '';
+
       if (activeTab === 'installed') {
-        content = installedSkills.length
-          ? installedSkills.map((skill) => renderInstalledSkillCard(skill)).join('')
-          : renderNotice({
-              title: '暂无已安装 Skill',
-              body: state.local.installedSkills?.message ?? '当前没有从桌面本地控制平面聚合出的已安装 Skill。',
-              tone: 'neutral',
-            });
+        listData = installedSkills;
+        renderDetailFn = (item) => renderInstalledSkillCard(item);
       } else if (activeTab === 'published') {
-        content = publishedSkills.length
-          ? publishedSkills.map((skill) => renderPublishedSkillCard(skill)).join('')
-          : renderNotice({
-              title: '暂无发布记录',
-              body: state.remote.mySkills?.message ?? '当前账号还没有发布或提交中的 Skill。',
-              tone: 'neutral',
-            });
+        listData = publishedSkills;
+        renderDetailFn = (item) => renderPublishedSkillCard(item);
+      }
+
+      if (activeTab !== 'publish' && listData.length) {
+        if (!selectedId || !listData.find(i => i.skillId === selectedId)) {
+          selectedId = listData[0].skillId;
+        }
       } else {
-        content = renderPublishWorkbench();
+        selectedId = null;
+      }
+
+      let innerContent = '';
+
+      if (activeTab === 'publish') {
+        innerContent = `<div style="padding: 24px; overflow-y: auto;">${renderPublishWorkbench()}</div>`;
+      } else {
+        if (!listData.length) {
+          innerContent = `<div style="padding: 24px; flex: 1;">${renderNotice({ title: '没有找到记录', body: '暂无数据', tone: 'neutral' })}</div>`;
+        } else {
+          const listHtml = listData.map((item) => `
+            <div class="split-view__item ${item.skillId === selectedId ? 'is-active' : ''}" data-id="${escapeHtml(item.skillId)}" style="${item.skillId === selectedId ? 'background: rgba(0,0,0,0.05);' : ''}">
+              <h3 style="margin: 0 0 4px; font-size: 14px;">${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h3>
+              <p style="margin: 0; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
+            </div>
+          `).join('');
+
+          innerContent = `
+            <div class="split-view">
+              <div class="split-view__list">
+                ${listHtml}
+              </div>
+              <div class="split-view__detail" id="myskill-detail-container">
+                <!-- JS inserted -->
+              </div>
+            </div>
+          `;
+        }
       }
 
       host.innerHTML = `
-        ${renderSectionHeader({
-          eyebrow: 'Owned capability',
-          title: 'My Skill',
-          body: '我的 Skill 页面拆分为已安装、我发布的、发布 Skill 三个真实子视图。',
-        })}
-        ${renderTabs(activeTab)}
-        ${content}
+        <div class="dashboard-container" style="padding: 0; gap: 0;">
+          <div style="padding: 16px 24px 0; border-bottom: 1px solid var(--border-color, #e0e0e0); background: var(--panel-bg, #fff);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+              <div>
+                <p class="page-eyebrow" style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Owned capability</p>
+                <h1 style="margin: 0; font-size: 20px;">My Skills</h1>
+              </div>
+            </div>
+            ${renderTabs(activeTab)}
+          </div>
+          ${innerContent}
+        </div>
       `;
+
+      if (activeTab !== 'publish' && listData.length) {
+        const detailContainer = host.querySelector('#myskill-detail-container');
+        const itemsElements = host.querySelectorAll('.split-view__item');
+
+        const updateDetail = () => {
+          const item = listData.find(i => i.skillId === selectedId);
+          if (!item) return;
+          detailContainer.innerHTML = renderDetailFn(item);
+        };
+
+        itemsElements.forEach(el => {
+          el.addEventListener('click', () => {
+             itemsElements.forEach(i => { i.classList.remove('is-active'); i.style.background = ''; });
+             el.classList.add('is-active');
+             el.style.background = 'rgba(0,0,0,0.05)';
+             selectedId = el.dataset.id;
+             updateDetail();
+          });
+        });
+
+        updateDetail();
+      }
     },
   });
 }

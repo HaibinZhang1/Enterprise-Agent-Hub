@@ -115,21 +115,82 @@ function renderProject(project, currentProjectId) {
 }
 
 export function createProjectsPage(app) {
+  let selectedId = 'new';
+
   return createPageModule({
     id: 'projects',
     async render({ host }) {
       const state = app.store.getState();
+      const projects = state.local.projects.items;
+
+      // Default selection to first project or 'new' if empty
+      if (!selectedId || (selectedId !== 'new' && !projects.find(i => i.projectId === selectedId))) {
+        selectedId = projects.length ? projects[0].projectId : 'new';
+      }
+
+      const listHtml = projects.map((project) => `
+        <div class="split-view__item ${project.projectId === selectedId ? 'is-active' : ''}" data-id="${escapeHtml(project.projectId)}" style="${project.projectId === selectedId ? 'background: rgba(0,0,0,0.05);' : ''}">
+          <h3 style="margin: 0 0 4px; font-size: 14px;">${escapeHtml(project.displayName ?? project.projectId ?? 'Project')}</h3>
+          <p style="margin: 0; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(project.projectPath ?? 'No path')}</p>
+        </div>
+      `).join('');
+
+      const listNewHtml = `
+        <div class="split-view__item ${selectedId === 'new' ? 'is-active' : ''}" data-id="new" style="${selectedId === 'new' ? 'background: rgba(0,0,0,0.05); border-bottom: 2px solid var(--border-color, #e0e0e0);' : 'border-bottom: 2px solid var(--border-color, #e0e0e0);'}">
+          <h3 style="margin: 0 0 2px; font-size: 14px; color: #0a84ff;">+ Register Project</h3>
+        </div>
+      `;
+
       host.innerHTML = `
-        ${renderSectionHeader({ eyebrow: 'Multi-project control', title: 'Projects', body: '项目页保留注册、切换、验证、修复与删除能力，并补齐真实的项目级 Skill 管理面板。' })}
-        <section class="content-panel glass-panel page-section">
+        <div class="split-view">
+          <div class="split-view__list">
+            <div class="split-view__list-header">
+              <h2>Local Projects</h2>
+            </div>
+            ${listNewHtml}
+            ${listHtml}
+          </div>
+          <div class="split-view__detail" id="projects-detail-container">
+            <!-- JS inserted -->
+          </div>
+        </div>
+      `;
+
+      const detailContainer = host.querySelector('#projects-detail-container');
+      const itemsElements = host.querySelectorAll('.split-view__item');
+
+      const renderRegisterForm = () => `
+        <div style="max-width: 600px;">
+          <h2 style="margin: 0 0 16px; font-size: 20px;">Register new project</h2>
           <form class="stack-form" data-project-form="true">
             <label>Display name<input name="displayName" type="text" placeholder="Desktop Workspace" required /></label>
             <label>Project path<input name="projectPath" type="text" placeholder="/Users/you/workspace/project" required /></label>
             <div class="form-actions full-span"><button type="submit">Register project</button></div>
           </form>
-        </section>
-        ${state.local.projects.items.length ? state.local.projects.items.map((project) => renderProject(project, state.local.projects.currentProjectId)).join('') : renderNotice({ title: '暂无项目', body: state.local.projects.message, tone: 'neutral' })}
+        </div>
       `;
+
+      const updateDetail = () => {
+        if (selectedId === 'new') {
+          detailContainer.innerHTML = renderRegisterForm();
+        } else {
+          const item = projects.find(i => i.projectId === selectedId);
+          if (!item) return;
+          detailContainer.innerHTML = renderProject(item, state.local.projects.currentProjectId);
+        }
+      };
+
+      itemsElements.forEach(el => {
+        el.addEventListener('click', () => {
+           itemsElements.forEach(i => { i.classList.remove('is-active'); i.style.background = ''; i.style.borderBottom = i.dataset.id === 'new' ? '2px solid var(--border-color, #e0e0e0)' : '1px solid var(--border-color, #e0e0e0)'; });
+           el.classList.add('is-active');
+           el.style.background = 'rgba(0,0,0,0.05)';
+           selectedId = el.dataset.id;
+           updateDetail();
+        });
+      });
+
+      updateDetail();
     },
   });
 }

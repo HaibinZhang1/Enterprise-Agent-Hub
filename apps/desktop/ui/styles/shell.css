@@ -1,27 +1,26 @@
 .workspace-shell {
   display: grid;
-  grid-template-columns: var(--desktop-nav-width) minmax(0, 1fr);
-  gap: var(--desktop-shell-gap);
-  align-items: start;
+  grid-template-columns: var(--desktop-nav-width) 1fr;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .workspace-main {
-  display: grid;
-  gap: 20px;
-}
-
-.nav-panel,
-.topbar {
-  border-radius: var(--desktop-shell-radius);
-  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--panel-bg, #fff);
 }
 
 .nav-panel {
-  position: sticky;
-  top: 24px;
-  padding: 24px 18px;
-  display: grid;
-  gap: 18px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: var(--app-bg, #f3f3f3);
+  border-right: 1px solid var(--border-color, #e0e0e0);
+  overflow-y: auto;
 }
 
 .nav-panel__brand {
@@ -54,14 +53,15 @@
 .nav-item {
   width: 100%;
   border: 0;
-  border-radius: 18px;
+  border-radius: var(--panel-radius, 6px);
   background: transparent;
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #20314b;
+  color: var(--text-primary, #191919);
   cursor: pointer;
+  font-size: 14px;
 }
 
 .nav-item.is-active {
@@ -85,11 +85,14 @@
 }
 
 .topbar {
-  padding: 18px 22px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 16px;
+  height: var(--desktop-topbar-height, 48px);
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  background: var(--app-bg, #f3f3f3);
+  flex-shrink: 0;
 }
 
 .topbar__left,
@@ -139,8 +142,11 @@
 }
 
 .page-outlet {
-  display: grid;
-  gap: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 .page-screen[hidden] {

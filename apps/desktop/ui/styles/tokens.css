@@ -1,5 +1,12 @@
 :root {
-  --desktop-shell-gap: 24px;
-  --desktop-shell-radius: 28px;
-  --desktop-nav-width: 256px;
+  --desktop-shell-gap: 0px;
+  --desktop-shell-radius: 0px;
+  --desktop-nav-width: 240px;
+  --desktop-topbar-height: 48px;
+  --panel-radius: 6px;
+  --app-bg: #f3f3f3;
+  --panel-bg: #ffffff;
+  --border-color: #e0e0e0;
+  --text-primary: #191919;
+  --text-secondary: #5e5e5e;
 }

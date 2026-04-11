@@ -33,15 +33,22 @@ export function createManagementPage(app) {
     async render({ host }) {
       const state = app.store.getState();
       host.innerHTML = `
-        ${renderSectionHeader({
-          eyebrow: 'Admin read surface',
-          title: 'Management',
-          body: '管理页先交付部门管理、用户管理、Skill 管理三层信息架构，即使部分接口仍为占位。',
-        })}
-        <section class="content-panel glass-panel page-section">
-          ${renderTabs(TABS, state.managementTab)}
-          <div class="management-body">${renderTabBody(state)}</div>
-        </section>
+        <div class="dashboard-container" style="padding: 0; gap: 0;">
+          <div style="padding: 16px 24px 0; border-bottom: 1px solid var(--border-color, #e0e0e0); background: var(--panel-bg, #fff);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+              <div>
+                <p class="page-eyebrow" style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Admin read surface</p>
+                <h1 style="margin: 0; font-size: 20px;">Management</h1>
+              </div>
+            </div>
+            ${renderTabs(TABS, state.managementTab)}
+          </div>
+          <div class="management-body" style="padding: 24px;">
+            <div style="max-width: 800px;">
+              ${renderTabBody(state)}
+            </div>
+          </div>
+        </div>
       `;
     },
   });

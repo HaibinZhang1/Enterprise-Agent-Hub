@@ -113,14 +113,67 @@ function renderTool(tool) {
 }
 
 export function createToolsPage(app) {
+  let selectedId = null;
+
   return createPageModule({
     id: 'tools',
     async render({ host }) {
       const state = app.store.getState();
+      const tools = state.local.tools.items;
+
+      if (!tools.length) {
+        host.innerHTML = `<div class="page-screen" style="padding: 24px;">${renderNotice({ title: '暂无工具数据', body: state.local.tools.message, tone: 'neutral' })}</div>`;
+        return;
+      }
+
+      if (!selectedId || !tools.find(i => i.toolId === selectedId)) {
+        selectedId = tools[0].toolId;
+      }
+
+      const listHtml = tools.map((tool) => `
+        <div class="split-view__item ${tool.toolId === selectedId ? 'is-active' : ''}" data-id="${escapeHtml(tool.toolId)}" style="${tool.toolId === selectedId ? 'background: rgba(0,0,0,0.05);' : ''}">
+          <h3 style="margin: 0 0 4px; font-size: 14px;">${escapeHtml(tool.displayName ?? tool.toolId ?? 'Tool')}</h3>
+          <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">${escapeHtml(tool.healthLabel ?? tool.healthState ?? 'unknown')}</p>
+        </div>
+      `).join('');
+
       host.innerHTML = `
-        ${renderSectionHeader({ eyebrow: 'Local authority', title: 'Tools', body: '桌面工具扫描、修复预览与真实的工具级 Skill 管理都在此页面维护。', actions: '<button type="button" data-tools-scan="true">Rescan</button>' })}
-        ${state.local.tools.items.length ? state.local.tools.items.map((tool) => renderTool(tool)).join('') : renderNotice({ title: '暂无工具数据', body: state.local.tools.message, tone: 'neutral' })}
+        <div class="split-view">
+          <div class="split-view__list">
+            <div class="split-view__list-header">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0;">Local Tools</h2>
+                <button type="button" class="state-pill compact" data-tools-scan="true" style="cursor: pointer; border: none;">Rescan</button>
+              </div>
+            </div>
+            ${listHtml}
+          </div>
+          <div class="split-view__detail" id="tools-detail-container">
+            <!-- JS inserted -->
+          </div>
+        </div>
       `;
+
+      const detailContainer = host.querySelector('#tools-detail-container');
+      const itemsElements = host.querySelectorAll('.split-view__item');
+
+      const updateDetail = () => {
+        const item = tools.find(i => i.toolId === selectedId);
+        if (!item) return;
+        detailContainer.innerHTML = renderTool(item);
+      };
+
+      itemsElements.forEach(el => {
+        el.addEventListener('click', () => {
+           itemsElements.forEach(i => { i.classList.remove('is-active'); i.style.background = ''; });
+           el.classList.add('is-active');
+           el.style.background = 'rgba(0,0,0,0.05)';
+           selectedId = el.dataset.id;
+           updateDetail();
+        });
+      });
+
+      updateDetail();
     },
   });
 }
