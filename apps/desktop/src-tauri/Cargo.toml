@@ -1,0 +1,11 @@
+[package]
+name = "enterprise-agent-hub-desktop"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "enterprise_agent_hub_desktop"
+path = "src/lib.rs"
+
+[dependencies]
