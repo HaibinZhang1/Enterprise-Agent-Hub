@@ -35,6 +35,7 @@
 | 01 | [生产级基础架构详细设计](01_production_foundation.md) | 项目目录结构、前后端模块划分、Tauri 前端层与 Rust 层边界、核心数据表设计建议、第一阶段开发顺序。 |
 | 02 | [P1 任务详细设计](02_p1_task_design.md) | P1 任务包拆分、接口/命令/状态设计、依赖顺序、验收路径和需求差异同步项。 |
 | 03 | [服务端 Docker 一键部署详细设计](03_server_docker_deployment.md) | Compose 一键部署、低版本服务器兼容、离线镜像包、数据持久化、健康检查和验收边界。 |
+| 04 | [P1 共享契约落地对齐](04_p1_shared_contracts_alignment.md) | 共享 TypeScript 契约包、workspace 脚本、symlink-first/copy-fallback 字段和后续 DTO 对接规则。 |
 
 ## 暂不展开
 

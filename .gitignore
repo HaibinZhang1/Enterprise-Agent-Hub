@@ -1,2 +1,8 @@
 .omx/
 .DS_Store
+node_modules/
+packages/*/dist/
+*.tsbuildinfo
+apps/*/dist/
+coverage/
+target/
