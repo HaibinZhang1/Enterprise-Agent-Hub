@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 1,
+  "name": "P1 foundation loop verification path",
+  "generatedAt": "2026-04-11T17:43:18.819Z",
+  "strict": true,
+  "overallStatus": "fail",
+  "summary": {
+    "artifacts": {
+      "pass": 2,
+      "pending": 10,
+      "fail": 0
+    },
+    "generatedArtifacts": {
+      "pass": 1,
+      "pending": 0,
+      "fail": 0
+    },
+    "commands": {
+      "pass": 1,
+      "pending": 10,
+      "fail": 0
+    }
+  },
+  "artifacts": [
+    {
+      "id": "root-workspace-manifest",
+      "label": "Root npm workspace manifest exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-1",
+      "path": "package.json",
+      "resolvedPath": "package.json"
+    },
+    {
+      "id": "shared-contracts-package",
+      "label": "Shared P1 DTO/enums/errors package exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-1",
+      "path": "packages/shared-contracts/src/index.ts",
+      "resolvedPath": "packages/shared-contracts/src/index.ts"
+    },
+    {
+      "id": "api-package",
+      "label": "NestJS API package exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "apps/api/package.json",
+      "resolvedPath": "apps/api/package.json"
+    },
+    {
+      "id": "desktop-package",
+      "label": "Desktop React package exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-3",
+      "path": "apps/desktop/package.json",
+      "resolvedPath": "apps/desktop/package.json"
+    },
+    {
+      "id": "tauri-manifest",
+      "label": "Tauri Rust manifest exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-4/worker-5",
+      "path": "apps/desktop/src-tauri/Cargo.toml",
+      "resolvedPath": "apps/desktop/src-tauri/Cargo.toml"
+    },
+    {
+      "id": "tool-adapter-fixtures",
+      "label": "Tool Adapter golden fixtures exist",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-5",
+      "path": "packages/tool-adapter-fixtures",
+      "resolvedPath": "packages/tool-adapter-fixtures"
+    },
+    {
+      "id": "server-prod-compose",
+      "label": "Production Docker Compose file exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "infra/docker-compose.prod.yml",
+      "resolvedPath": "infra/docker-compose.prod.yml"
+    },
+    {
+      "id": "server-env-example",
+      "label": "Server environment template exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "infra/env/server.env.example",
+      "resolvedPath": "infra/env/server.env.example"
+    },
+    {
+      "id": "server-up-script",
+      "label": "Server deployment script exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "deploy/server-up.sh",
+      "resolvedPath": "deploy/server-up.sh"
+    },
+    {
+      "id": "server-check-script",
+      "label": "Server preflight check script exists",
+      "type": "artifact",
+      "status": "pending",
+      "requiredForRelease": true,
+      "owner": "worker-2",
+      "path": "deploy/server-check.sh",
+      "resolvedPath": "deploy/server-check.sh"
+    },
+    {
+      "id": "fixture-acceptance-report",
+      "label": "Fixture acceptance report document exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-6",
+      "path": "docs/Verification/p1-fixture-acceptance-report.md",
+      "resolvedPath": "docs/Verification/p1-fixture-acceptance-report.md"
+    },
+    {
+      "id": "packaging-evidence-doc",
+      "label": "Packaging/deployment evidence document exists",
+      "type": "artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-6",
+      "path": "docs/Verification/p1-packaging-deployment-evidence.md",
+      "resolvedPath": "docs/Verification/p1-packaging-deployment-evidence.md"
+    }
+  ],
+  "generatedArtifacts": [
+    {
+      "id": "tracked-generated-artifacts",
+      "label": "No generated dependency/build artifacts are tracked",
+      "type": "generated-artifact",
+      "status": "pass",
+      "requiredForRelease": true,
+      "owner": "worker-6/leader-integration",
+      "disallowedGlobs": [
+        "node_modules/**",
+        "*/node_modules/**",
+        "packages/*/dist/**",
+        "apps/*/dist/**",
+        "apps/*/build/**",
+        "coverage/**",
+        "*/coverage/**"
+      ],
+      "trackedPaths": [],
+      "remediation": "Remove tracked generated artifacts (for example node_modules/ and packages/shared-contracts/dist/) from the integration branch or explicitly report a leader-owned blocker before release sign-off.",
+      "exitCode": 0,
+      "stderr": ""
+    }
+  ],
+  "commands": [
+    {
+      "id": "workspace-typecheck",
+      "label": "Workspace TypeScript typecheck",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "npm run typecheck",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): package.json",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "workspace-test",
+      "label": "Workspace test suite",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "npm test",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): package.json",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "api-test",
+      "label": "API package tests",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "npm test --workspace apps/api",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): package.json, apps/api/package.json",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "desktop-frontend-test",
+      "label": "Desktop frontend tests",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "npm test --workspace apps/desktop",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): package.json, apps/desktop/package.json",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "cargo-check",
+      "label": "Tauri Rust cargo check",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): apps/desktop/src-tauri/Cargo.toml",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "cargo-test",
+      "label": "Tauri Rust cargo test",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): apps/desktop/src-tauri/Cargo.toml",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "fixture-transform-check",
+      "label": "Tool Adapter fixture transform checks",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "npm test --workspace packages/tool-adapter-fixtures",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): package.json, packages/tool-adapter-fixtures/package.json",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "docker-config-prod",
+      "label": "Docker Compose production config validation",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "docker compose -f infra/docker-compose.prod.yml config",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): infra/docker-compose.prod.yml",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "docker-config-legacy",
+      "label": "Docker Compose legacy config validation",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": false,
+      "command": "docker compose -f infra/docker-compose.legacy.yml config",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): infra/docker-compose.legacy.yml",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "deploy-script-syntax",
+      "label": "Deployment shell script syntax",
+      "type": "command",
+      "status": "pending",
+      "requiredForRelease": true,
+      "command": "bash -n deploy/server-up.sh deploy/server-down.sh deploy/server-check.sh deploy/load-offline-images.sh",
+      "cwd": ".",
+      "skippedReason": "Missing prerequisite path(s): deploy/server-up.sh, deploy/server-down.sh, deploy/server-check.sh, deploy/load-offline-images.sh",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.764Z"
+    },
+    {
+      "id": "w6-acceptance-matrix-test",
+      "label": "W6 verification matrix self-test",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "node --test tests/smoke/p1-acceptance-matrix.test.mjs",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "✔ W6 verification runner and config are present (0.354583ms)\n✔ verification config includes required release-gate command lanes (0.229209ms)\n✔ smoke/e2e spec covers required P1 acceptance scenarios (0.533875ms)\n✔ verification config rejects tracked generated dependency/build artifacts (0.092667ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 31.668666\n",
+      "stderr": "",
+      "startedAt": "2026-04-11T17:43:18.764Z",
+      "endedAt": "2026-04-11T17:43:18.819Z"
+    }
+  ],
+  "acceptance": {
+    "expected": 13,
+    "covered": 13,
+    "scenarios": [
+      {
+        "id": "bootstrap-login-p1-navigation",
+        "covered": true
+      },
+      {
+        "id": "market-search-filter-sort",
+        "covered": true
+      },
+      {
+        "id": "restricted-detail-no-leakage",
+        "covered": true
+      },
+      {
+        "id": "install-hash-success-central-store",
+        "covered": true
+      },
+      {
+        "id": "install-hash-failure-preserves-state",
+        "covered": true
+      },
+      {
+        "id": "update-local-hash-change-warning",
+        "covered": true
+      },
+      {
+        "id": "enable-codex-symlink-success",
+        "covered": true
+      },
+      {
+        "id": "enable-symlink-failure-copy-fallback",
+        "covered": true
+      },
+      {
+        "id": "disable-preserves-central-store",
+        "covered": true
+      },
+      {
+        "id": "uninstall-managed-targets-with-confirmation",
+        "covered": true
+      },
+      {
+        "id": "offline-enable-disable-queue-restart",
+        "covered": true
+      },
+      {
+        "id": "local-events-idempotent-sync",
+        "covered": true
+      },
+      {
+        "id": "notifications-read-offline-cache",
+        "covered": true
+      }
+    ]
+  }
+}
