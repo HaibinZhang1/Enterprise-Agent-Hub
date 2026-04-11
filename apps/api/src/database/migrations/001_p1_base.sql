@@ -1,6 +1,7 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS departments (
   id TEXT PRIMARY KEY,
@@ -50,9 +51,16 @@ CREATE TABLE IF NOT EXISTS skill_versions (
   UNIQUE(skill_id, version)
 );
 
-ALTER TABLE skills
-  ADD CONSTRAINT skills_current_version_fk
-  FOREIGN KEY (current_version_id) REFERENCES skill_versions(id) DEFERRABLE INITIALLY DEFERRED;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'skills_current_version_fk'
+  ) THEN
+    ALTER TABLE skills
+      ADD CONSTRAINT skills_current_version_fk
+      FOREIGN KEY (current_version_id) REFERENCES skill_versions(id) DEFERRABLE INITIALLY DEFERRED;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS skill_packages (
   id TEXT PRIMARY KEY,
