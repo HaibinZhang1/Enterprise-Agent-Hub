@@ -10,7 +10,7 @@
     "build": "pnpm -r --if-present build",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "pnpm -r --if-present test && node --test test/*.test.js",
-    "test:python": "python -m unittest discover -s tests -p test_*.py",
+    "test:python": "node scripts/run-python-tests.js",
     "lint": "node scripts/lint-workspace.js",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:python && pnpm build && pnpm migrate:postgres && pnpm migrate:sqlite",
     "verify:production": "node scripts/verify-production-assets.js",
