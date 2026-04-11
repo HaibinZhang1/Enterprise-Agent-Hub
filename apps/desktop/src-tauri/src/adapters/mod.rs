@@ -9,13 +9,17 @@ pub use self::config::{
     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,
     InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,
 };
-pub use self::detection::{detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult};
+pub use self::detection::{
+    detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult,
+};
 pub use self::distribution::{
     disable_managed_target, enable_artifact, enable_artifact_with_options, is_managed_target,
     DistributionOptions, DistributionOutcome, MANAGED_MARKER_FILE,
 };
 pub use self::errors::{AdapterError, AdapterResult};
-pub use self::path_validation::{ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation};
+pub use self::path_validation::{
+    ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation,
+};
 pub use self::transform::{transform_skill, validate_skill_id, DerivedArtifact};
 
 #[cfg(test)]
@@ -28,17 +32,33 @@ mod tests {
     #[test]
     fn builtin_adapters_match_p1_contract() {
         let adapters = builtin_adapters();
-        let ids: Vec<_> = adapters.iter().map(|adapter| adapter.tool_id.as_str()).collect();
+        let ids: Vec<_> = adapters
+            .iter()
+            .map(|adapter| adapter.tool_id.as_str())
+            .collect();
         assert_eq!(
             ids,
-            vec!["codex", "claude", "cursor", "windsurf", "opencode", "custom_directory"]
+            vec![
+                "codex",
+                "claude",
+                "cursor",
+                "windsurf",
+                "opencode",
+                "custom_directory"
+            ]
         );
         for adapter in adapters {
-            assert!(adapter.install.supported_modes.contains(&InstallMode::Symlink));
+            assert!(adapter
+                .install
+                .supported_modes
+                .contains(&InstallMode::Symlink));
             assert!(adapter.install.supported_modes.contains(&InstallMode::Copy));
             assert_eq!(adapter.install.default_mode, InstallMode::Symlink);
             assert_eq!(adapter.install.fallback_mode, InstallMode::Copy);
-            assert_eq!(adapter.target_name_for_skill("example-skill"), "example-skill");
+            assert_eq!(
+                adapter.target_name_for_skill("example-skill"),
+                "example-skill"
+            );
             assert_eq!(adapter.marker_files, vec!["SKILL.md".to_string()]);
         }
     }
@@ -48,7 +68,11 @@ mod tests {
         let temp = TestTemp::new("cursor-transform");
         let source = temp.path.join("store/example-skill/1.0.0");
         fs::create_dir_all(source.join("assets")).unwrap();
-        fs::write(source.join("SKILL.md"), "# Example Skill\n\nUse this skill.\n").unwrap();
+        fs::write(
+            source.join("SKILL.md"),
+            "# Example Skill\n\nUse this skill.\n",
+        )
+        .unwrap();
         fs::write(source.join("assets/readme.txt"), "asset").unwrap();
 
         let artifact = transform_skill(
@@ -92,7 +116,10 @@ mod tests {
 
         assert_eq!(outcome.requested_mode, InstallMode::Symlink);
         assert_eq!(outcome.resolved_mode, InstallMode::Copy);
-        assert_eq!(outcome.fallback_reason.as_deref(), Some("symlink_permission_denied"));
+        assert_eq!(
+            outcome.fallback_reason.as_deref(),
+            Some("symlink_permission_denied")
+        );
         assert!(outcome.target_path.join("SKILL.md").is_file());
         assert!(is_managed_target(&outcome.target_path));
     }

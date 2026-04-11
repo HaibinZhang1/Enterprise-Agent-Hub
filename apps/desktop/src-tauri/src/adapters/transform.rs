@@ -26,7 +26,9 @@ pub fn transform_skill(
     let derived_root = derived_root.as_ref();
 
     if !source_skill_path.is_dir() {
-        return Err(AdapterError::MissingSkillSource(source_skill_path.to_path_buf()));
+        return Err(AdapterError::MissingSkillSource(
+            source_skill_path.to_path_buf(),
+        ));
     }
 
     let skill_md = source_skill_path.join("SKILL.md");
@@ -61,7 +63,9 @@ pub fn transform_skill(
         .map_err(|error| AdapterError::io(format!("read {}", skill_md.display()), error))?;
 
     let entry_file = match strategy {
-        TransformStrategy::CodexSkill | TransformStrategy::ClaudeSkill | TransformStrategy::GenericDirectory => {
+        TransformStrategy::CodexSkill
+        | TransformStrategy::ClaudeSkill
+        | TransformStrategy::GenericDirectory => {
             copy_dir(source_skill_path, &artifact_path)?;
             artifact_path.join("SKILL.md")
         }
@@ -72,7 +76,8 @@ pub fn transform_skill(
                 &path,
                 format!(
                     "---\ndescription: {}\nglobs: [\"**/*\"]\nalwaysApply: false\n---\n\n{}",
-                    escape_frontmatter(description), skill_text
+                    escape_frontmatter(description),
+                    skill_text
                 ),
             )
             .map_err(|error| AdapterError::io(format!("write {}", path.display()), error))?;
@@ -213,6 +218,12 @@ fn escape_frontmatter(value: &str) -> String {
 fn sanitize_file_stem(value: &str) -> String {
     value
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '-' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
         .collect()
 }

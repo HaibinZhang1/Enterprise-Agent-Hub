@@ -114,7 +114,9 @@ pub struct AdapterConfig {
 
 impl AdapterConfig {
     pub fn target_name_for_skill(&self, skill_id: &str) -> String {
-        self.layout.target_name_template.replace("{{skillID}}", skill_id)
+        self.layout
+            .target_name_template
+            .replace("{{skillID}}", skill_id)
     }
 }
 
@@ -126,7 +128,11 @@ pub fn builtin_adapters() -> Vec<AdapterConfig> {
             vec!["%USERPROFILE%\\.codex\\skills"],
             vec![],
             TransformStrategy::CodexSkill,
-            vec![DetectionMethod::Registry, DetectionMethod::DefaultPath, DetectionMethod::Manual],
+            vec![
+                DetectionMethod::Registry,
+                DetectionMethod::DefaultPath,
+                DetectionMethod::Manual,
+            ],
         ),
         adapter(
             AdapterID::Claude,
@@ -134,7 +140,11 @@ pub fn builtin_adapters() -> Vec<AdapterConfig> {
             vec!["%USERPROFILE%\\.claude\\skills"],
             vec![".claude\\skills"],
             TransformStrategy::ClaudeSkill,
-            vec![DetectionMethod::Registry, DetectionMethod::DefaultPath, DetectionMethod::Manual],
+            vec![
+                DetectionMethod::Registry,
+                DetectionMethod::DefaultPath,
+                DetectionMethod::Manual,
+            ],
         ),
         adapter(
             AdapterID::Cursor,
@@ -142,7 +152,11 @@ pub fn builtin_adapters() -> Vec<AdapterConfig> {
             vec!["%USERPROFILE%\\.cursor\\rules"],
             vec![".cursor\\rules"],
             TransformStrategy::CursorRule,
-            vec![DetectionMethod::Registry, DetectionMethod::DefaultPath, DetectionMethod::Manual],
+            vec![
+                DetectionMethod::Registry,
+                DetectionMethod::DefaultPath,
+                DetectionMethod::Manual,
+            ],
         ),
         adapter(
             AdapterID::Windsurf,
@@ -150,7 +164,11 @@ pub fn builtin_adapters() -> Vec<AdapterConfig> {
             vec!["%USERPROFILE%\\.windsurf\\skills"],
             vec![],
             TransformStrategy::WindsurfRule,
-            vec![DetectionMethod::Registry, DetectionMethod::DefaultPath, DetectionMethod::Manual],
+            vec![
+                DetectionMethod::Registry,
+                DetectionMethod::DefaultPath,
+                DetectionMethod::Manual,
+            ],
         ),
         adapter(
             AdapterID::Opencode,
@@ -158,7 +176,11 @@ pub fn builtin_adapters() -> Vec<AdapterConfig> {
             vec!["%USERPROFILE%\\.opencode\\skills"],
             vec![".opencode\\skills"],
             TransformStrategy::OpencodeSkill,
-            vec![DetectionMethod::Registry, DetectionMethod::DefaultPath, DetectionMethod::Manual],
+            vec![
+                DetectionMethod::Registry,
+                DetectionMethod::DefaultPath,
+                DetectionMethod::Manual,
+            ],
         ),
         adapter(
             AdapterID::CustomDirectory,

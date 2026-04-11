@@ -48,13 +48,25 @@ impl fmt::Display for AdapterError {
                 write!(f, "invalid target path {}: {reason}", path.display())
             }
             Self::MissingMarkerFile { path, marker } => {
-                write!(f, "skill source {} is missing marker file {marker}", path.display())
+                write!(
+                    f,
+                    "skill source {} is missing marker file {marker}",
+                    path.display()
+                )
             }
             Self::MissingSkillSource(path) => {
-                write!(f, "central store skill source is missing: {}", path.display())
+                write!(
+                    f,
+                    "central store skill source is missing: {}",
+                    path.display()
+                )
             }
             Self::TargetConflict { path } => {
-                write!(f, "target path already exists and is not managed: {}", path.display())
+                write!(
+                    f,
+                    "target path already exists and is not managed: {}",
+                    path.display()
+                )
             }
             Self::UnmanagedTarget { path } => {
                 write!(f, "refusing to remove unmanaged target: {}", path.display())

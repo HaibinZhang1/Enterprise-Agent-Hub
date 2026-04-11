@@ -56,7 +56,9 @@ pub fn enable_artifact_with_options(
     let artifact_path = artifact_path.as_ref();
     let target_root = target_root.as_ref();
     if !artifact_path.is_dir() {
-        return Err(AdapterError::MissingSkillSource(artifact_path.to_path_buf()));
+        return Err(AdapterError::MissingSkillSource(
+            artifact_path.to_path_buf(),
+        ));
     }
 
     ensure_target_root(target_root)?;
@@ -116,14 +118,16 @@ pub fn disable_managed_target(path: impl AsRef<Path>) -> AdapterResult<()> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| AdapterError::io(format!("stat target {}", path.display()), error))?;
     if metadata.file_type().is_symlink() {
-        fs::remove_file(path)
-            .map_err(|error| AdapterError::io(format!("remove symlink {}", path.display()), error))?;
+        fs::remove_file(path).map_err(|error| {
+            AdapterError::io(format!("remove symlink {}", path.display()), error)
+        })?;
         return Ok(());
     }
 
     if is_managed_copy(path) {
-        fs::remove_dir_all(path)
-            .map_err(|error| AdapterError::io(format!("remove target {}", path.display()), error))?;
+        fs::remove_dir_all(path).map_err(|error| {
+            AdapterError::io(format!("remove target {}", path.display()), error)
+        })?;
         return Ok(());
     }
 

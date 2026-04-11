@@ -35,12 +35,24 @@ pub struct DetectionResult {
 
 pub fn detect_adapter(adapter: &AdapterConfig, manual_path: Option<PathBuf>) -> DetectionResult {
     if !adapter.enabled {
-        return result(adapter, AdapterStatus::Disabled, DetectionMethod::Manual, None, None);
+        return result(
+            adapter,
+            AdapterStatus::Disabled,
+            DetectionMethod::Manual,
+            None,
+            None,
+        );
     }
 
     if let Some(path) = manual_path {
         return match validate_target_path(&path) {
-            Ok(_) => result(adapter, AdapterStatus::Manual, DetectionMethod::Manual, Some(path), None),
+            Ok(_) => result(
+                adapter,
+                AdapterStatus::Manual,
+                DetectionMethod::Manual,
+                Some(path),
+                None,
+            ),
             Err(error) => result(
                 adapter,
                 AdapterStatus::Invalid,
@@ -51,7 +63,11 @@ pub fn detect_adapter(adapter: &AdapterConfig, manual_path: Option<PathBuf>) -> 
         };
     }
 
-    if adapter.detection.methods.contains(&DetectionMethod::DefaultPath) {
+    if adapter
+        .detection
+        .methods
+        .contains(&DetectionMethod::DefaultPath)
+    {
         for candidate in &adapter.detection.default_paths {
             let expanded = expand_windows_user_profile(candidate);
             if expanded.exists() {

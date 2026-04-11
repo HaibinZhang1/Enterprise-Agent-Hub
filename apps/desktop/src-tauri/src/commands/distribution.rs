@@ -47,9 +47,15 @@ pub fn enable_distribution(
     let adapter = builtin_adapters()
         .into_iter()
         .find(|adapter| adapter.tool_id == request.adapter_id)
-        .ok_or_else(|| AdapterError::UnsupportedTransform(request.adapter_id.as_str().to_string()))?;
+        .ok_or_else(|| {
+            AdapterError::UnsupportedTransform(request.adapter_id.as_str().to_string())
+        })?;
 
-    if !adapter.install.supported_modes.contains(&request.requested_mode) {
+    if !adapter
+        .install
+        .supported_modes
+        .contains(&request.requested_mode)
+    {
         return Err(AdapterError::UnsupportedMode(
             request.requested_mode.as_str().to_string(),
         ));
