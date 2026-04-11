@@ -1,12 +1,23 @@
 :root {
   --desktop-shell-gap: 0px;
   --desktop-shell-radius: 0px;
-  --desktop-nav-width: 240px;
-  --desktop-topbar-height: 48px;
+  --desktop-nav-width: 220px;
+  --desktop-topbar-height: 44px;
   --panel-radius: 6px;
-  --app-bg: #f3f3f3;
+  --app-bg: #f0f0f0;
   --panel-bg: #ffffff;
   --border-color: #e0e0e0;
   --text-primary: #191919;
   --text-secondary: #5e5e5e;
+  --accent-color: #0a84ff;
+  --accent-hover: #006ee6;
+  --accent-muted: rgba(10, 132, 255, 0.12);
+  --item-active-bg: rgba(10, 132, 255, 0.10);
+  --item-hover-bg: rgba(0, 0, 0, 0.03);
+  --danger-bg: rgba(255, 59, 48, 0.08);
+  --danger-border: rgba(255, 59, 48, 0.18);
+  --success-bg: rgba(52, 199, 89, 0.14);
+  --success-text: #1f7a3a;
+  --warning-bg: rgba(255, 204, 0, 0.16);
+  --warning-text: #876800;
 }

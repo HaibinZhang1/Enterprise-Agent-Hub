@@ -22,15 +22,15 @@ export function renderMetric({ label, value, meta = '' }) {
 
 export function renderSectionHeader({ eyebrow = '', title, body = '', actions = '' }) {
   return `
-    <header class="section-header" style="margin-bottom: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 12px; border-bottom: 1px solid var(--border-color, #e0e0e0);">
+    <header class="section-header">
+      <div class="section-header__bar">
         <div>
-          ${eyebrow ? `<p class="page-eyebrow" style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--text-secondary, #666); text-transform: uppercase;">${escapeHtml(eyebrow)}</p>` : ''}
-          <h1 style="margin: 0; font-size: 20px;">${escapeHtml(title)}</h1>
+          ${eyebrow ? `<p class="section-header__eyebrow">${escapeHtml(eyebrow)}</p>` : ''}
+          <h1 class="section-header__title">${escapeHtml(title)}</h1>
         </div>
         ${actions ? `<div class="page-actions">${actions}</div>` : ''}
       </div>
-      ${body ? `<p class="page-copy" style="margin: 12px 0 0; color: var(--text-secondary, #5e5e5e); font-size: 13px;">${escapeHtml(body)}</p>` : ''}
+      ${body ? `<p class="section-header__body">${escapeHtml(body)}</p>` : ''}
     </header>
   `;
 }

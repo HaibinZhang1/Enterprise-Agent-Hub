@@ -1,5 +1,6 @@
-import { renderNotice, renderSectionHeader } from '../components/states.js';
+import { renderNotice } from '../components/states.js';
 import { createPageModule } from '../core/page-lifecycle.js';
+import { bindSplitView } from '../core/split-view-helper.js';
 import { escapeHtml } from '../core/utils.js';
 
 function renderTargetForm({ skillId, targetType, label, targets, buttonLabel }) {
@@ -7,7 +8,7 @@ function renderTargetForm({ skillId, targetType, label, targets, buttonLabel }) 
     return `
       <div class="state-card state-card--neutral">
         <h3>${escapeHtml(label)}</h3>
-        <p>${escapeHtml(`Register one ${targetType} target locally before previewing this install.`)}</p>
+        <p>请先在本地注册一个${escapeHtml(targetType === 'project' ? '项目' : '工具')}目标。</p>
       </div>
     `;
   }
@@ -50,16 +51,16 @@ function renderInstallControls(item, state) {
       ${renderTargetForm({
         skillId: item.skillId,
         targetType: 'project',
-        label: 'Install to project target',
+        label: '安装到项目',
         targets: projectTargets,
-        buttonLabel: 'Preview install to project',
+        buttonLabel: '预览安装到项目',
       })}
       ${renderTargetForm({
         skillId: item.skillId,
         targetType: 'tool',
-        label: 'Install to tool target',
+        label: '安装到工具',
         targets: toolTargets,
-        buttonLabel: 'Preview install to tool',
+        buttonLabel: '预览安装到工具',
       })}
     </div>
   `;
@@ -70,10 +71,10 @@ function renderMarketCard(item, state) {
     <article class="content-panel glass-panel page-section">
       <div class="content-header">
         <div>
-          <p class="page-eyebrow">Market</p>
+          <p class="page-eyebrow">市场</p>
           <h2>${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h2>
         </div>
-        <span class="state-pill">${item.canInstall ? 'Installable' : 'Summary only'}</span>
+        <span class="state-pill">${item.canInstall ? '可安装' : '仅摘要'}</span>
       </div>
       <p class="page-copy">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
       <div class="meta-row">
@@ -83,12 +84,12 @@ function renderMarketCard(item, state) {
       <section class="page-section">
         <div class="content-header">
           <div>
-            <p class="page-eyebrow">Install / enable</p>
-            <h3>Single target selection</h3>
+            <p class="page-eyebrow">安装 / 启用</p>
+            <h3>选择安装目标</h3>
           </div>
-          <span class="state-pill">One target type · one target</span>
+          <span class="state-pill">单目标选择</span>
         </div>
-        <p class="page-copy">Target type stays explicit: resolve an API install candidate first, then route one project or one tool target into the local preview-confirm flow.</p>
+        <p class="page-copy">选择安装目标类型，然后通过本地预览-确认流程完成安装。</p>
         ${renderInstallControls(item, state)}
       </section>
     </article>
@@ -105,7 +106,7 @@ export function createMarketPage(app) {
       const results = state.remote.market.results;
 
       if (!results.length) {
-        host.innerHTML = `<div class="page-screen" style="padding: 24px;">${renderNotice({ title: '暂无市场结果', body: state.remote.market.message || 'No market items found.', tone: 'neutral' })}` + 
+        host.innerHTML = `<div class="page-padded">${renderNotice({ title: '暂无市场结果', body: state.remote.market.message || '未找到市场数据。', tone: 'neutral' })}` +
                          (state.remote.market.status === 'error' ? renderNotice({ title: '市场加载失败', body: state.remote.market.message, tone: 'danger' }) : '') + `</div>`;
         return;
       }
@@ -115,9 +116,9 @@ export function createMarketPage(app) {
       }
 
       const listHtml = results.map(item => `
-        <div class="split-view__item ${item.skillId === selectedId ? 'is-active' : ''}" data-id="${escapeHtml(item.skillId)}" style="${item.skillId === selectedId ? 'background: rgba(0,0,0,0.05);' : ''}">
-          <h3 style="margin: 0 0 4px; font-size: 14px;">${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h3>
-          <p style="margin: 0; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
+        <div class="split-view__item${item.skillId === selectedId ? ' is-active' : ''}" data-id="${escapeHtml(item.skillId)}">
+          <h3 class="split-view__item-title">${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h3>
+          <p class="split-view__item-subtitle">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
         </div>
       `).join('');
 
@@ -125,41 +126,26 @@ export function createMarketPage(app) {
         <div class="split-view">
           <div class="split-view__list">
             <div class="split-view__list-header">
-              <h2>Market</h2>
-              ${state.searchQuery ? `<p style="margin:0;font-size:12px;">Search: ${escapeHtml(state.searchQuery)}</p>` : ''}
+              <div class="split-view__list-toolbar">
+                <h2>市场</h2>
+                ${state.searchQuery ? `<span class="state-pill compact">${escapeHtml(state.searchQuery)}</span>` : ''}
+              </div>
             </div>
             ${listHtml}
           </div>
-          <div class="split-view__detail" id="market-detail-container">
-            <!-- Rendered via JS -->
-          </div>
+          <div class="split-view__detail" id="market-detail-container"></div>
         </div>
       `;
 
-      const detailContainer = host.querySelector('#market-detail-container');
-      const itemsElements = host.querySelectorAll('.split-view__item');
-
-      const updateDetail = () => {
-        const item = results.find(i => i.skillId === selectedId);
-        if (!item) return;
-
-        detailContainer.innerHTML = renderMarketCard(item, state);
-      };
-
-      itemsElements.forEach(el => {
-        el.addEventListener('click', () => {
-          itemsElements.forEach(i => {
-            i.classList.remove('is-active');
-            i.style.background = '';
-          });
-          el.classList.add('is-active');
-          el.style.background = 'rgba(0,0,0,0.05)';
-          selectedId = el.dataset.id;
-          updateDetail();
-        });
+      bindSplitView(host, {
+        selectedId,
+        detailSelector: '#market-detail-container',
+        onSelect: (id) => { selectedId = id; },
+        renderDetail: (id) => {
+          const item = results.find(i => i.skillId === id);
+          return item ? renderMarketCard(item, state) : '';
+        },
       });
-
-      updateDetail();
     },
   });
 }

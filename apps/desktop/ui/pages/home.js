@@ -1,10 +1,10 @@
-import { renderMetric, renderNotice, renderSectionHeader } from '../components/states.js';
+import { renderMetric, renderNotice } from '../components/states.js';
 import { createPageModule } from '../core/page-lifecycle.js';
 import { canManage, canReview, escapeHtml } from '../core/utils.js';
 
 function renderList(title, items, emptyText) {
   return `
-    <section class="content-panel glass-panel page-section">
+    <section class="content-panel glass-panel overview-panel">
       <h2>${escapeHtml(title)}</h2>
       ${
         items.length
@@ -28,61 +28,60 @@ export function createHomePage(app) {
       const session = state.session;
 
       host.innerHTML = `
+        <div class="page-header">
+          <h1 class="page-header__title">工作区总览</h1>
+          <span class="state-pill">${escapeHtml(state.health.label)}</span>
+        </div>
         <div class="dashboard-container">
-          <header style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color, #e0e0e0); padding-bottom: 12px;">
-            <h1 style="margin: 0; font-size: 20px;">Workspace Overview</h1>
-            <span class="state-pill" style="font-weight: normal;">${state.health.label}</span>
-          </header>
-          
-          ${state.flash ? renderNotice({ title: 'System Notice', body: state.flash.message, tone: state.flash.tone ?? 'neutral' }) : ''}
-          
-          <section style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-            ${renderMetric({ label: 'Current Account', value: session?.user?.username ?? 'Anonymous', meta: session?.user?.roleCode ?? 'Guest' })}
-            ${renderMetric({ label: 'Unread Notifications', value: String(state.notificationBadge), meta: state.realtime.message })}
-            ${renderMetric({ label: 'Local Projects', value: String(state.local.projects.items.length), meta: 'Managed locally' })}
-            ${renderMetric({ label: 'System Health', value: state.health.label, meta: state.health.apiBaseUrl })}
+          ${state.flash ? renderNotice({ title: '系统通知', body: state.flash.message, tone: state.flash.tone ?? 'neutral' }) : ''}
+
+          <section class="overview-grid">
+            ${renderMetric({ label: '当前账户', value: session?.user?.username ?? '未登录', meta: session?.user?.roleCode ?? '访客' })}
+            ${renderMetric({ label: '未读通知', value: String(state.notificationBadge), meta: state.realtime.message })}
+            ${renderMetric({ label: '本地项目', value: String(state.local.projects.items.length), meta: '本地管理' })}
+            ${renderMetric({ label: '系统状态', value: state.health.label, meta: state.health.apiBaseUrl })}
           </section>
-          
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+
+          <div class="overview-cards">
             ${renderList(
-              'Recent Notifications',
+              '最近通知',
               notifications.map(
-                (item) => `<strong>${escapeHtml(item.title ?? item.category ?? 'Notice')}</strong><span style="display:block; font-size:12px; color:var(--text-secondary);">${escapeHtml(item.body ?? item.message ?? '')}</span>`,
+                (item) => `<strong>${escapeHtml(item.title ?? item.category ?? '通知')}</strong><span class="inline-meta">${escapeHtml(item.body ?? item.message ?? '')}</span>`,
               ),
-              'Log in to view your notification stream.',
+              '登录后可查看通知流。',
             )}
-            
+
             ${renderList(
-              'Recommended Skills',
+              '推荐 Skill',
               market.map(
-                (item) => `<strong>${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</strong><span style="display:block; font-size:12px; color:var(--text-secondary);">${escapeHtml(item.summary ?? item.description ?? 'No summary')}</span>`,
+                (item) => `<strong>${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</strong><span class="inline-meta">${escapeHtml(item.summary ?? item.description ?? '暂无摘要')}</span>`,
               ),
-              'Marketplace recommendations will appear here.',
+              '市场推荐将在此显示。',
             )}
-            
+
             ${renderList(
-              'Local Environment',
+              '本地环境',
               [
-                ...tools.map((tool) => `<strong>${escapeHtml(tool.displayName ?? tool.toolId ?? 'Tool')}</strong><span style="display:block; font-size:12px; color:var(--text-secondary);">${escapeHtml(tool.healthState ?? 'Registered')}</span>`),
-                ...projects.map((project) => `<strong>${escapeHtml(project.displayName ?? project.projectId ?? 'Project')}</strong><span style="display:block; font-size:12px; color:var(--text-secondary);">${escapeHtml(project.projectPath ?? '')}</span>`),
+                ...tools.map((tool) => `<strong>${escapeHtml(tool.displayName ?? tool.toolId ?? '工具')}</strong><span class="inline-meta">${escapeHtml(tool.healthState ?? '已注册')}</span>`),
+                ...projects.map((project) => `<strong>${escapeHtml(project.displayName ?? project.projectId ?? '项目')}</strong><span class="inline-meta">${escapeHtml(project.projectPath ?? '')}</span>`),
               ],
-              'No local tools or projects registered.',
+              '暂无本地工具或项目。',
             )}
-            
+
             ${session?.user ? renderList(
-              'My Skills',
+              '我的 Skill',
               mySkills.map(
-                (skill) => `<strong>${escapeHtml(skill.title ?? skill.skillId ?? 'My Skill')}</strong><span style="display:block; font-size:12px; color:var(--text-secondary);">${escapeHtml(skill.summary ?? skill.description ?? 'No summary')}</span>`,
+                (skill) => `<strong>${escapeHtml(skill.title ?? skill.skillId ?? 'Skill')}</strong><span class="inline-meta">${escapeHtml(skill.summary ?? skill.description ?? '暂无摘要')}</span>`,
               ),
-              'Author your own skills here.',
+              '在此管理自己发布的 Skill。',
             ) : ''}
-            
+
             ${canReview(session) || canManage(session) ? renderList(
-              'Management Queue',
+              '管理队列',
               [
-                `<strong>Pending Reviews</strong><span style="display:block; font-size:12px; color:var(--text-secondary);">${escapeHtml(String(state.reviewBadge))} tickets need attention</span>`
+                `<strong>待审核</strong><span class="inline-meta">${escapeHtml(String(state.reviewBadge))} 条待处理</span>`
               ],
-              'No items in queue.',
+              '当前队列为空。',
             ) : ''}
           </div>
         </div>
@@ -90,5 +89,3 @@ export function createHomePage(app) {
     },
   });
 }
-
-

@@ -14,7 +14,7 @@ export function renderPreviewPanel(previewState) {
     <aside class="preview-drawer" aria-label="本地预览确认">
       <div class="preview-drawer__header">
         <div>
-          <p class="page-eyebrow">Preview-first repair</p>
+          <p class="page-eyebrow">预览确认</p>
           <h2>${escapeHtml(previewState.title)}</h2>
         </div>
         <button type="button" class="modal-close" data-preview-dismiss="true">关闭</button>

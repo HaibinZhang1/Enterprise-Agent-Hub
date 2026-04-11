@@ -33,7 +33,7 @@ export function renderTopbar(state) {
       ${renderUserMenu(state)}
     </div>
     <form class="topbar__search" data-search-form="true">
-      <input type="search" name="query" value="${escapeHtml(state.searchQuery)}" placeholder="搜索 Skill，跳转到市场" />
+      <input type="search" name="query" value="${escapeHtml(state.searchQuery)}" placeholder="搜索 Skill …" />
       <button type="submit">搜索</button>
     </form>
     <div class="topbar__right">

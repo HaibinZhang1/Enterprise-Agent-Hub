@@ -1,16 +1,17 @@
-import { renderNotice, renderSectionHeader } from '../components/states.js';
+import { renderNotice } from '../components/states.js';
 import { createPageModule } from '../core/page-lifecycle.js';
+import { bindSplitView } from '../core/split-view-helper.js';
 import { escapeHtml, formatTimestamp } from '../core/utils.js';
 
 const TABS = Object.freeze([
-  Object.freeze({ id: 'installed', label: '已安装 / Installed' }),
-  Object.freeze({ id: 'published', label: '我发布的 / Published' }),
-  Object.freeze({ id: 'publish', label: '发布 Skill / Publish' }),
+  Object.freeze({ id: 'installed', label: '已安装' }),
+  Object.freeze({ id: 'published', label: '我发布的' }),
+  Object.freeze({ id: 'publish', label: '发布 Skill' }),
 ]);
 
 function renderTabs(activeTab) {
   return `
-    <div class="tabs" role="tablist" aria-label="My Skill tabs">
+    <div class="tabs" role="tablist" aria-label="我的 Skill 标签">
       ${TABS.map((tab) => `
         <button
           type="button"
@@ -27,33 +28,33 @@ function renderTabs(activeTab) {
 function renderInstalledSkillCard(skill) {
   const versions = Array.isArray(skill.versions) && skill.versions.length
     ? skill.versions.map((entry) => `${entry.version}${entry.packageId ? ` · ${entry.packageId}` : ''}`).join(' / ')
-    : 'No local package/version recorded.';
+    : '无本地包/版本记录';
   const enabledTools = Array.isArray(skill.enabledTools) && skill.enabledTools.length
     ? skill.enabledTools.map((entry) => entry.displayName ?? entry.toolId).join(', ')
-    : 'No enabled tools';
+    : '无已启用工具';
   const enabledProjects = Array.isArray(skill.enabledProjects) && skill.enabledProjects.length
     ? skill.enabledProjects.map((entry) => entry.displayName ?? entry.projectId).join(', ')
-    : 'No enabled projects';
+    : '无已启用项目';
   const materialization = Array.isArray(skill.materialization) && skill.materialization.length
     ? skill.materialization.map((entry) => `${entry.targetType}:${entry.targetId} · ${entry.status}${entry.mode ? ` · ${entry.mode}` : ''}`).join(' | ')
-    : 'No materialization records';
+    : '无物化记录';
 
   return `
     <article class="content-panel glass-panel page-section">
       <div class="content-header">
         <div>
-          <p class="page-eyebrow">Installed skill</p>
+          <p class="page-eyebrow">已安装技能</p>
           <h2>${escapeHtml(skill.skillId ?? 'installed-skill')}</h2>
         </div>
-        <span class="state-pill">${escapeHtml(skill.effectiveState ?? 'unknown')}</span>
+        <span class="state-pill">${escapeHtml(skill.effectiveState ?? '未知')}</span>
       </div>
       <div class="meta-row">
         <span>${escapeHtml(versions)}</span>
-        <span>${escapeHtml(`Updated ${formatTimestamp(skill.updatedAt)}`)}</span>
+        <span>更新于 ${escapeHtml(formatTimestamp(skill.updatedAt))}</span>
       </div>
-      <p class="page-copy"><strong>Enabled tools:</strong> ${escapeHtml(enabledTools)}</p>
-      <p class="page-copy"><strong>Enabled projects:</strong> ${escapeHtml(enabledProjects)}</p>
-      <p class="page-copy"><strong>Materialization:</strong> ${escapeHtml(materialization)}</p>
+      <p class="page-copy"><strong>启用工具：</strong>${escapeHtml(enabledTools)}</p>
+      <p class="page-copy"><strong>启用项目：</strong>${escapeHtml(enabledProjects)}</p>
+      <p class="page-copy"><strong>物化状态：</strong>${escapeHtml(materialization)}</p>
       ${skill.restrictionNote ? `<p class="page-copy">${escapeHtml(skill.restrictionNote)}</p>` : ''}
     </article>
   `;
@@ -64,7 +65,7 @@ function latestVersion(skill) {
     return skill.publishedVersion;
   }
   const versions = Array.isArray(skill.versions) ? skill.versions : [];
-  return versions.length ? versions[versions.length - 1].version : 'No version';
+  return versions.length ? versions[versions.length - 1].version : '无版本';
 }
 
 function renderPublishedSkillCard(skill) {
@@ -72,10 +73,10 @@ function renderPublishedSkillCard(skill) {
     <article class="content-panel glass-panel page-section">
       <div class="content-header">
         <div>
-          <p class="page-eyebrow">Owned catalog entry</p>
-          <h2>${escapeHtml(skill.title ?? skill.skillId ?? 'My Skill')}</h2>
+          <p class="page-eyebrow">我发布的</p>
+          <h2>${escapeHtml(skill.title ?? skill.skillId ?? 'Skill')}</h2>
         </div>
-        <span class="state-pill">${escapeHtml(skill.status ?? 'unknown')}</span>
+        <span class="state-pill">${escapeHtml(skill.status ?? '未知')}</span>
       </div>
       <p class="page-copy">${escapeHtml(skill.summary ?? skill.description ?? '暂无摘要')}</p>
       <div class="meta-row">
@@ -92,33 +93,33 @@ function renderPublishWorkbench() {
     <section class="content-panel glass-panel page-section">
       <div class="content-header">
         <div>
-          <p class="page-eyebrow">Publisher mutation</p>
-          <h2>Publish Workbench</h2>
+          <p class="page-eyebrow">发布工具</p>
+          <h2>发布工作台</h2>
         </div>
-        <span class="state-pill">统一登录拦截</span>
+        <span class="state-pill">需要登录</span>
       </div>
-      <p class="page-copy">未登录时入口会弹统一登录提示；登录后发布表单留在当前页面边界内。</p>
+      <p class="page-copy">未登录时会弹出统一登录提示；登录后可在此提交发布。</p>
       <form class="stack-form" data-publish-form="true">
         <label>Skill ID<input name="skillId" type="text" placeholder="dept.desktop.assistant" required /></label>
-        <label>Title<input name="title" type="text" placeholder="Desktop Review Assistant" required /></label>
-        <label>Version<input name="version" type="text" value="1.0.0" required /></label>
-        <label>Reviewer username<input name="reviewerUsername" type="text" placeholder="reviewer" required /></label>
+        <label>标题<input name="title" type="text" placeholder="桌面审核助手" required /></label>
+        <label>版本<input name="version" type="text" value="1.0.0" required /></label>
+        <label>审核人用户名<input name="reviewerUsername" type="text" placeholder="reviewer" required /></label>
         <label>
-          Visibility
+          可见性
           <select name="visibility">
-            <option value="private">private</option>
-            <option value="summary_public">summary_public</option>
-            <option value="detail_public">detail_public</option>
-            <option value="department">department</option>
-            <option value="global_installable">global_installable</option>
+            <option value="private">私有</option>
+            <option value="summary_public">摘要公开</option>
+            <option value="detail_public">详情公开</option>
+            <option value="department">部门可见</option>
+            <option value="global_installable">全局可安装</option>
           </select>
         </label>
-        <label>Allowed departments<input name="allowedDepartmentIds" type="text" placeholder="dept-1,dept-2" /></label>
-        <label class="full-span">Summary<textarea name="summary" rows="3" placeholder="Brief summary shown in My Skill, market, and review surfaces."></textarea></label>
-        <label class="full-span">README.md<textarea name="readme" rows="6" placeholder="# Desktop Review Assistant"></textarea></label>
-        <label class="full-span">SKILL.md<textarea name="skillDefinition" rows="6" placeholder="name: dept.desktop.assistant"></textarea></label>
+        <label>允许的部门<input name="allowedDepartmentIds" type="text" placeholder="dept-1,dept-2" /></label>
+        <label class="full-span">摘要<textarea name="summary" rows="3" placeholder="简要描述，展示于市场和审核页面。"></textarea></label>
+        <label class="full-span">README.md<textarea name="readme" rows="5" placeholder="# 桌面审核助手"></textarea></label>
+        <label class="full-span">SKILL.md<textarea name="skillDefinition" rows="5" placeholder="name: dept.desktop.assistant"></textarea></label>
         <div class="form-actions full-span">
-          <button type="submit">Upload + Submit</button>
+          <button type="submit">上传并提交</button>
         </div>
       </form>
     </section>
@@ -158,15 +159,15 @@ export function createMySkillPage(app) {
       let innerContent = '';
 
       if (activeTab === 'publish') {
-        innerContent = `<div style="padding: 24px; overflow-y: auto;">${renderPublishWorkbench()}</div>`;
+        innerContent = `<div class="page-padded">${renderPublishWorkbench()}</div>`;
       } else {
         if (!listData.length) {
-          innerContent = `<div style="padding: 24px; flex: 1;">${renderNotice({ title: '没有找到记录', body: '暂无数据', tone: 'neutral' })}</div>`;
+          innerContent = `<div class="page-padded">${renderNotice({ title: '没有找到记录', body: '暂无数据', tone: 'neutral' })}</div>`;
         } else {
           const listHtml = listData.map((item) => `
-            <div class="split-view__item ${item.skillId === selectedId ? 'is-active' : ''}" data-id="${escapeHtml(item.skillId)}" style="${item.skillId === selectedId ? 'background: rgba(0,0,0,0.05);' : ''}">
-              <h3 style="margin: 0 0 4px; font-size: 14px;">${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h3>
-              <p style="margin: 0; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
+            <div class="split-view__item${item.skillId === selectedId ? ' is-active' : ''}" data-id="${escapeHtml(item.skillId)}">
+              <h3 class="split-view__item-title">${escapeHtml(item.title ?? item.skillId ?? 'Skill')}</h3>
+              <p class="split-view__item-subtitle">${escapeHtml(item.summary ?? item.description ?? '暂无描述')}</p>
             </div>
           `).join('');
 
@@ -175,50 +176,37 @@ export function createMySkillPage(app) {
               <div class="split-view__list">
                 ${listHtml}
               </div>
-              <div class="split-view__detail" id="myskill-detail-container">
-                <!-- JS inserted -->
-              </div>
+              <div class="split-view__detail" id="myskill-detail-container"></div>
             </div>
           `;
         }
       }
 
       host.innerHTML = `
-        <div class="dashboard-container" style="padding: 0; gap: 0;">
-          <div style="padding: 16px 24px 0; border-bottom: 1px solid var(--border-color, #e0e0e0); background: var(--panel-bg, #fff);">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
-              <div>
-                <p class="page-eyebrow" style="margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Owned capability</p>
-                <h1 style="margin: 0; font-size: 20px;">My Skills</h1>
-              </div>
+        <div class="workbench-header">
+          <div class="workbench-header__title-bar">
+            <div>
+              <p class="page-eyebrow">能力管理</p>
+              <h1>我的 Skill</h1>
             </div>
+          </div>
+          <div class="workbench-header__tabs">
             ${renderTabs(activeTab)}
           </div>
-          ${innerContent}
         </div>
+        ${innerContent}
       `;
 
       if (activeTab !== 'publish' && listData.length) {
-        const detailContainer = host.querySelector('#myskill-detail-container');
-        const itemsElements = host.querySelectorAll('.split-view__item');
-
-        const updateDetail = () => {
-          const item = listData.find(i => i.skillId === selectedId);
-          if (!item) return;
-          detailContainer.innerHTML = renderDetailFn(item);
-        };
-
-        itemsElements.forEach(el => {
-          el.addEventListener('click', () => {
-             itemsElements.forEach(i => { i.classList.remove('is-active'); i.style.background = ''; });
-             el.classList.add('is-active');
-             el.style.background = 'rgba(0,0,0,0.05)';
-             selectedId = el.dataset.id;
-             updateDetail();
-          });
+        bindSplitView(host, {
+          selectedId,
+          detailSelector: '#myskill-detail-container',
+          onSelect: (id) => { selectedId = id; },
+          renderDetail: (id) => {
+            const item = listData.find(i => i.skillId === id);
+            return item ? renderDetailFn(item) : '';
+          },
         });
-
-        updateDetail();
       }
     },
   });

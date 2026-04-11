@@ -23,7 +23,7 @@ export function renderNav(state) {
   return `
     <div class="nav-panel__brand">
       <p>Enterprise Agent Hub</p>
-      <span>Windows-first desktop workspace</span>
+      <span>桌面工作区</span>
     </div>
     <div class="nav-panel__group">${renderItems(topPages)}</div>
     <div class="nav-panel__footer">${renderItems(footerPages)}</div>
