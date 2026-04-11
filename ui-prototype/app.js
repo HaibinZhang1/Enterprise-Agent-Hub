@@ -736,7 +736,8 @@ function renderHome() {
   const recent = [...state.skills]
     .sort((a, b) => b.currentVersionUpdatedAt.localeCompare(a.currentVersionUpdatedAt))
     .slice(0, 4);
-  const recommended = [...state.skills].sort((a, b) => b.starCount - a.starCount).slice(0, 4);
+  const recommended = [...state.skills].sort((a, b) => b.starCount - a.starCount).slice(0, 6);
+  const notices = state.notifications.filter((notice) => notice.unread).slice(0, 3);
   const connection = connectionMeta();
   return `
     <section class="page-head">
@@ -751,69 +752,117 @@ function renderHome() {
       </div>
     </section>
     ${isOffline() ? renderOfflineBanner() : ""}
-    <section class="home-grid">
-      <section class="home-status-panel">
-        <div>
-          <span class="pill ${connection.className}">${connection.label}</span>
-          <h2>${state.connection === "connected" ? "服务可同步，本地已就绪" : "本地可用，等待恢复同步"}</h2>
-          <p class="muted">${connection.description}</p>
-        </div>
-        <div class="home-status-metrics">
-          <article class="stat-card">
-            <span class="muted">已安装</span>
-            <strong>${counts.installed}</strong>
-            <button class="btn btn-small" data-action="set-page" data-page="my">查看列表</button>
-          </article>
-          <article class="stat-card">
-            <span class="muted">已启用</span>
-            <strong>${counts.enabled}</strong>
-            <button class="btn btn-small" data-action="set-page" data-page="tools">查看工具</button>
-          </article>
-          <article class="stat-card">
-            <span class="muted">可更新</span>
-            <strong>${counts.updates}</strong>
-            <button class="btn btn-small" data-action="set-page" data-page="my" data-filter="updates">处理更新</button>
-          </article>
-        </div>
-      </section>
-      <section>
+    <section class="home-layout">
+      <div class="home-main">
+        <section class="home-status-panel">
+          <div>
+            <span class="pill ${connection.className}">${connection.label}</span>
+            <h2>${state.connection === "connected" ? "服务可同步，本地已就绪" : "本地可用，等待恢复同步"}</h2>
+            <p class="muted">${connection.description}</p>
+          </div>
+          <div class="home-status-metrics">
+            <article class="stat-card">
+              <span class="muted">已安装</span>
+              <strong>${counts.installed}</strong>
+              <button class="btn btn-small" data-action="set-page" data-page="my">查看列表</button>
+            </article>
+            <article class="stat-card">
+              <span class="muted">已启用</span>
+              <strong>${counts.enabled}</strong>
+              <button class="btn btn-small" data-action="set-page" data-page="tools">查看工具</button>
+            </article>
+            <article class="stat-card">
+              <span class="muted">可更新</span>
+              <strong>${counts.updates}</strong>
+              <button class="btn btn-small" data-action="set-page" data-page="my" data-filter="updates">处理更新</button>
+            </article>
+          </div>
+        </section>
+        <section>
+          <div class="section-head">
+            <h2>最近更新</h2>
+            <button class="btn btn-small" data-action="set-page" data-page="market">查看全部</button>
+          </div>
+          <div class="home-compact-grid">
+            ${recent.map(renderHomeRecentTile).join("")}
+          </div>
+        </section>
+        <section>
+          <div class="section-head">
+            <h2>通知摘要</h2>
+            <button class="btn btn-small" data-action="set-page" data-page="notifications">查看通知</button>
+          </div>
+          <div class="home-notice-list">
+            ${notices.length ? notices.map(renderHomeNoticeRow).join("") : renderEmpty("暂无通知", "新的安装、更新、路径异常或连接状态会出现在这里。")}
+          </div>
+        </section>
+      </div>
+      <aside class="home-recommendations" aria-labelledby="home-recommendations-title">
         <div class="section-head">
-          <h2>最近更新</h2>
-          <button class="btn btn-small" data-action="set-page" data-page="market">查看全部</button>
+          <div>
+            <p class="eyebrow">推荐</p>
+            <h2 id="home-recommendations-title">热门推荐</h2>
+          </div>
+          <button class="btn btn-small" data-action="set-page" data-page="market">市场</button>
         </div>
-        <div class="home-compact-grid">
-          ${recent.map((skill) => renderHomeSkillTile(skill, "recent")).join("")}
+        <div class="home-recommendation-list">
+          ${recommended.map(renderHomeRecommendationItem).join("")}
         </div>
-      </section>
-      <section>
-        <div class="section-head">
-          <h2>热门推荐</h2>
-        </div>
-        <div class="home-compact-grid">
-          ${recommended.map((skill) => renderHomeSkillTile(skill, "recommended")).join("")}
-        </div>
-      </section>
+      </aside>
     </section>
   `;
 }
 
-function renderHomeSkillTile(skill, section) {
-  const expanded = state.homeExpanded?.section === section && state.homeExpanded?.skillID === skill.skillID;
-  if (expanded) {
-    return `
-      <div class="home-expanded">
-        ${renderSkillCard(skill)}
-        <button class="btn btn-small" data-action="toggle-home-skill" data-home-section="${section}" data-skill-id="${skill.skillID}">收起</button>
-      </div>
-    `;
-  }
+function renderHomeRecentTile(skill) {
   const [statusLabel, statusClass] = statusMeta(skill);
   return `
-    <button class="home-skill-compact" data-action="toggle-home-skill" data-home-section="${section}" data-skill-id="${skill.skillID}">
+    <button class="home-skill-compact" data-action="open-detail" data-skill-id="${skill.skillID}">
       <strong>${escapeHtml(skill.displayName)}</strong>
       <span class="skill-id">${escapeHtml(skill.skillID)}</span>
       <span class="meta-line"><span class="star-icon">⭐️</span> ${skill.starCount} · ${escapeHtml(skill.category)}</span>
       <span class="pill ${statusClass}">${statusLabel}</span>
+    </button>
+  `;
+}
+
+function renderHomeRecommendationItem(skill) {
+  const expanded = state.homeExpanded?.section === "recommended" && state.homeExpanded?.skillID === skill.skillID;
+  const [riskLabel, riskClass] = riskMeta(skill.riskLevel);
+  const [statusLabel, statusClass] = statusMeta(skill);
+  return `
+    <button class="home-recommendation-item ${expanded ? "expanded" : ""}" data-action="toggle-home-recommendation" data-skill-id="${skill.skillID}">
+      <span class="home-recommendation-main">
+        <strong>${escapeHtml(skill.displayName)}</strong>
+        <span class="skill-id">${escapeHtml(skill.skillID)}</span>
+      </span>
+      <span class="meta-line">
+        <span>${escapeHtml(skill.authorDepartment)}</span>
+        <span>${skill.starCount} Star</span>
+      </span>
+      <span class="inline-list">
+        <span class="pill ${statusClass}">${statusLabel}</span>
+        <span class="pill ${riskClass}">${riskLabel}</span>
+      </span>
+      ${
+        expanded
+          ? `<span class="home-recommendation-summary">
+              <span>${escapeHtml(skill.description)}</span>
+              <span class="meta-line">${escapeHtml(skill.compatibleTools.join("、"))} · v${escapeHtml(skill.version)} · ${escapeHtml(skill.currentVersionUpdatedAt)}</span>
+            </span>`
+          : ""
+      }
+    </button>
+  `;
+}
+
+function renderHomeNoticeRow(notice) {
+  return `
+    <button class="home-notice-row" data-action="set-page" data-page="notifications">
+      <span>
+        <strong>${escapeHtml(notice.title)}</strong>
+        <span class="muted">${escapeHtml(notice.summary)}</span>
+      </span>
+      <span class="pill">${escapeHtml(notice.time)}</span>
     </button>
   `;
 }
@@ -2227,14 +2276,15 @@ function handleAction(target) {
     state.myFilter = target.dataset.filter;
     render();
   }
-  if (action === "toggle-home-skill") {
-    const next = {
-      section: target.dataset.homeSection,
-      skillID: target.dataset.skillId,
-    };
+  if (action === "toggle-home-recommendation") {
+    const skillID = target.dataset.skillId;
     const isSame =
-      state.homeExpanded?.section === next.section && state.homeExpanded?.skillID === next.skillID;
-    state.homeExpanded = isSame ? null : next;
+      state.homeExpanded?.section === "recommended" && state.homeExpanded?.skillID === skillID;
+    if (isSame) {
+      state.modal = { type: "detail", skillID };
+    } else {
+      state.homeExpanded = { section: "recommended", skillID };
+    }
     render();
   }
   if (action === "set-review-tab") {
