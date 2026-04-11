@@ -421,4 +421,36 @@ mod tests {
         assert!(skill_version_dir("/tmp/store", "../bad", "1.0.0").is_err());
         assert!(skill_version_dir("/tmp/store", "good", "../1.0.0").is_err());
     }
+
+    #[test]
+    fn validates_installs_and_uninstalls_package_atomically() {
+        let root = std::env::temp_dir().join(format!("eah-store-test-{}", now_millis()));
+        let package = root.join("downloaded-package");
+        let store = root.join("central-store");
+        fs::create_dir_all(&package).expect("create package dir");
+        fs::write(package.join("SKILL.md"), "# Demo Skill\n").expect("write manifest");
+        fs::write(package.join("README.md"), "Usage").expect("write readme");
+
+        let validation = validate_skill_package_dir(&package, None, PackageLimits::default())
+            .expect("valid package");
+        let installed = install_or_replace_package(
+            &package,
+            &store,
+            "demo-skill",
+            "1.0.0",
+            Some(&validation.package_hash),
+        )
+        .expect("install package");
+
+        assert!(installed.central_store_path.join("SKILL.md").is_file());
+        assert_eq!(installed.file_count, 2);
+        assert_eq!(
+            uninstall_central_store_package(&store, "demo-skill", Some("1.0.0"))
+                .expect("uninstall package"),
+            Some(installed.central_store_path.clone())
+        );
+        assert!(!installed.central_store_path.exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
 }
