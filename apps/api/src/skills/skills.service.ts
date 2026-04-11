@@ -1,7 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DownloadTicketResponse,
-  ErrorCode,
   PageResponse,
   SkillDetail,
   SkillSummary,

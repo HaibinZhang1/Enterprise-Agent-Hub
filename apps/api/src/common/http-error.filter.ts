@@ -2,7 +2,7 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import { Response } from 'express';
 import { errorBody, ErrorCode } from './p1-contracts';
 
-const statusToCode: Partial<Record<HttpStatus, ErrorCode>> = {
+const statusToCode: Partial<Record<number, ErrorCode>> = {
   [HttpStatus.UNAUTHORIZED]: 'unauthenticated',
   [HttpStatus.FORBIDDEN]: 'permission_denied',
   [HttpStatus.NOT_FOUND]: 'skill_not_found',

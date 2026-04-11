@@ -124,18 +124,27 @@ export const p1Notifications: NotificationDto[] = [
 ];
 
 export function summarizeSkill(skill: SkillDetail): SkillSummary {
-  const {
-    readme: _readme,
-    usage: _usage,
-    screenshots: _screenshots,
-    reviewSummary: _reviewSummary,
-    riskDescription: _riskDescription,
-    versions: _versions,
-    enabledTargets: _enabledTargets,
-    latestVersion: _latestVersion,
-    hasUpdate: _hasUpdate,
-    canUpdate: _canUpdate,
-    ...summary
-  } = skill;
-  return summary;
+  return {
+    skillID: skill.skillID,
+    displayName: skill.displayName,
+    description: skill.description,
+    version: skill.version,
+    status: skill.status,
+    visibilityLevel: skill.visibilityLevel,
+    detailAccess: skill.detailAccess,
+    canInstall: skill.canInstall,
+    cannotInstallReason: skill.cannotInstallReason,
+    installState: skill.installState,
+    authorName: skill.authorName,
+    authorDepartment: skill.authorDepartment,
+    currentVersionUpdatedAt: skill.currentVersionUpdatedAt,
+    compatibleTools: skill.compatibleTools,
+    compatibleSystems: skill.compatibleSystems,
+    icon: skill.icon,
+    tags: skill.tags,
+    category: skill.category,
+    starCount: skill.starCount,
+    downloadCount: skill.downloadCount,
+    riskLevel: skill.riskLevel,
+  };
 }
