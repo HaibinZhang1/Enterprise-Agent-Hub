@@ -6,3 +6,4 @@ packages/*/dist/
 apps/*/dist/
 coverage/
 target/
+apps/desktop/src-tauri/gen/

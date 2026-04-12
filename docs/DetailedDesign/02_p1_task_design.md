@@ -338,7 +338,7 @@ flowchart TD
     T09 --> T10
 ```
 
-## 14. 当前需同步的需求差异
+## 14. 已同步的需求差异
 
 需求文档 P1 旧口径写明“仅 copy，不使用 symlink”。本详细设计按最新技术要求改为：
 
@@ -347,8 +347,8 @@ flowchart TD
 - symlink 失败自动降级 copy，`resolvedMode=copy`，并记录 `fallbackReason`。
 - 本地和服务端事件都应能记录实际模式，但服务端不以此改变权限或治理状态。
 
-实施前需要同步更新：
+当前已同步更新：
 
 - `docs/RequirementDocument/20_p1_desktop_prd.md` 的启用方式与验收项。
-- `docs/RequirementDocument/21_p1_data_contract.md` 的 `EnabledTarget.installMode` 和 `/desktop/local-events` 字段。
-- `docs/RequirementDocument/22_p1_tool_adapter_contract.md` 的安装模式和冲突规则。
+- `docs/RequirementDocument/21_p1_data_contract.md` 的 `installMode`、`requestedMode`、`resolvedMode` 和 `/desktop/local-events` 字段。
+- `docs/RequirementDocument/22_p1_tool_adapter_contract.md` 的安装模式、fallback 记录和冲突规则。

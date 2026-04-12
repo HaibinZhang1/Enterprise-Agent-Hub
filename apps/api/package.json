@@ -12,8 +12,10 @@
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.mjs\"",
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts",
-    "migrate": "ts-node src/scripts/migrate.ts",
-    "seed": "ts-node src/scripts/seed.ts"
+    "migrate": "node dist/scripts/migrate.js",
+    "seed": "node dist/scripts/seed.js",
+    "migrate:dev": "ts-node src/scripts/migrate.ts",
+    "seed:dev": "ts-node src/scripts/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.18",

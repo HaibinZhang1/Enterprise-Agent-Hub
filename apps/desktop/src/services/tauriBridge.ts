@@ -14,9 +14,24 @@ declare global {
 }
 
 const mockWait = (ms = 160) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const allowTauriMocks = import.meta.env.VITE_P1_ALLOW_TAURI_MOCKS === "true";
 
 function getInvoke(): TauriInvoker | null {
   return window.__TAURI__?.core?.invoke ?? null;
+}
+
+async function requireInvoke(): Promise<TauriInvoker> {
+  const invoke = getInvoke();
+  if (invoke) {
+    return invoke;
+  }
+  if (allowTauriMocks) {
+    await mockWait();
+    return async () => {
+      throw new Error("Tauri mock dispatcher must be handled by the caller");
+    };
+  }
+  throw new Error("Tauri runtime is unavailable; local Store/Adapter commands cannot run in browser-only mode.");
 }
 
 function buildTarget(skill: SkillSummary, targetType: TargetType, targetID: string, requestedMode: RequestedMode): EnabledTarget {
@@ -55,6 +70,9 @@ export const desktopBridge: DesktopBridge = {
     if (invoke) {
       return invoke("get_local_bootstrap");
     }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
     await mockWait();
     return { tools: seedTools, projects: seedProjects };
   },
@@ -63,6 +81,9 @@ export const desktopBridge: DesktopBridge = {
     const invoke = getInvoke();
     if (invoke) {
       return invoke("install_skill_package", { skillID: skill.skillID, version: skill.version });
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
     }
     await mockWait(220);
     return { localVersion: skill.version };
@@ -73,6 +94,9 @@ export const desktopBridge: DesktopBridge = {
     if (invoke) {
       return invoke("update_skill_package", { skillID: skill.skillID, version: skill.version });
     }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
     await mockWait(220);
     return { localVersion: skill.version };
   },
@@ -81,6 +105,9 @@ export const desktopBridge: DesktopBridge = {
     const invoke = getInvoke();
     if (invoke) {
       return invoke("uninstall_skill", { skillID });
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
     }
     await mockWait(220);
     return { removedTargetIDs: [] };
@@ -95,6 +122,9 @@ export const desktopBridge: DesktopBridge = {
         targetID: input.targetID,
         requestedMode: input.requestedMode
       });
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
     }
     await mockWait(240);
     const target = buildTarget(input.skill, input.targetType, input.targetID, input.requestedMode);
@@ -122,6 +152,9 @@ export const desktopBridge: DesktopBridge = {
     if (invoke) {
       return invoke("disable_skill", { skillID: input.skill.skillID, targetID: input.targetID });
     }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
     await mockWait(180);
     const existing = input.skill.enabledTargets.find((target) => target.targetID === input.targetID);
     return {
@@ -147,6 +180,9 @@ export const desktopBridge: DesktopBridge = {
     if (invoke) {
       return invoke("list_local_installs");
     }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
     await mockWait();
     return [];
   },
@@ -155,6 +191,9 @@ export const desktopBridge: DesktopBridge = {
     const invoke = getInvoke();
     if (invoke) {
       return invoke("detect_tools");
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
     }
     await mockWait(240);
     return seedTools.map((tool) => (tool.toolID === "windsurf" ? { ...tool, status: "missing" } : tool));

@@ -1,6 +1,6 @@
 # P1 foundation loop verification path
 
-Generated: 2026-04-11T23:20:15.910Z
+Generated: 2026-04-12T03:58:31.205Z
 Mode: strict release gate
 Overall status: **PASS**
 
@@ -8,7 +8,7 @@ Overall status: **PASS**
 
 - Artifact checks: 12 pass, 0 pending, 0 fail
 - Generated artifact checks: 1 pass, 0 pending, 0 fail
-- Command checks: 11 pass, 0 pending, 0 fail
+- Command checks: 12 pass, 0 pending, 0 fail
 - Acceptance scenarios covered by spec: 13/13
 
 ## Artifact checks
@@ -49,6 +49,7 @@ Overall status: **PASS**
 | pass | docker-config-legacy | `docker compose -f infra/docker-compose.legacy.yml config` | exit=0 |
 | pass | deploy-script-syntax | `bash -n deploy/server-up.sh deploy/server-down.sh deploy/server-check.sh deploy/load-offline-images.sh` | exit=0 |
 | pass | w6-acceptance-matrix-test | `node --test tests/smoke/p1-acceptance-matrix.test.mjs` | exit=0 |
+| pass | p1-real-delivery-static-test | `node --test tests/smoke/p1-real-delivery-static.test.mjs` | exit=0 |
 
 ## Acceptance coverage
 

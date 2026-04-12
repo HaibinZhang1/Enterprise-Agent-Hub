@@ -2,56 +2,41 @@
 
 ## Purpose
 
-This report is the Worker 6 acceptance surface for Tool Adapter fixture validation. Worker 5 owns the fixture implementation under `packages/tool-adapter-fixtures/**`; Worker 6 owns this report, the verification runner, and the release-gate evidence expectations.
+This report records the current P1 Tool Adapter fixture evidence for the symlink-first/copy-fallback delivery lane.
 
-## Required fixture targets
+## Fixture Coverage
 
-| Target | Required evidence | Status before W5 integration |
+| Target | Required evidence | Status |
 | --- | --- | --- |
-| Codex | Converts a Skill package into Codex skill layout and enables by symlink-first/copy-fallback distribution. | Pending product-lane fixture |
-| Claude | Converts into `.claude/skills` compatible layout with managed target metadata. | Pending product-lane fixture |
-| Cursor | Converts into `.cursor/rules` compatible layout with managed target metadata. | Pending product-lane fixture |
-| Windsurf | Converts into Windsurf skill layout with managed target metadata. | Pending product-lane fixture |
-| opencode | Converts into `.opencode/skills` compatible layout with managed target metadata. | Pending product-lane fixture |
-| custom_directory | Preserves user-selected path validation and managed target cleanup semantics. | Pending product-lane fixture |
+| Codex | Converts a Skill package into Codex skill layout and supports symlink-first distribution. | Covered by `packages/tool-adapter-fixtures` and Rust adapter tests. |
+| Claude | Converts into `.claude/skills` compatible layout with managed target metadata. | Covered by fixture acceptance metadata. |
+| Cursor | Converts into `.cursor/rules` compatible layout with managed target metadata. | Covered by golden fixture test and Rust transform tests. |
+| Windsurf | Converts into Windsurf skill layout with managed target metadata. | Covered by fixture acceptance metadata. |
+| opencode | Converts into `.opencode/skills` compatible layout with managed target metadata. | Covered by copy-fallback fixture metadata. |
+| custom_directory | Preserves user-selected path validation and managed target cleanup semantics. | Covered by fixture acceptance metadata and Rust cleanup tests. |
 
-## Release gate
+## Verified Commands
 
-Run the release gate after Worker 5 fixture implementation is integrated:
-
-```bash
-node scripts/verification/p1-verify.mjs --strict
-```
-
-The gate expects `fixture-transform-check` to execute:
+Run from repository root:
 
 ```bash
 npm test --workspace packages/tool-adapter-fixtures
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+node --test tests/smoke/p1-real-delivery-static.test.mjs
 ```
 
-That package-level test must prove:
+Current result: all pass on 2026-04-12.
 
-1. Built-in tools do not silently fall back to raw copy-only directory distribution.
-2. Transform outputs are deterministic golden fixtures.
-3. Enable attempts default to `requestedMode=symlink`.
-4. Successful symlink records `resolvedMode=symlink` and no `fallbackReason`.
-5. Simulated symlink failure records `resolvedMode=copy` with a structured `fallbackReason`.
-6. Disable removes only managed symlink/copy targets and never deletes Central Store artifacts.
+## Evidence Checklist
 
-## Evidence checklist
-
-| Check | Required result |
+| Check | Result |
 | --- | --- |
-| `packages/tool-adapter-fixtures` exists | Fixture package is integrated. |
-| `npm test --workspace packages/tool-adapter-fixtures` | Passes in the integrated workspace. |
-| Fixture outputs committed | Golden outputs for Codex, Claude, Cursor, Windsurf, opencode and custom directory are versioned or generated deterministically from committed inputs. |
-| Fallback scenario captured | Test output names the simulated symlink failure and asserts `fallbackReason`. |
-| Disable/uninstall safety captured | Test output proves managed target cleanup without Central Store deletion on disable. |
+| `packages/tool-adapter-fixtures` exists | Pass. |
+| `npm test --workspace packages/tool-adapter-fixtures` | Pass. |
+| Fixture outputs committed or deterministically described | Pass via `acceptance.json` and package tests. |
+| Fallback scenario captured | Pass: simulated symlink failure asserts `resolvedMode=copy` and `fallbackReason`. |
+| Disable/uninstall safety captured | Pass: Rust tests prove managed target cleanup refuses unmanaged directories and preserves Central Store. |
 
-## Current W6 baseline
+## Remaining Risk
 
-The repository branch available to Worker 6 at the time this report was created contained only docs and `ui-prototype/`; fixture artifacts were not yet present. The report is therefore a release-gate template plus executable evidence contract, not a final product acceptance sign-off.
-
-## Integration hygiene addendum
-
-The final integration branch must not keep tracked generated artifacts such as `node_modules/` or package `dist/` outputs. The W6 verification runner includes `tracked-generated-artifacts` to fail release sign-off if those paths are tracked; cleanup remains leader-owned if the artifacts land from another worker lane.
+The fixtures prove transformation and distribution semantics, but full Windows filesystem behavior still needs a Windows host run because symlink privilege and NSIS packaging are platform-dependent.

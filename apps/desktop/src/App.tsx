@@ -57,7 +57,7 @@ function riskLabel(skill: SkillSummary): string {
 }
 
 function LoginView({ onLogin, authError }: { onLogin: (input: { username: string; password: string; serverURL: string }) => void; authError: string | null }) {
-  const [form, setForm] = useState({ serverURL: "mock://enterprise-agent-hub", username: "zhangsan", password: "password" });
+  const [form, setForm] = useState({ serverURL: "http://127.0.0.1:3000", username: "demo", password: "demo123" });
 
   function updateField(event: ChangeEvent<HTMLInputElement>) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));

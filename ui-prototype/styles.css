@@ -554,13 +554,25 @@ h4 {
   gap: 14px;
 }
 
+.home-focus-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+  gap: 14px;
+}
+
 .home-status-panel {
   display: grid;
   gap: 18px;
+}
+
+.home-next-action {
+  display: grid;
+  align-content: space-between;
+  gap: 14px;
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: #fff;
 }
 
 .home-status-panel h2 {
@@ -667,10 +679,6 @@ h4 {
   position: sticky;
   top: 92px;
   align-content: start;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
 }
 
 .home-recommendation-list {
@@ -690,6 +698,16 @@ h4 {
   text-align: left;
 }
 
+.home-recommendation-trigger {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
 .home-recommendation-item:hover,
 .home-recommendation-item.expanded,
 .home-notice-row:hover {
@@ -698,6 +716,7 @@ h4 {
 }
 
 .home-recommendation-main,
+.market-summary-head,
 .home-recommendation-summary,
 .home-notice-row span:first-child {
   display: grid;
@@ -705,9 +724,19 @@ h4 {
 }
 
 .home-recommendation-summary {
-  padding-top: 8px;
+  gap: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--line);
-  color: var(--muted);
+  color: var(--ink);
+}
+
+.market-summary-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.summary-actions {
+  justify-content: flex-end;
 }
 
 .home-notice-row {
@@ -961,6 +990,38 @@ h4 {
   gap: 18px;
 }
 
+.skill-detail-page {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.skill-detail-page.narrow-detail {
+  max-width: 720px;
+}
+
+.skill-detail-section {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 18px;
+  align-items: start;
+}
+
+.detail-action-panel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .detail-visual {
   height: 210px;
   overflow: hidden;
@@ -1083,6 +1144,8 @@ h4 {
   .skill-layout,
   .dashboard-grid,
   .detail-grid,
+  .detail-info-grid,
+  .home-focus-grid,
   .home-layout {
     grid-template-columns: 1fr;
   }
@@ -1148,8 +1211,13 @@ h4 {
   .tool-row,
   .project-row,
   .notice-row,
-  .home-notice-row {
+  .home-notice-row,
+  .market-summary-head {
     grid-template-columns: 1fr;
+  }
+
+  .detail-action-panel {
+    justify-content: flex-start;
   }
 
   .filter-grid,

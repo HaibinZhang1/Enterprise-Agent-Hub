@@ -26,7 +26,7 @@
 | 数据存储 | 服务端使用 PostgreSQL；本地状态使用 SQLite；Skill 包和资源使用 MinIO；后台任务使用 Redis + BullMQ。 |
 | 搜索 | 第一阶段只使用 PostgreSQL Full-Text Search，不引入 Elasticsearch、Meilisearch 等额外搜索引擎。 |
 
-> 说明：需求文档 P1 旧口径为 copy-only。本详细设计按用户本次新增技术要求调整为 symlink 优先、失败自动 copy。实现时应同步更新 P1 数据契约中的 `installMode` 枚举和验收项，避免两套规则并存。
+> 说明：需求文档 P1 旧口径为 copy-only。本详细设计按后续技术要求调整为 symlink 优先、失败自动 copy；P1 PRD、数据契约和 Tool Adapter 契约已同步 `installMode`、`requestedMode`、`resolvedMode` 与降级验收项，后续实现不得退回 copy-only。
 
 ## 文档索引
 

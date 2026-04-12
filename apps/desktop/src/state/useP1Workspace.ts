@@ -122,20 +122,35 @@ export function useP1Workspace() {
   const compatibleTools = useMemo(() => [...new Set(skills.flatMap((skill) => skill.compatibleTools))], [skills]);
 
   const refreshBootstrap = useCallback(async () => {
-    const [remoteBootstrap, localBootstrap] = await Promise.all([p1Client.bootstrap(), desktopBridge.getLocalBootstrap()]);
+    const [remoteBootstrap, remoteSkills, remoteNotifications, localBootstrap] = await Promise.all([
+      p1Client.bootstrap(),
+      p1Client.listSkills(filters),
+      p1Client.listNotifications(),
+      desktopBridge.getLocalBootstrap()
+    ]);
     setBootstrap(remoteBootstrap);
+    setSkills(remoteSkills);
+    setNotifications(remoteNotifications);
     setTools(localBootstrap.tools);
     setProjects(localBootstrap.projects);
-  }, []);
+    setSelectedSkillID(remoteSkills[0]?.skillID ?? "");
+  }, [filters]);
 
   const login = useCallback(async (input: { username: string; password: string; serverURL: string }) => {
     setAuthError(null);
     try {
       const context = await p1Client.login(input);
-      const localBootstrap = await desktopBridge.getLocalBootstrap();
+      const [remoteSkills, remoteNotifications, localBootstrap] = await Promise.all([
+        p1Client.listSkills(defaultFilters),
+        p1Client.listNotifications(),
+        desktopBridge.getLocalBootstrap()
+      ]);
       setBootstrap(context);
+      setSkills(remoteSkills);
+      setNotifications(remoteNotifications);
       setTools(localBootstrap.tools);
       setProjects(localBootstrap.projects);
+      setSelectedSkillID(remoteSkills[0]?.skillID ?? "");
       setLoggedIn(true);
       setActivePage("home");
     } catch (error) {
