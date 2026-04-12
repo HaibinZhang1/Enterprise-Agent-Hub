@@ -12,12 +12,12 @@
 |------|----------|--------|
 | P1 市场数据来源：以服务端既有数据、管理员导入、种子数据或后端预置流程落地，Desktop 不提供发布入口 | 部分完成：PostgreSQL schema、seed SQL 和 DB-backed API 路径已落地。 | 在 live PostgreSQL 环境跑迁移/seed/API 烟测，并将市场筛选排序收敛到数据库查询口径。 |
 | P1 最小 manifest 字段与接口响应字段 | 已完成：P1 PRD、数据契约、共享契约包和 API DTO 已对齐。 | 后续仅随实机联调修正字段漂移。 |
-| 安装、更新、卸载、启用、停用的失败分支和回滚提示 | 部分完成：Rust Store/Adapter 测试和前端进度提示已覆盖核心语义。 | 将 Tauri 命令接入真实 downloaded package、SQLite 状态和 Adapter 分发，跑端到端失败分支。 |
+| 安装、更新、卸载、启用、停用的失败分支和回滚提示 | 部分完成：真实 `download-ticket` -> Tauri 安装/更新 -> Central Store / SQLite -> Codex 启用 -> 重启恢复已打通，Rust Store/Adapter 测试和前端进度提示已覆盖核心语义。 | 补齐 `disable/uninstall` 命令、项目目标分发，并补跑失败分支的端到端烟测。 |
 | 工具自动检测支持 Codex、Claude、Cursor、Windsurf、opencode 和自定义目录 | 部分完成：内置 Adapter 配置、默认路径检测和 `detect_tools` 命令已存在。 | 在 Windows 主机验证注册表/默认路径/手动路径组合。 |
 | 各内置工具真实格式转换 fixture | 已完成：Codex、Claude、Cursor、Windsurf、opencode、自定义目录 fixture 和 symlink/copy fallback 证据已归档。 | 后续新增工具时补 fixture。 |
-| Linux 服务端部署方式与 Windows exe 打包流水线 | 部分完成：Compose config、脚本语法、Tauri no-bundle 编译通过。 | 在可用 Docker daemon 的 Linux 环境跑 `deploy/server-up.sh`，在 Windows runner 生成 NSIS `.exe`。 |
-| 项目手动维护与路径校验交互 | 部分完成：项目页、路径校验模块和 Adapter 目标模型已存在。 | 将项目配置持久化到 SQLite，并接入启用/停用命令。 |
-| 连接状态、离线状态和恢复网络后的同步提示 | 部分完成：前端状态、通知、API `/desktop/local-events` 已存在。 | 将 offline queue 落到 SQLite，验证重启后恢复同步。 |
+| Linux 服务端部署方式与 Windows exe 打包流水线 | 部分完成：Compose config、脚本语法、strict gate、Tauri no-bundle 编译通过。 | 在可用 Docker daemon 的 Linux 环境跑 `deploy/server-up.sh`，在 Windows runner 生成 NSIS `.exe`。 |
+| 项目手动维护与路径校验交互 | 部分完成：项目页、路径校验模块和 Adapter 目标模型已存在，但 Tauri bootstrap 仍未返回持久化项目配置。 | 将项目配置持久化到 SQLite，并接入项目级启用/停用命令。 |
+| 连接状态、离线状态和恢复网络后的同步提示 | 部分完成：前端状态、通知、API `/desktop/local-events` 已存在，启用结果也已写入 SQLite `offline_event_queue` 并暴露 pending 计数。 | 让重启后从 SQLite 恢复待同步事件内容，并继续执行同步。 |
 | 首页在 P1 下展示哪些模块，哪些 P2 待办入口隐藏或置灰 | 已完成：P1 导航和页面边界已在 PRD、交互规格和 Desktop UI 中收敛。 | 后续避免重新引入发布、审核、管理台正式入口。 |
 
 ---

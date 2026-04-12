@@ -1,6 +1,7 @@
 use enterprise_agent_hub_desktop::commands::local_state::{
-    DownloadTicketPayload, EnabledTargetPayload, LocalBootstrapPayload, LocalSkillInstallPayload,
-    P1LocalState, ToolConfigPayload,
+    DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, LocalBootstrapPayload,
+    LocalSkillInstallPayload, OfflineSyncAckPayload, P1LocalState, ProjectConfigInputPayload,
+    ProjectConfigPayload, ToolConfigPayload, UninstallSkillPayload,
 };
 use serde_json::json;
 use tauri::{Manager, State};
@@ -57,18 +58,40 @@ fn enable_skill(
 
 #[allow(non_snake_case)]
 #[tauri::command]
-fn uninstall_skill(skillID: String) -> Result<serde_json::Value, String> {
-    Err(format!(
-        "uninstall_skill is outside the P1 vertical slice and is not implemented for {skillID}"
-    ))
+fn save_project_config(
+    state: State<'_, P1LocalState>,
+    project: ProjectConfigInputPayload,
+) -> Result<ProjectConfigPayload, String> {
+    state.save_project_config(project)
 }
 
 #[allow(non_snake_case)]
 #[tauri::command]
-fn disable_skill(skillID: String, targetID: String) -> Result<serde_json::Value, String> {
-    Err(format!(
-        "disable_skill is outside the P1 vertical slice and is not implemented for {skillID} -> {targetID}"
-    ))
+fn uninstall_skill(
+    state: State<'_, P1LocalState>,
+    skillID: String,
+) -> Result<UninstallSkillPayload, String> {
+    state.uninstall_skill(skillID)
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn disable_skill(
+    state: State<'_, P1LocalState>,
+    skillID: String,
+    targetType: String,
+    targetID: String,
+) -> Result<DisableSkillPayload, String> {
+    state.disable_skill(skillID, targetType, targetID)
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn mark_offline_events_synced(
+    state: State<'_, P1LocalState>,
+    eventIDs: Vec<String>,
+) -> Result<OfflineSyncAckPayload, String> {
+    state.mark_offline_events_synced(eventIDs)
 }
 
 #[tauri::command]
@@ -93,9 +116,11 @@ fn main() {
             detect_tools,
             install_skill_package,
             update_skill_package,
+            save_project_config,
             uninstall_skill,
             enable_skill,
             disable_skill,
+            mark_offline_events_synced,
             list_local_installs
         ])
         .run(tauri::generate_context!())

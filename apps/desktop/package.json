@@ -11,7 +11,7 @@
     "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc --bundles nsis",
     "typecheck": "tsc --noEmit",
     "lint": "node ./scripts/p1-ui-lint.mjs",
-    "test": "npm run typecheck"
+    "test": "npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",

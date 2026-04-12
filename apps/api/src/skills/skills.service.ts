@@ -43,12 +43,12 @@ interface SkillRow {
   status: SkillStatus;
   visibility_level: VisibilityLevel;
   category: string | null;
-  updated_at: Date;
+  updated_at: Date | string;
   version: string;
   risk_level: string | null;
   risk_description: string | null;
   review_summary: string | null;
-  published_at: Date;
+  published_at: Date | string;
   author_name: string | null;
   author_department: string | null;
   tags: string[] | null;
@@ -56,6 +56,10 @@ interface SkillRow {
   compatible_systems: string[] | null;
   star_count: string;
   download_count: string;
+}
+
+interface ListedSkillRow extends SkillRow {
+  total_count: string;
 }
 
 interface PackageRow {
@@ -77,18 +81,24 @@ export interface DownloadablePackage {
   fileName: string;
 }
 
+export interface SkillListQueryPlan {
+  page: number;
+  pageSize: number;
+  text: string;
+  values: unknown[];
+}
+
 @Injectable()
 export class SkillsService {
   constructor(private readonly database: DatabaseService) {}
 
   async list(query: SkillListQuery): Promise<PageResponse<SkillSummary>> {
-    const page = positiveInt(query.page, 1);
-    const pageSize = positiveInt(query.pageSize, 20, 100);
-    const rows = await this.loadSkillRows();
-    const summaries = rows.map((row) => this.toSummary(row)).filter((skill) => this.matches(skill, query));
-    const sorted = this.sort(summaries, query.sort ?? 'composite', query.q);
-    const start = (page - 1) * pageSize;
-    return pageOf(sorted.slice(start, start + pageSize), page, pageSize, sorted.length);
+    const plan = buildSkillListQueryPlan(query);
+    const result = await this.database.query<ListedSkillRow>(plan.text, plan.values);
+    const rows = result.rows;
+    const items = rows.map((row) => this.toSummary(row));
+    const total = rows[0] ? Number(rows[0].total_count) : 0;
+    return pageOf(items, plan.page, plan.pageSize, total);
   }
 
   async detail(skillID: string): Promise<SkillDetail | SkillSummary> {
@@ -291,7 +301,7 @@ export class SkillsService {
       installState: installable ? 'not_installed' : 'blocked',
       authorName: row.author_name ?? undefined,
       authorDepartment: row.author_department ?? undefined,
-      currentVersionUpdatedAt: row.updated_at.toISOString(),
+      currentVersionUpdatedAt: toIsoString(row.updated_at),
       compatibleTools: row.compatible_tools ?? [],
       compatibleSystems: row.compatible_systems ?? [],
       tags: row.tags ?? [],
@@ -310,7 +320,7 @@ export class SkillsService {
       screenshots: [],
       reviewSummary: row.review_summary ?? undefined,
       riskDescription: row.risk_description ?? undefined,
-      versions: [{ version: row.version, publishedAt: row.published_at.toISOString() }],
+      versions: [{ version: row.version, publishedAt: toIsoString(row.published_at) }],
       enabledTargets: [],
       latestVersion: row.version,
       hasUpdate: false,
@@ -334,64 +344,6 @@ export class SkillsService {
   private canUpdate(row: SkillRow): boolean {
     return row.status === 'published' && row.visibility_level === 'public_installable';
   }
-
-  private matches(skill: SkillSummary, query: SkillListQuery): boolean {
-    if (query.q) {
-      const haystack = [
-        skill.skillID,
-        skill.displayName,
-        skill.description,
-        skill.authorName,
-        skill.authorDepartment,
-        ...(skill.tags ?? []),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      if (!haystack.includes(query.q.toLowerCase())) {
-        return false;
-      }
-    }
-    if (query.departmentID && query.departmentID !== skill.authorDepartment) {
-      return false;
-    }
-    if (query.compatibleTool && !skill.compatibleTools.includes(query.compatibleTool)) {
-      return false;
-    }
-    if (query.category && query.category !== skill.category) {
-      return false;
-    }
-    if (query.riskLevel && query.riskLevel !== skill.riskLevel) {
-      return false;
-    }
-    if (query.installed === 'true' && skill.installState === 'not_installed') {
-      return false;
-    }
-    if (query.enabled === 'true' && skill.installState !== 'enabled') {
-      return false;
-    }
-    if (query.accessScope === 'authorized_only' && skill.detailAccess === 'none') {
-      return false;
-    }
-    return true;
-  }
-
-  private sort(skills: SkillSummary[], sort: string, q?: string): SkillSummary[] {
-    const copy = [...skills];
-    switch (sort) {
-      case 'latest_published':
-      case 'recently_updated':
-        return copy.sort((a, b) => b.currentVersionUpdatedAt.localeCompare(a.currentVersionUpdatedAt));
-      case 'download_count':
-        return copy.sort((a, b) => b.downloadCount - a.downloadCount);
-      case 'star_count':
-        return copy.sort((a, b) => b.starCount - a.starCount);
-      case 'relevance':
-      case 'composite':
-      default:
-        return copy.sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
-    }
-  }
 }
 
 function positiveInt(value: string | undefined, fallback: number, max = 100): number {
@@ -402,9 +354,173 @@ function positiveInt(value: string | undefined, fallback: number, max = 100): nu
   return Math.min(parsed, max);
 }
 
-function relevanceScore(skill: SkillSummary, q?: string): number {
-  const term = q?.toLowerCase();
-  const ftsHit = term && `${skill.skillID} ${skill.displayName}`.toLowerCase().includes(term) ? 100 : 0;
-  const statusWeight = skill.status === 'published' ? 10 : 0;
-  return ftsHit + statusWeight + skill.starCount + skill.downloadCount / 10;
+export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPlan {
+  const page = positiveInt(query.page, 1);
+  const pageSize = positiveInt(query.pageSize, 20, 100);
+  const offset = (page - 1) * pageSize;
+  const values: unknown[] = [];
+  const conditions: string[] = [];
+  const searchTerm = query.q?.trim();
+
+  const push = (value: unknown): string => {
+    values.push(value);
+    return `$${values.length}`;
+  };
+
+  const searchParam = searchTerm ? push(searchTerm) : null;
+
+  if (searchParam) {
+    conditions.push(
+      `(doc.search_vector @@ websearch_to_tsquery('simple', ${searchParam}) OR POSITION(LOWER(${searchParam}) IN LOWER(doc.document)) > 0)`,
+    );
+  }
+
+  if (query.departmentID) {
+    conditions.push(`d.name = ${push(query.departmentID)}`);
+  }
+
+  if (query.compatibleTool) {
+    conditions.push(
+      `EXISTS (
+        SELECT 1
+        FROM skill_tool_compatibilities tc_filter
+        WHERE tc_filter.skill_id = s.id AND tc_filter.tool_id = ${push(query.compatibleTool)}
+      )`,
+    );
+  }
+
+  if (query.category) {
+    conditions.push(`s.category = ${push(query.category)}`);
+  }
+
+  if (query.riskLevel) {
+    conditions.push(`v.risk_level = ${push(query.riskLevel)}`);
+  }
+
+  if (query.accessScope === 'authorized_only') {
+    conditions.push(`s.visibility_level <> 'private'`);
+  }
+
+  const whereClause = conditions.length > 0 ? conditions.join('\n        AND ') : 'TRUE';
+  const orderByClause = buildSkillOrderClause(query.sort ?? 'composite', searchParam);
+  const limitParam = push(pageSize);
+  const offsetParam = push(offset);
+
+  return {
+    page,
+    pageSize,
+    values,
+    text: `
+      WITH star_counts AS (
+        SELECT skill_id, count(*)::bigint AS star_count
+        FROM skill_stars
+        GROUP BY skill_id
+      ),
+      download_counts AS (
+        SELECT skill_id, count(*)::bigint AS download_count
+        FROM download_events
+        GROUP BY skill_id
+      ),
+      base AS (
+        SELECT
+          s.id,
+          s.skill_id,
+          s.display_name,
+          s.description,
+          s.status,
+          s.visibility_level,
+          s.category,
+          s.updated_at,
+          v.version,
+          v.risk_level,
+          v.risk_description,
+          v.review_summary,
+          v.published_at,
+          u.display_name AS author_name,
+          d.name AS author_department,
+          COALESCE(array_agg(DISTINCT st.tag) FILTER (WHERE st.tag IS NOT NULL), '{}') AS tags,
+          COALESCE(array_agg(DISTINCT tc.tool_id) FILTER (WHERE tc.tool_id IS NOT NULL), '{}') AS compatible_tools,
+          COALESCE(array_agg(DISTINCT tc.system) FILTER (WHERE tc.system IS NOT NULL), '{}') AS compatible_systems,
+          COALESCE(stars.star_count, 0)::text AS star_count,
+          COALESCE(downloads.download_count, 0)::text AS download_count,
+          doc.document,
+          ${searchParam ? `ts_rank_cd(doc.search_vector, websearch_to_tsquery('simple', ${searchParam}))` : '0'} AS search_rank
+        FROM skills s
+        JOIN skill_versions v ON v.id = s.current_version_id
+        LEFT JOIN users u ON u.id = s.author_id
+        LEFT JOIN departments d ON d.id = s.department_id
+        LEFT JOIN skill_tags st ON st.skill_id = s.id
+        LEFT JOIN skill_tool_compatibilities tc ON tc.skill_id = s.id
+        LEFT JOIN skill_search_documents doc ON doc.skill_id = s.id
+        LEFT JOIN star_counts stars ON stars.skill_id = s.id
+        LEFT JOIN download_counts downloads ON downloads.skill_id = s.id
+        WHERE ${whereClause}
+        GROUP BY
+          s.id,
+          v.id,
+          u.display_name,
+          d.name,
+          doc.document,
+          doc.search_vector,
+          stars.star_count,
+          downloads.download_count
+      )
+      SELECT
+        base.id,
+        base.skill_id,
+        base.display_name,
+        base.description,
+        base.status,
+        base.visibility_level,
+        base.category,
+        base.updated_at,
+        base.version,
+        base.risk_level,
+        base.risk_description,
+        base.review_summary,
+        base.published_at,
+        base.author_name,
+        base.author_department,
+        base.tags,
+        base.compatible_tools,
+        base.compatible_systems,
+        base.star_count,
+        base.download_count,
+        count(*) OVER()::text AS total_count
+      FROM base
+      ORDER BY ${orderByClause}
+      LIMIT ${limitParam}
+      OFFSET ${offsetParam}
+    `,
+  };
+}
+
+function buildSkillOrderClause(sort: string, searchParam: string | null): string {
+  const searchBoost = searchParam
+    ? `CASE WHEN POSITION(LOWER(${searchParam}) IN LOWER(base.document)) > 0 THEN 100 ELSE 0 END`
+    : '0';
+  const publishedBoost = `CASE WHEN base.status = 'published' THEN 10 ELSE 0 END`;
+  const composite = `(${searchBoost} + ${publishedBoost} + base.star_count::bigint + (base.download_count::bigint / 10.0)) DESC, base.updated_at DESC, base.skill_id ASC`;
+
+  switch (sort) {
+    case 'latest_published':
+      return `base.published_at DESC, base.updated_at DESC, base.skill_id ASC`;
+    case 'recently_updated':
+      return `base.updated_at DESC, base.skill_id ASC`;
+    case 'download_count':
+      return `base.download_count::bigint DESC, base.updated_at DESC, base.skill_id ASC`;
+    case 'star_count':
+      return `base.star_count::bigint DESC, base.updated_at DESC, base.skill_id ASC`;
+    case 'relevance':
+      return searchParam
+        ? `base.search_rank DESC, ${searchBoost} DESC, ${publishedBoost} DESC, base.star_count::bigint DESC, base.download_count::bigint DESC, base.updated_at DESC, base.skill_id ASC`
+        : composite;
+    case 'composite':
+    default:
+      return composite;
+  }
+}
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

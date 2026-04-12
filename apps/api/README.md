@@ -15,6 +15,30 @@ npm run lint
 npm run build
 ```
 
+## Source-start live smoke
+
+Run this from the repo root when you want the real API path with live PostgreSQL, Redis, and MinIO:
+
+```bash
+cp infra/env/server.env.example infra/env/server.env
+# adjust secrets/ports if needed
+npm run p1:source-live-smoke
+```
+
+What it does:
+
+- starts `postgres`, `redis`, `minio`, and `minio-init` from `infra/docker-compose.prod.yml`
+- runs `npm run migrate:dev --workspace @enterprise-agent-hub/api`
+- runs `npm run seed:dev --workspace @enterprise-agent-hub/api`
+- starts the API from source with `npm run start:dev --workspace @enterprise-agent-hub/api`
+- verifies `/health`, `/auth/login`, `/desktop/bootstrap`, `/skills`, `/notifications`, and `/admin/users`
+
+If the API is already running, you can run the smoke checks alone:
+
+```bash
+npm run p1:live-smoke
+```
+
 ## P1 endpoints
 
 - `POST /auth/login`

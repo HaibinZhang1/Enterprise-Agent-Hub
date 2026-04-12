@@ -1,9 +1,8 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import { MenuPermission, UserSummary } from '../common/p1-contracts';
+import { P1_TOKEN_PREFIX } from './constants';
 import { AuthService } from './auth.service';
-
-export const P1_TOKEN_PREFIX = 'p1-session';
 
 export interface P1AuthenticatedRequest extends Request {
   p1SessionID?: string;

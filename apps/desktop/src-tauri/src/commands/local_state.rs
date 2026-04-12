@@ -19,13 +19,15 @@ use crate::commands::distribution::adapters::{
     InstallMode as AdapterInstallMode,
 };
 use crate::commands::distribution::{enable_distribution, EnableDistributionRequest};
+use crate::commands::distribution::{disable_distribution, DisableDistributionRequest};
 use crate::store::central_store::{default_central_store_root, ensure_central_store_root};
 use crate::store::commands::{
     install_skill_package as store_install_skill_package,
+    uninstall_skill as store_uninstall_skill,
     update_skill_package as store_update_skill_package, InstallSkillPackageRequest,
-    UpdateSkillPackageRequest,
+    UninstallSkillRequest, UpdateSkillPackageRequest,
 };
-use crate::store::models::LocalSkillInstall;
+use crate::store::models::{EnabledTarget, EnabledTargetStatus, InstallMode, LocalSkillInstall, TargetType};
 use crate::store::sqlite::{ordered_migrations, statements};
 
 #[derive(Debug, Clone)]
@@ -56,6 +58,7 @@ pub struct LocalBootstrapPayload {
     pub installs: Vec<LocalSkillInstallPayload>,
     pub tools: Vec<ToolConfigPayload>,
     pub projects: Vec<ProjectConfigPayload>,
+    pub offline_events: Vec<LocalEventPayload>,
     pub pending_offline_event_count: u32,
     pub unread_local_notification_count: u32,
     pub central_store_path: String,
@@ -89,6 +92,17 @@ pub struct ProjectConfigPayload {
     pub skills_path: String,
     pub enabled: bool,
     pub enabled_skill_count: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectConfigInputPayload {
+    #[serde(rename = "projectID")]
+    pub project_id: Option<String>,
+    pub name: String,
+    pub project_path: String,
+    pub skills_path: String,
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -133,24 +147,44 @@ pub struct EnabledTargetPayload {
     pub last_error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalEventPayload {
+    #[serde(rename = "eventID")]
+    pub event_id: String,
+    pub event_type: String,
+    #[serde(rename = "skillID")]
+    pub skill_id: String,
+    pub version: String,
+    pub target_type: String,
+    #[serde(rename = "targetID")]
+    pub target_id: String,
+    pub target_path: String,
+    pub requested_mode: String,
+    pub resolved_mode: String,
+    pub fallback_reason: Option<String>,
+    pub occurred_at: String,
+    pub result: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct LocalEventPayload {
-    #[serde(rename = "eventID")]
-    event_id: String,
-    event_type: String,
-    #[serde(rename = "skillID")]
-    skill_id: String,
-    version: String,
-    target_type: String,
-    #[serde(rename = "targetID")]
-    target_id: String,
-    target_path: String,
-    requested_mode: String,
-    resolved_mode: String,
-    fallback_reason: Option<String>,
-    occurred_at: String,
-    result: String,
+pub struct DisableSkillPayload {
+    pub event: LocalEventPayload,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallSkillPayload {
+    pub removed_target_ids: Vec<String>,
+    pub failed_target_ids: Vec<String>,
+    pub event: LocalEventPayload,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OfflineSyncAckPayload {
+    pub synced_event_ids: Vec<String>,
 }
 
 impl P1LocalState {
@@ -188,7 +222,10 @@ impl P1LocalState {
                 .list_local_installs_from_conn(&conn)
                 .map_err(|error| error.to_string())?,
             tools: self.detect_tools_from_conn(&conn).map_err(|error| error.to_string())?,
-            projects: Vec::new(),
+            projects: self
+                .list_project_configs_from_conn(&conn)
+                .map_err(|error| error.to_string())?,
+            offline_events: load_pending_offline_events(&conn).map_err(|error| error.to_string())?,
             pending_offline_event_count: count_pending_offline_events(&conn)
                 .map_err(|error| error.to_string())?,
             unread_local_notification_count: count_unread_local_notifications(&conn)
@@ -257,6 +294,66 @@ impl P1LocalState {
             .map_err(|error| error.to_string())
     }
 
+    pub fn save_project_config(
+        &self,
+        input: ProjectConfigInputPayload,
+    ) -> Result<ProjectConfigPayload, String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        let project_path = normalize_project_path(&input.project_path)?;
+        let skills_path = if input.skills_path.trim().is_empty() {
+            project_path.join(default_project_skills_suffix())
+        } else {
+            normalize_project_path(&input.skills_path)?
+        };
+        let project_id = input
+            .project_id
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| derive_project_id(&input.name, &project_path));
+        let timestamp = now_iso();
+        conn.execute(
+            "
+            INSERT INTO project_configs (
+              project_id, display_name, project_path, skills_path, enabled, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(project_id) DO UPDATE SET
+              display_name = excluded.display_name,
+              project_path = excluded.project_path,
+              skills_path = excluded.skills_path,
+              enabled = excluded.enabled,
+              updated_at = excluded.updated_at
+            ",
+            params![
+                &project_id,
+                &input.name,
+                project_path.to_string_lossy().to_string(),
+                skills_path.to_string_lossy().to_string(),
+                bool_to_int(input.enabled.unwrap_or(true)),
+                &timestamp,
+                &timestamp,
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+        load_project_config(&conn, &project_id).map_err(|error| error.to_string())
+    }
+
+    pub fn mark_offline_events_synced(
+        &self,
+        event_ids: Vec<String>,
+    ) -> Result<OfflineSyncAckPayload, String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        let synced_at = now_iso();
+        for event_id in &event_ids {
+            conn.execute(
+                statements::MARK_OFFLINE_EVENT_SYNCED,
+                params![synced_at, event_id],
+            )
+            .map_err(|error| error.to_string())?;
+        }
+        Ok(OfflineSyncAckPayload {
+            synced_event_ids: event_ids,
+        })
+    }
+
     pub fn enable_skill(
         &self,
         skill_id: String,
@@ -265,10 +362,6 @@ impl P1LocalState {
         target_id: String,
         preferred_mode: Option<String>,
     ) -> Result<EnabledTargetPayload, String> {
-        if target_type != "tool" || target_id != "codex" {
-            return Err("P1 vertical slice only supports enabling tool:codex".to_string());
-        }
-
         let conn = self.open_connection().map_err(|error| error.to_string())?;
         let install = load_install_row(&conn, &skill_id).map_err(|error| error.to_string())?;
         let installed_version = if version.trim().is_empty() {
@@ -282,12 +375,8 @@ impl P1LocalState {
                 install.local_version, installed_version
             ));
         }
-
-        let adapter = builtin_adapters()
-            .into_iter()
-            .find(|adapter| adapter.tool_id == AdapterID::Codex)
-            .ok_or_else(|| "Codex adapter is not registered".to_string())?;
-        let target_root = codex_target_root(&adapter)?;
+        let (adapter, target_name, target_root) =
+            resolve_enable_target(&conn, &target_type, &target_id)?;
         let requested_mode = parse_adapter_mode(preferred_mode.as_deref().unwrap_or("symlink"))?;
         let artifact_path = self
             .central_store_root
@@ -298,7 +387,7 @@ impl P1LocalState {
         let response = enable_distribution(EnableDistributionRequest {
             skill_id: skill_id.clone(),
             version: installed_version.clone(),
-            adapter_id: AdapterID::Codex,
+            adapter_id: adapter.tool_id,
             central_store_skill_path: PathBuf::from(&install.central_store_path),
             derived_root: self.central_store_root.join("derived"),
             target_root,
@@ -308,11 +397,11 @@ impl P1LocalState {
 
         let timestamp = now_iso();
         let target = EnabledTargetPayload {
-            id: format!("{skill_id}:tool:codex"),
+            id: format!("{skill_id}:{target_type}:{target_id}"),
             skill_id: skill_id.clone(),
-            target_type: "tool".to_string(),
-            target_id: "codex".to_string(),
-            target_name: "Codex".to_string(),
+            target_type: target_type.clone(),
+            target_id: target_id.clone(),
+            target_name,
             target_path: response.target_path.to_string_lossy().to_string(),
             artifact_path: artifact_path.to_string_lossy().to_string(),
             install_mode: response.resolved_mode.as_str().to_string(),
@@ -331,10 +420,139 @@ impl P1LocalState {
             params![timestamp, skill_id],
         )
         .map_err(|error| error.to_string())?;
-        insert_offline_event(&conn, &target, &install.local_version)
+        insert_offline_event(
+            &conn,
+            build_local_event_payload(
+                "enable_result",
+                &skill_id,
+                &install.local_version,
+                &target.target_type,
+                &target.target_id,
+                &target.target_path,
+                &target.requested_mode,
+                &target.resolved_mode,
+                target.fallback_reason.clone(),
+                target.enabled_at.clone(),
+                "success",
+            ),
+        )
             .map_err(|error| error.to_string())?;
 
         Ok(target)
+    }
+
+    pub fn disable_skill(
+        &self,
+        skill_id: String,
+        target_type: String,
+        target_id: String,
+    ) -> Result<DisableSkillPayload, String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        let install = load_install_row(&conn, &skill_id).map_err(|error| error.to_string())?;
+        let target = load_enabled_target(&conn, &skill_id, &target_type, &target_id)
+            .map_err(|error| error.to_string())?;
+
+        disable_distribution(DisableDistributionRequest {
+            managed_target_path: PathBuf::from(&target.target_path),
+        })
+        .map_err(|error| error.to_string())?;
+
+        let updated_at = now_iso();
+        conn.execute(
+            "UPDATE enabled_targets SET status = 'disabled', updated_at = ? WHERE skill_id = ? AND target_type = ? AND target_id = ?",
+            params![&updated_at, &skill_id, &target_type, &target_id],
+        )
+        .map_err(|error| error.to_string())?;
+        refresh_install_status(&conn, &skill_id, &updated_at).map_err(|error| error.to_string())?;
+
+        let event = build_local_event_payload(
+            "disable_result",
+            &skill_id,
+            &install.local_version,
+            &target_type,
+            &target_id,
+            &target.target_path,
+            &target.requested_mode,
+            &target.resolved_mode,
+            target.fallback_reason,
+            updated_at,
+            "success",
+        );
+        insert_offline_event(&conn, event.clone()).map_err(|error| error.to_string())?;
+
+        Ok(DisableSkillPayload { event })
+    }
+
+    pub fn uninstall_skill(&self, skill_id: String) -> Result<UninstallSkillPayload, String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        let install = load_install_row(&conn, &skill_id).map_err(|error| error.to_string())?;
+        let enabled_targets = load_all_enabled_targets(&conn, &skill_id).map_err(|error| error.to_string())?;
+        let mut request_targets = Vec::new();
+        let mut failed_target_ids = Vec::new();
+
+        for target in &enabled_targets {
+            let status = match disable_distribution(DisableDistributionRequest {
+                managed_target_path: PathBuf::from(&target.target_path),
+            }) {
+                Ok(()) => EnabledTargetStatus::Disabled,
+                Err(_) => {
+                    failed_target_ids.push(target.target_id.clone());
+                    EnabledTargetStatus::Failed
+                }
+            };
+            request_targets.push(enabled_target_model(target, status));
+        }
+
+        let removed_at = now_iso();
+        let result = store_uninstall_skill(UninstallSkillRequest {
+            skill_id: skill_id.clone(),
+            central_store_root: self.central_store_root.clone(),
+            enabled_targets: request_targets,
+            removed_at: removed_at.clone(),
+        })
+        .map_err(|error| error.to_string())?;
+
+        conn.execute(
+            "DELETE FROM local_skill_installs WHERE skill_id = ?",
+            [skill_id.clone()],
+        )
+        .map_err(|error| error.to_string())?;
+
+        let event = build_local_event_payload(
+            "uninstall_result",
+            &skill_id,
+            &install.local_version,
+            enabled_targets
+                .first()
+                .map(|target| target.target_type.as_str())
+                .unwrap_or("tool"),
+            if enabled_targets.is_empty() {
+                "local_install".to_string()
+            } else {
+                enabled_targets
+                    .iter()
+                    .map(|target| target.target_id.clone())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            },
+            install.central_store_path.clone(),
+            "copy".to_string(),
+            "copy".to_string(),
+            None,
+            removed_at.clone(),
+            if failed_target_ids.is_empty() {
+                "success"
+            } else {
+                "failed"
+            },
+        );
+        insert_offline_event(&conn, event.clone()).map_err(|error| error.to_string())?;
+
+        Ok(UninstallSkillPayload {
+            removed_target_ids: result.removed_target_ids,
+            failed_target_ids,
+            event,
+        })
     }
 
     fn open_connection(&self) -> rusqlite::Result<Connection> {
@@ -425,6 +643,32 @@ impl P1LocalState {
             });
         }
         Ok(tools)
+    }
+
+    fn list_project_configs_from_conn(
+        &self,
+        conn: &Connection,
+    ) -> rusqlite::Result<Vec<ProjectConfigPayload>> {
+        let mut statement = conn.prepare(
+            "
+            SELECT project_id, display_name, project_path, skills_path, enabled
+            FROM project_configs
+            ORDER BY updated_at DESC
+            ",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let project_id: String = row.get(0)?;
+            Ok(ProjectConfigPayload {
+                project_id: project_id.clone(),
+                name: row.get(1)?,
+                display_name: row.get(1)?,
+                project_path: row.get(2)?,
+                skills_path: row.get(3)?,
+                enabled: int_to_bool(row.get(4)?),
+                enabled_skill_count: count_enabled_targets_for_project(conn, &project_id)?,
+            })
+        })?;
+        rows.collect()
     }
 
     fn list_local_installs_from_conn(
@@ -567,23 +811,8 @@ fn upsert_enabled_target(conn: &Connection, target: &EnabledTargetPayload) -> ru
 
 fn insert_offline_event(
     conn: &Connection,
-    target: &EnabledTargetPayload,
-    version: &str,
+    event: LocalEventPayload,
 ) -> rusqlite::Result<()> {
-    let event = LocalEventPayload {
-        event_id: format!("evt_{}", now_millis()),
-        event_type: "enable_result".to_string(),
-        skill_id: target.skill_id.clone(),
-        version: version.to_string(),
-        target_type: target.target_type.clone(),
-        target_id: target.target_id.clone(),
-        target_path: target.target_path.clone(),
-        requested_mode: target.requested_mode.clone(),
-        resolved_mode: target.resolved_mode.clone(),
-        fallback_reason: target.fallback_reason.clone(),
-        occurred_at: target.enabled_at.clone(),
-        result: "success".to_string(),
-    };
     let payload = serde_json::to_string(&event)
         .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
     conn.execute(
@@ -591,6 +820,46 @@ fn insert_offline_event(
         params![event.event_id, event.event_type, payload, event.occurred_at],
     )?;
     Ok(())
+}
+
+fn load_project_config(conn: &Connection, project_id: &str) -> rusqlite::Result<ProjectConfigPayload> {
+    conn.query_row(
+        "
+        SELECT project_id, display_name, project_path, skills_path, enabled
+        FROM project_configs
+        WHERE project_id = ?
+        ",
+        [project_id],
+        |row| {
+            let project_id: String = row.get(0)?;
+            Ok(ProjectConfigPayload {
+                project_id: project_id.clone(),
+                name: row.get(1)?,
+                display_name: row.get(1)?,
+                project_path: row.get(2)?,
+                skills_path: row.get(3)?,
+                enabled: int_to_bool(row.get(4)?),
+                enabled_skill_count: count_enabled_targets_for_project(conn, &project_id)?,
+            })
+        },
+    )
+}
+
+fn load_pending_offline_events(conn: &Connection) -> rusqlite::Result<Vec<LocalEventPayload>> {
+    let mut statement = conn.prepare(
+        "
+        SELECT payload_json
+        FROM offline_event_queue
+        WHERE status = 'pending'
+        ORDER BY occurred_at DESC
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        let payload: String = row.get(0)?;
+        serde_json::from_str::<LocalEventPayload>(&payload)
+            .map_err(|error| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(error)))
+    })?;
+    rows.collect()
 }
 
 fn load_install_row(conn: &Connection, skill_id: &str) -> rusqlite::Result<LocalSkillInstallPayload> {
@@ -660,10 +929,94 @@ fn load_enabled_targets(
     rows.collect()
 }
 
+fn load_enabled_target(
+    conn: &Connection,
+    skill_id: &str,
+    target_type: &str,
+    target_id: &str,
+) -> rusqlite::Result<EnabledTargetPayload> {
+    conn.query_row(
+        "
+        SELECT id, skill_id, target_type, target_id, target_name, target_path, artifact_path,
+               install_mode, requested_mode, resolved_mode, fallback_reason, artifact_hash,
+               enabled_at, updated_at, status, last_error
+        FROM enabled_targets
+        WHERE skill_id = ? AND target_type = ? AND target_id = ? AND status = 'enabled'
+        ",
+        params![skill_id, target_type, target_id],
+        |row| {
+            Ok(EnabledTargetPayload {
+                id: row.get(0)?,
+                skill_id: row.get(1)?,
+                target_type: row.get(2)?,
+                target_id: row.get(3)?,
+                target_name: row.get(4)?,
+                target_path: row.get(5)?,
+                artifact_path: row.get(6)?,
+                install_mode: row.get(7)?,
+                requested_mode: row.get(8)?,
+                resolved_mode: row.get(9)?,
+                fallback_reason: row.get(10)?,
+                artifact_hash: row.get(11)?,
+                enabled_at: row.get(12)?,
+                updated_at: row.get(13)?,
+                status: row.get(14)?,
+                last_error: row.get(15)?,
+            })
+        },
+    )
+}
+
+fn load_all_enabled_targets(
+    conn: &Connection,
+    skill_id: &str,
+) -> rusqlite::Result<Vec<EnabledTargetPayload>> {
+    let mut statement = conn.prepare(
+        "
+        SELECT id, skill_id, target_type, target_id, target_name, target_path, artifact_path,
+               install_mode, requested_mode, resolved_mode, fallback_reason, artifact_hash,
+               enabled_at, updated_at, status, last_error
+        FROM enabled_targets
+        WHERE skill_id = ? AND status = 'enabled'
+        ORDER BY updated_at DESC
+        ",
+    )?;
+    let rows = statement.query_map([skill_id], |row| {
+        Ok(EnabledTargetPayload {
+            id: row.get(0)?,
+            skill_id: row.get(1)?,
+            target_type: row.get(2)?,
+            target_id: row.get(3)?,
+            target_name: row.get(4)?,
+            target_path: row.get(5)?,
+            artifact_path: row.get(6)?,
+            install_mode: row.get(7)?,
+            requested_mode: row.get(8)?,
+            resolved_mode: row.get(9)?,
+            fallback_reason: row.get(10)?,
+            artifact_hash: row.get(11)?,
+            enabled_at: row.get(12)?,
+            updated_at: row.get(13)?,
+            status: row.get(14)?,
+            last_error: row.get(15)?,
+        })
+    })?;
+    rows.collect()
+}
+
 fn count_enabled_targets_for_tool(conn: &Connection, tool_id: &str) -> rusqlite::Result<u32> {
     let count = conn.query_row(
         "SELECT count(*) FROM enabled_targets WHERE target_type = 'tool' AND target_id = ? AND status = 'enabled'",
         [tool_id],
+        |row| row.get::<_, i64>(0),
+    )?;
+    Ok(count as u32)
+}
+
+fn count_enabled_targets_for_project(conn: &Connection, project_id: &str) -> rusqlite::Result<u32> {
+    let count = conn.query_row(
+        "SELECT count(*) FROM enabled_targets WHERE target_type = 'project' AND target_id = ? AND status = 'enabled'",
+        [project_id],
         |row| row.get::<_, i64>(0),
     )?;
     Ok(count as u32)
@@ -687,12 +1040,87 @@ fn count_unread_local_notifications(conn: &Connection) -> rusqlite::Result<u32> 
     Ok(count as u32)
 }
 
+fn refresh_install_status(conn: &Connection, skill_id: &str, updated_at: &str) -> rusqlite::Result<()> {
+    let enabled_count = conn.query_row(
+        "SELECT count(*) FROM enabled_targets WHERE skill_id = ? AND status = 'enabled'",
+        [skill_id],
+        |row| row.get::<_, i64>(0),
+    )?;
+    let status = if enabled_count > 0 { "enabled" } else { "installed" };
+    conn.execute(
+        "UPDATE local_skill_installs SET local_status = ?, updated_at = ? WHERE skill_id = ?",
+        params![status, updated_at, skill_id],
+    )?;
+    Ok(())
+}
+
 fn parse_adapter_mode(value: &str) -> Result<AdapterInstallMode, String> {
     match value {
         "symlink" => Ok(AdapterInstallMode::Symlink),
         "copy" => Ok(AdapterInstallMode::Copy),
         other => Err(format!("unsupported install mode: {other}")),
     }
+}
+
+fn parse_store_install_mode(value: &str) -> Result<InstallMode, String> {
+    match value {
+        "symlink" => Ok(InstallMode::Symlink),
+        "copy" => Ok(InstallMode::Copy),
+        other => Err(format!("unsupported install mode: {other}")),
+    }
+}
+
+fn parse_store_target_type(value: &str) -> Result<TargetType, String> {
+    match value {
+        "tool" => Ok(TargetType::Tool),
+        "project" => Ok(TargetType::Project),
+        other => Err(format!("unsupported target type: {other}")),
+    }
+}
+
+fn resolve_enable_target(
+    conn: &Connection,
+    target_type: &str,
+    target_id: &str,
+) -> Result<(AdapterConfig, String, PathBuf), String> {
+    match (target_type, target_id) {
+        ("tool", "codex") => {
+            let adapter = builtin_adapters()
+                .into_iter()
+                .find(|adapter| adapter.tool_id == AdapterID::Codex)
+                .ok_or_else(|| "Codex adapter is not registered".to_string())?;
+            let target_root = codex_target_root(&adapter)?;
+            Ok((adapter, "Codex".to_string(), target_root))
+        }
+        ("project", project_id) => {
+            let project = load_project_config(conn, project_id).map_err(|error| error.to_string())?;
+            let adapter = resolve_project_adapter(&project.skills_path)?;
+            Ok((
+                adapter,
+                project.name,
+                PathBuf::from(project.skills_path),
+            ))
+        }
+        ("tool", other) => Err(format!("P1 vertical slice only supports enabling tool:codex; got tool:{other}")),
+        (other_type, _) => Err(format!("unsupported target type: {other_type}")),
+    }
+}
+
+fn resolve_project_adapter(skills_path: &str) -> Result<AdapterConfig, String> {
+    let normalized_skills_path = normalize_path_text(skills_path);
+    builtin_adapters()
+        .into_iter()
+        .find(|adapter| {
+            adapter
+                .target
+                .project_paths
+                .iter()
+                .map(|candidate| normalize_relative_path(candidate))
+                .any(|candidate| normalized_skills_path.ends_with(&candidate))
+                || (adapter.tool_id == AdapterID::Codex
+                    && normalized_skills_path.ends_with(&normalize_relative_path(default_project_skills_suffix())))
+        })
+        .ok_or_else(|| format!("unable to infer project adapter from skills path: {skills_path}"))
 }
 
 fn codex_target_root(adapter: &AdapterConfig) -> Result<PathBuf, String> {
@@ -707,6 +1135,96 @@ fn codex_target_root(adapter: &AdapterConfig) -> Result<PathBuf, String> {
         .first()
         .map(|path| expand_windows_user_profile(path))
         .ok_or_else(|| "Codex adapter has no global target path".to_string())
+}
+
+fn enabled_target_model(
+    target: &EnabledTargetPayload,
+    status: EnabledTargetStatus,
+) -> EnabledTarget {
+    EnabledTarget {
+        id: target.id.clone(),
+        skill_id: target.skill_id.clone(),
+        target_type: parse_store_target_type(&target.target_type).unwrap_or(TargetType::Tool),
+        target_id: target.target_id.clone(),
+        target_name: target.target_name.clone(),
+        target_path: PathBuf::from(&target.target_path),
+        artifact_path: PathBuf::from(&target.artifact_path),
+        install_mode: parse_store_install_mode(&target.install_mode).unwrap_or(InstallMode::Copy),
+        requested_mode: parse_store_install_mode(&target.requested_mode).unwrap_or(InstallMode::Copy),
+        resolved_mode: parse_store_install_mode(&target.resolved_mode).unwrap_or(InstallMode::Copy),
+        fallback_reason: target.fallback_reason.clone(),
+        artifact_hash: target.artifact_hash.clone(),
+        enabled_at: target.enabled_at.clone(),
+        updated_at: target.updated_at.clone(),
+        status,
+        last_error: target.last_error.clone(),
+    }
+}
+
+fn build_local_event_payload(
+    event_type: &str,
+    skill_id: &str,
+    version: &str,
+    target_type: &str,
+    target_id: impl Into<String>,
+    target_path: impl Into<String>,
+    requested_mode: impl Into<String>,
+    resolved_mode: impl Into<String>,
+    fallback_reason: Option<String>,
+    occurred_at: impl Into<String>,
+    result: &str,
+) -> LocalEventPayload {
+    LocalEventPayload {
+        event_id: format!("evt_{}", now_millis()),
+        event_type: event_type.to_string(),
+        skill_id: skill_id.to_string(),
+        version: version.to_string(),
+        target_type: target_type.to_string(),
+        target_id: target_id.into(),
+        target_path: target_path.into(),
+        requested_mode: requested_mode.into(),
+        resolved_mode: resolved_mode.into(),
+        fallback_reason,
+        occurred_at: occurred_at.into(),
+        result: result.to_string(),
+    }
+}
+
+fn normalize_project_path(value: &str) -> Result<PathBuf, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("project path cannot be empty".to_string());
+    }
+    Ok(PathBuf::from(trimmed))
+}
+
+fn derive_project_id(name: &str, project_path: &Path) -> String {
+    let candidate = project_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(name);
+    let sanitized = sanitize_segment(candidate);
+    if sanitized.is_empty() {
+        format!("project-{}", now_millis())
+    } else {
+        sanitized
+    }
+}
+
+fn default_project_skills_suffix() -> &'static str {
+    ".codex/skills"
+}
+
+fn normalize_path_text(value: &str) -> String {
+    value.replace('\\', "/").to_ascii_lowercase()
+}
+
+fn normalize_relative_path(value: &str) -> String {
+    normalize_path_text(value)
+        .trim_start_matches("./")
+        .trim_start_matches('/')
+        .to_string()
 }
 
 fn bool_to_int(value: bool) -> i64 {
@@ -751,10 +1269,14 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpListener;
+    use std::sync::Mutex;
     use std::thread;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn installs_enables_and_restores_from_sqlite() {
+        let _lock = ENV_LOCK.lock().expect("lock env");
         let temp = TestTemp::new("local-state");
         let package_bytes = fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR")).join(
@@ -806,6 +1328,179 @@ mod tests {
         assert_eq!(restored[0].skill_id, "codex-review-helper");
         assert_eq!(restored[0].enabled_targets.len(), 1);
         assert_eq!(restored[0].enabled_targets[0].target_id, "codex");
+        let restored_bootstrap = restored_state
+            .get_local_bootstrap()
+            .expect("restore bootstrap");
+        assert_eq!(restored_bootstrap.offline_events.len(), 1);
+        assert_eq!(restored_bootstrap.offline_events[0].event_type, "enable_result");
+
+        std::env::remove_var("EAH_P1_CODEX_SKILLS_PATH");
+    }
+
+    #[test]
+    fn persists_projects_disables_targets_and_uninstalls_through_sqlite() {
+        let _lock = ENV_LOCK.lock().expect("lock env");
+        let temp = TestTemp::new("local-state-projects");
+        let package_bytes = fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../api/src/database/seeds/packages/codex-review-helper/1.2.0/package.zip",
+            ),
+        )
+        .expect("read seed package zip");
+        let package_url = serve_once(package_bytes.clone());
+        let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+        std::env::set_var(
+            "EAH_P1_CODEX_SKILLS_PATH",
+            temp.path.join("codex-skills").to_string_lossy().to_string(),
+        );
+
+        let project_root = temp.path.join("EnterpriseAgentHub");
+        let project = state
+            .save_project_config(ProjectConfigInputPayload {
+                project_id: Some("enterprise-agent-hub".to_string()),
+                name: "Enterprise Agent Hub".to_string(),
+                project_path: project_root.to_string_lossy().to_string(),
+                skills_path: project_root
+                    .join(".codex/skills")
+                    .to_string_lossy()
+                    .to_string(),
+                enabled: Some(true),
+            })
+            .expect("save project");
+        assert_eq!(project.project_id, "enterprise-agent-hub");
+
+        let installed = state
+            .install_skill_package(DownloadTicketPayload {
+                skill_id: "codex-review-helper".to_string(),
+                version: "1.2.0".to_string(),
+                package_url,
+                package_hash:
+                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
+                        .to_string(),
+                package_size: package_bytes.len() as u64,
+                package_file_count: 2,
+            })
+            .expect("install skill");
+
+        let tool_target = state
+            .enable_skill(
+                "codex-review-helper".to_string(),
+                "1.2.0".to_string(),
+                "tool".to_string(),
+                "codex".to_string(),
+                Some("copy".to_string()),
+            )
+            .expect("enable tool target");
+        let project_target = state
+            .enable_skill(
+                "codex-review-helper".to_string(),
+                "1.2.0".to_string(),
+                "project".to_string(),
+                "enterprise-agent-hub".to_string(),
+                Some("copy".to_string()),
+            )
+            .expect("enable project target");
+
+        let bootstrap = state.get_local_bootstrap().expect("bootstrap");
+        assert_eq!(bootstrap.projects.len(), 1);
+        assert_eq!(bootstrap.projects[0].enabled_skill_count, 1);
+        assert_eq!(bootstrap.pending_offline_event_count, 2);
+        assert_eq!(bootstrap.offline_events.len(), 2);
+        assert!(Path::new(&project_target.target_path).join("SKILL.md").is_file());
+
+        let disabled = state
+            .disable_skill(
+                "codex-review-helper".to_string(),
+                "project".to_string(),
+                "enterprise-agent-hub".to_string(),
+            )
+            .expect("disable project target");
+        assert_eq!(disabled.event.event_type, "disable_result");
+        assert!(!Path::new(&project_target.target_path).exists());
+        assert!(Path::new(&installed.central_store_path).join("SKILL.md").is_file());
+
+        let reopened = P1LocalState::initialize(temp.path.join("app-data")).expect("reopen state");
+        let reopened_bootstrap = reopened.get_local_bootstrap().expect("reopen bootstrap");
+        assert_eq!(reopened_bootstrap.projects[0].enabled_skill_count, 0);
+        assert!(reopened_bootstrap
+            .offline_events
+            .iter()
+            .any(|event| event.event_type == "disable_result"));
+
+        let uninstall = reopened
+            .uninstall_skill("codex-review-helper".to_string())
+            .expect("uninstall skill");
+        assert!(uninstall.removed_target_ids.contains(&tool_target.target_id));
+        assert!(uninstall.failed_target_ids.is_empty());
+        assert!(!Path::new(&installed.central_store_path).exists());
+
+        let after_uninstall = reopened
+            .get_local_bootstrap()
+            .expect("bootstrap after uninstall");
+        assert!(after_uninstall.installs.is_empty());
+        assert!(after_uninstall
+            .offline_events
+            .iter()
+            .any(|event| event.event_type == "uninstall_result"));
+
+        std::env::remove_var("EAH_P1_CODEX_SKILLS_PATH");
+    }
+
+    #[test]
+    fn marks_offline_events_synced_and_excludes_them_from_restore() {
+        let _lock = ENV_LOCK.lock().expect("lock env");
+        let temp = TestTemp::new("local-state-sync");
+        let package_bytes = fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../api/src/database/seeds/packages/codex-review-helper/1.2.0/package.zip",
+            ),
+        )
+        .expect("read seed package zip");
+        let package_url = serve_once(package_bytes.clone());
+        let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+        std::env::set_var(
+            "EAH_P1_CODEX_SKILLS_PATH",
+            temp.path.join("codex-skills").to_string_lossy().to_string(),
+        );
+
+        state
+            .install_skill_package(DownloadTicketPayload {
+                skill_id: "codex-review-helper".to_string(),
+                version: "1.2.0".to_string(),
+                package_url,
+                package_hash:
+                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
+                        .to_string(),
+                package_size: package_bytes.len() as u64,
+                package_file_count: 2,
+            })
+            .expect("install skill");
+        state
+            .enable_skill(
+                "codex-review-helper".to_string(),
+                "1.2.0".to_string(),
+                "tool".to_string(),
+                "codex".to_string(),
+                Some("copy".to_string()),
+            )
+            .expect("enable target");
+
+        let bootstrap = state.get_local_bootstrap().expect("bootstrap before sync");
+        let event_ids = bootstrap
+            .offline_events
+            .iter()
+            .map(|event| event.event_id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(event_ids.len(), 1);
+
+        let ack = state
+            .mark_offline_events_synced(event_ids.clone())
+            .expect("mark synced");
+        assert_eq!(ack.synced_event_ids, event_ids);
+
+        let restored = state.get_local_bootstrap().expect("bootstrap after sync");
+        assert!(restored.offline_events.is_empty());
+        assert_eq!(restored.pending_offline_event_count, 0);
 
         std::env::remove_var("EAH_P1_CODEX_SKILLS_PATH");
     }

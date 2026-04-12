@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::central_store::{
     install_or_replace_package, uninstall_central_store_package, InstalledPackage, StoreError,
 };
-use super::models::{EnabledTarget, LocalSkillInstall, LocalStatus, UninstallResult};
+use super::models::{EnabledTarget, EnabledTargetStatus, LocalSkillInstall, LocalStatus, UninstallResult};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallSkillPackageRequest {
@@ -75,9 +75,16 @@ pub fn update_skill_package(
 pub fn uninstall_skill(request: UninstallSkillRequest) -> Result<UninstallResult, StoreError> {
     let removed =
         uninstall_central_store_package(&request.central_store_root, &request.skill_id, None)?;
+    let removed_target_ids = request
+        .enabled_targets
+        .iter()
+        .filter(|target| target.status != EnabledTargetStatus::Failed)
+        .map(|target| target.target_id.clone())
+        .collect();
     Ok(UninstallResult {
         skill_id: request.skill_id,
         removed_central_store_path: removed,
+        removed_target_ids,
         failed_targets: request
             .enabled_targets
             .into_iter()

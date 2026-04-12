@@ -163,6 +163,7 @@ pub struct LocalNotification {
 pub struct UninstallResult {
     pub skill_id: String,
     pub removed_central_store_path: Option<PathBuf>,
+    pub removed_target_ids: Vec<String>,
     pub failed_targets: Vec<EnabledTarget>,
     pub removed_at: String,
 }

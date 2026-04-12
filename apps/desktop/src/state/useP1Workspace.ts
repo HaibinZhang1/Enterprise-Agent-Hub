@@ -19,8 +19,7 @@ import type {
   TargetType
 } from "../domain/p1";
 import {
-  guestBootstrap,
-  seedNotifications
+  guestBootstrap
 } from "../fixtures/p1SeedData";
 import { isPermissionError, isUnauthenticatedError, p1Client } from "../services/p1Client";
 import { desktopBridge } from "../services/tauriBridge";
@@ -37,6 +36,7 @@ const defaultFilters: MarketFilters = {
 };
 
 const guestNavigation: PageID[] = ["home", "market", "my_installed", "tools", "projects", "notifications", "settings"];
+const emptyLocalNotifications: LocalNotification[] = [];
 
 function notificationFromProgress(progress: OperationProgress, fallbackReason?: string | null): LocalNotification {
   const isSuccess = progress.result === "success";
@@ -135,7 +135,7 @@ function buildGuestBootstrap(localBootstrap: LocalBootstrap, message?: string): 
       installedCount: localBootstrap.installs.length,
       enabledCount: localBootstrap.installs.filter((install) => install.enabledTargets.length > 0).length,
       updateAvailableCount: localBootstrap.installs.filter((install) => install.canUpdate).length,
-      unreadNotificationCount: Math.max(localBootstrap.unreadLocalNotificationCount, 1)
+      unreadNotificationCount: localBootstrap.unreadLocalNotificationCount
     }
   };
 }
@@ -168,7 +168,7 @@ export function useP1Workspace() {
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [tools, setTools] = useState<LocalBootstrap["tools"]>([]);
   const [projects, setProjects] = useState<LocalBootstrap["projects"]>([]);
-  const [notifications, setNotifications] = useState<LocalNotification[]>(seedNotifications.filter((notification) => notification.source !== "server"));
+  const [notifications, setNotifications] = useState<LocalNotification[]>(emptyLocalNotifications);
   const [offlineEvents, setOfflineEvents] = useState<LocalEvent[]>([]);
   const [filters, setFilters] = useState<MarketFilters>(defaultFilters);
   const [selectedSkillID, setSelectedSkillID] = useState("");
@@ -187,7 +187,20 @@ export function useP1Workspace() {
   const localBootstrapRef = useRef<LocalBootstrap | null>(null);
   const pendingPageRef = useRef<PageID | null>(null);
   const pendingActionRef = useRef<null | (() => Promise<void> | void)>(null);
-  const localNotificationsRef = useRef<LocalNotification[]>(seedNotifications.filter((notification) => notification.source !== "server"));
+  const localNotificationsRef = useRef<LocalNotification[]>(emptyLocalNotifications);
+  const remoteMarketFilters = useMemo(
+    () => ({ ...filters, installed: "all" as const, enabled: "all" as const }),
+    [filters]
+  );
+
+  const refreshLocalBootstrap = useCallback(async () => {
+    const localBootstrap = await desktopBridge.getLocalBootstrap();
+    localBootstrapRef.current = localBootstrap;
+    setTools(localBootstrap.tools);
+    setProjects(localBootstrap.projects);
+    setOfflineEvents(localBootstrap.offlineEvents);
+    return localBootstrap;
+  }, []);
 
   useEffect(() => {
     localNotificationsRef.current = notifications.filter((notification) => notification.source !== "server");
@@ -215,8 +228,13 @@ export function useP1Workspace() {
 
   const marketSkills = useMemo(() => {
     const query = filters.query.trim().toLocaleLowerCase();
-    return [...skills]
+    const filtered = [...skills]
       .filter((skill) => {
+        const matchesInstalled = filters.installed === "all" || (filters.installed === "installed" ? skill.localVersion : !skill.localVersion);
+        const matchesEnabled = filters.enabled === "all" || (filters.enabled === "enabled" ? skill.enabledTargets.length > 0 : skill.enabledTargets.length === 0);
+        if (authState === "authenticated" && bootstrap.connection.status === "connected") {
+          return matchesInstalled && matchesEnabled;
+        }
         const matchesQuery =
           query.length === 0 ||
           skill.displayName.toLocaleLowerCase().includes(query) ||
@@ -227,30 +245,33 @@ export function useP1Workspace() {
           skill.authorName?.toLocaleLowerCase().includes(query);
         const matchesDepartment = filters.department === "all" || skill.authorDepartment === filters.department;
         const matchesTool = filters.compatibleTool === "all" || skill.compatibleTools.includes(filters.compatibleTool);
-        const matchesInstalled = filters.installed === "all" || (filters.installed === "installed" ? skill.localVersion : !skill.localVersion);
-        const matchesEnabled = filters.enabled === "all" || (filters.enabled === "enabled" ? skill.enabledTargets.length > 0 : skill.enabledTargets.length === 0);
         const matchesAccess = filters.accessScope === "include_public" || skill.detailAccess === "full";
         const matchesRisk = filters.riskLevel === "all" || skill.riskLevel === filters.riskLevel;
         return matchesQuery && matchesDepartment && matchesTool && matchesInstalled && matchesEnabled && matchesAccess && matchesRisk;
-      })
-      .sort((left, right) => {
-        switch (filters.sort) {
-          case "latest_published":
-            return right.publishedAt.localeCompare(left.publishedAt);
-          case "recently_updated":
-            return right.currentVersionUpdatedAt.localeCompare(left.currentVersionUpdatedAt);
-          case "download_count":
-            return right.downloadCount - left.downloadCount;
-          case "star_count":
-            return right.starCount - left.starCount;
-          case "relevance":
-            return Number(right.skillID.toLocaleLowerCase().includes(query)) - Number(left.skillID.toLocaleLowerCase().includes(query));
-          case "composite":
-          default:
-            return right.starCount + right.downloadCount - (left.starCount + left.downloadCount);
-        }
       });
-  }, [filters, skills]);
+
+    if (authState === "authenticated" && bootstrap.connection.status === "connected") {
+      return filtered;
+    }
+
+    return filtered.sort((left, right) => {
+      switch (filters.sort) {
+        case "latest_published":
+          return right.publishedAt.localeCompare(left.publishedAt);
+        case "recently_updated":
+          return right.currentVersionUpdatedAt.localeCompare(left.currentVersionUpdatedAt);
+        case "download_count":
+          return right.downloadCount - left.downloadCount;
+        case "star_count":
+          return right.starCount - left.starCount;
+        case "relevance":
+          return Number(right.skillID.toLocaleLowerCase().includes(query)) - Number(left.skillID.toLocaleLowerCase().includes(query));
+        case "composite":
+        default:
+          return right.starCount + right.downloadCount - (left.starCount + left.downloadCount);
+      }
+      });
+  }, [authState, bootstrap.connection.status, filters, skills]);
 
   const installedSkills = useMemo(() => skills.filter((skill) => skill.localVersion !== null), [skills]);
   const visibleNavigation = useMemo(
@@ -269,14 +290,12 @@ export function useP1Workspace() {
   }, []);
 
   const moveToGuest = useCallback(async (message?: string) => {
-    const localBootstrap = localBootstrapRef.current ?? (await desktopBridge.getLocalBootstrap());
-    localBootstrapRef.current = localBootstrap;
+    const localBootstrap = localBootstrapRef.current ?? (await refreshLocalBootstrap());
     const localSkills = localBootstrap.installs.map(localSummaryFromInstall);
     setAuthState("guest");
     setBootstrap(buildGuestBootstrap(localBootstrap, message));
     setSkills(localSkills);
-    setTools(localBootstrap.tools);
-    setProjects(localBootstrap.projects);
+    setOfflineEvents(localBootstrap.offlineEvents);
     setNotifications(localNotificationsRef.current);
     setDepartments([]);
     setAdminUsers([]);
@@ -287,7 +306,7 @@ export function useP1Workspace() {
     setSelectedDepartmentID(null);
     setSelectedSkillID((current) => (localSkills.some((skill) => skill.skillID === current) ? current : localSkills[0]?.skillID ?? ""));
     setActivePageState((current) => (current === "manage" || current === "review" || current === "market" || current === "notifications" ? "home" : current));
-  }, []);
+  }, [refreshLocalBootstrap]);
 
   const stripAdminCapabilities = useCallback(() => {
     setBootstrap((current) => ({
@@ -328,11 +347,11 @@ export function useP1Workspace() {
 
   const hydrateAuthenticatedState = useCallback(
     async (localBootstrap?: LocalBootstrap) => {
-      const currentLocalBootstrap = localBootstrap ?? localBootstrapRef.current ?? (await desktopBridge.getLocalBootstrap());
+      const currentLocalBootstrap = localBootstrap ?? localBootstrapRef.current ?? (await refreshLocalBootstrap());
       localBootstrapRef.current = currentLocalBootstrap;
       const [remoteBootstrap, remoteSkills, remoteNotifications] = await Promise.all([
         p1Client.bootstrap(),
-        p1Client.listSkills(filters),
+        p1Client.listSkills(remoteMarketFilters),
         p1Client.listNotifications()
       ]);
       const mergedSkills = mergeLocalInstalls(remoteSkills, currentLocalBootstrap);
@@ -341,27 +360,25 @@ export function useP1Workspace() {
       setSkills(mergedSkills);
       setTools(currentLocalBootstrap.tools);
       setProjects(currentLocalBootstrap.projects);
+      setOfflineEvents(currentLocalBootstrap.offlineEvents);
       setNotifications(mergeNotifications(remoteNotifications, localNotificationsRef.current));
       setSelectedSkillID((current) => (mergedSkills.some((skill) => skill.skillID === current) ? current : mergedSkills[0]?.skillID ?? ""));
       return remoteBootstrap;
     },
-    [filters]
+    [refreshLocalBootstrap, remoteMarketFilters]
   );
 
   useEffect(() => {
     let cancelled = false;
 
     async function initializeWorkspace() {
-      const localBootstrap = await desktopBridge.getLocalBootstrap();
+      const localBootstrap = await refreshLocalBootstrap();
       if (cancelled) return;
-      localBootstrapRef.current = localBootstrap;
       const localSkills = localBootstrap.installs.map(localSummaryFromInstall);
       setBootstrap(buildGuestBootstrap(localBootstrap));
       setSkills(localSkills);
-      setTools(localBootstrap.tools);
-      setProjects(localBootstrap.projects);
       setNotifications(localNotificationsRef.current);
-      setOfflineEvents([]);
+      setOfflineEvents(localBootstrap.offlineEvents);
       setSelectedSkillID(localSkills[0]?.skillID ?? "");
 
       if (p1Client.hasStoredSession()) {
@@ -388,6 +405,26 @@ export function useP1Workspace() {
       cancelled = true;
     };
   }, [hydrateAuthenticatedState]);
+
+  useEffect(() => {
+    if (authState !== "authenticated" || bootstrap.connection.status !== "connected") return;
+    let cancelled = false;
+
+    void p1Client
+      .listSkills(remoteMarketFilters)
+      .then((remoteSkills) => {
+        if (cancelled) return;
+        const localBootstrap = localBootstrapRef.current;
+        const mergedSkills = localBootstrap ? mergeLocalInstalls(remoteSkills, localBootstrap) : remoteSkills;
+        setSkills(mergedSkills);
+        setSelectedSkillID((current) => (mergedSkills.some((skill) => skill.skillID === current) ? current : mergedSkills[0]?.skillID ?? ""));
+      })
+      .catch((error) => void handleRemoteError(error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authState, bootstrap.connection.status, handleRemoteError, remoteMarketFilters]);
 
   useEffect(() => {
     if (activePage === "manage" && !visibleNavigation.includes("manage")) {
@@ -437,7 +474,7 @@ export function useP1Workspace() {
   const login = useCallback(async (input: { username: string; password: string; serverURL: string }) => {
     setAuthError(null);
     try {
-      const localBootstrap = localBootstrapRef.current ?? (await desktopBridge.getLocalBootstrap());
+      const localBootstrap = localBootstrapRef.current ?? (await refreshLocalBootstrap());
       localBootstrapRef.current = localBootstrap;
       await p1Client.login(input);
       await hydrateAuthenticatedState(localBootstrap);
@@ -453,7 +490,7 @@ export function useP1Workspace() {
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "登录失败");
     }
-  }, [hydrateAuthenticatedState]);
+  }, [hydrateAuthenticatedState, refreshLocalBootstrap]);
 
   const logout = useCallback(async () => {
     await p1Client.logout();
@@ -522,6 +559,10 @@ export function useP1Workspace() {
     setProgress(nextProgress);
   }, []);
 
+  const clearProgress = useCallback(() => {
+    setProgress(null);
+  }, []);
+
   const performInstallOrUpdate = useCallback(
     async (skillID: string, operation: "install" | "update") => {
       const skill = skills.find((item) => item.skillID === skillID);
@@ -537,7 +578,9 @@ export function useP1Workspace() {
       }
       const downloadTicket = await p1Client.downloadTicket(skill, operation);
       const result = operation === "install" ? await desktopBridge.installSkillPackage(downloadTicket) : await desktopBridge.updateSkillPackage(downloadTicket);
+      const localBootstrap = await refreshLocalBootstrap();
       setSkills((current) => applySkill(current, skillID, (item) => applyLocalInstallToSkill(item, result)));
+      setOfflineEvents(localBootstrap.offlineEvents);
       const nextProgress: OperationProgress = {
         operation,
         skillID,
@@ -548,7 +591,7 @@ export function useP1Workspace() {
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
     },
-    [bootstrap.connection.status, skills, updateSkillProgress]
+    [bootstrap.connection.status, refreshLocalBootstrap, skills, updateSkillProgress]
   );
 
   const installOrUpdate = useCallback(
@@ -566,15 +609,19 @@ export function useP1Workspace() {
       if (!skill || !skill.localVersion || skill.isScopeRestricted) return;
       updateSkillProgress({ operation: "enable", skillID, stage: "目标转换与写入", result: "running", message: "正在调用 Tauri Adapter 启用 Skill。" });
       const result = await desktopBridge.enableSkill({ skill, targetType, targetID, requestedMode });
+      const localBootstrap = await refreshLocalBootstrap();
       setSkills((current) =>
         applySkill(current, skillID, (item) => ({
           ...item,
           installState: "enabled",
-          enabledTargets: [...item.enabledTargets.filter((target) => target.targetID !== targetID), result.target],
+          enabledTargets: [
+            ...item.enabledTargets.filter((target) => !(target.targetID === targetID && target.targetType === targetType)),
+            result.target
+          ],
           lastEnabledAt: result.target.enabledAt
         }))
       );
-      setOfflineEvents((current) => [result.event, ...current]);
+      setOfflineEvents(localBootstrap.offlineEvents);
       const nextProgress: OperationProgress = {
         operation: "enable",
         skillID,
@@ -585,27 +632,30 @@ export function useP1Workspace() {
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress, result.target.fallbackReason), ...current]);
     },
-    [skills, updateSkillProgress]
+    [refreshLocalBootstrap, skills, updateSkillProgress]
   );
 
   const disableSkill = useCallback(
-    async (skillID: string, targetID: string) => {
+    async (skillID: string, targetID: string, targetType?: TargetType) => {
       const skill = skills.find((item) => item.skillID === skillID);
       if (!skill) return;
       updateSkillProgress({ operation: "disable", skillID, stage: "移除托管目标", result: "running", message: "正在停用目标；不会删除 Central Store。" });
-      const result = await desktopBridge.disableSkill({ skill, targetID });
+      const result = await desktopBridge.disableSkill({ skill, targetID, targetType });
+      const localBootstrap = await refreshLocalBootstrap();
       setSkills((current) =>
         applySkill(current, skillID, (item) => {
-          const enabledTargets = item.enabledTargets.filter((target) => target.targetID !== targetID);
+          const enabledTargets = item.enabledTargets.filter(
+            (target) => !(target.targetID === targetID && (!targetType || target.targetType === targetType))
+          );
           return { ...item, enabledTargets, installState: enabledTargets.length > 0 ? "enabled" : "installed" };
         })
       );
-      setOfflineEvents((current) => [result.event, ...current]);
+      setOfflineEvents(localBootstrap.offlineEvents);
       const nextProgress: OperationProgress = { operation: "disable", skillID, stage: "完成", result: "success", message: `${skill.displayName} 已从目标停用。` };
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
     },
-    [skills, updateSkillProgress]
+    [refreshLocalBootstrap, skills, updateSkillProgress]
   );
 
   const uninstallSkill = useCallback(
@@ -613,15 +663,25 @@ export function useP1Workspace() {
       const skill = skills.find((item) => item.skillID === skillID);
       if (!skill) return;
       updateSkillProgress({ operation: "uninstall", skillID, stage: "确认引用并删除", result: "running", message: "正在通过 Store 命令删除 Central Store 与托管目标。" });
-      await desktopBridge.uninstallSkill(skillID);
+      const result = await desktopBridge.uninstallSkill(skillID);
+      const localBootstrap = await refreshLocalBootstrap();
       setSkills((current) =>
         applySkill(current, skillID, (item) => ({ ...item, localVersion: null, installState: "not_installed", enabledTargets: [], lastEnabledAt: null }))
       );
-      const nextProgress: OperationProgress = { operation: "uninstall", skillID, stage: "完成", result: "success", message: `${skill.displayName} 已卸载。` };
+      setOfflineEvents(localBootstrap.offlineEvents);
+      const nextProgress: OperationProgress = {
+        operation: "uninstall",
+        skillID,
+        stage: "完成",
+        result: result.failedTargetIDs.length === 0 ? "success" : "failed",
+        message: result.failedTargetIDs.length === 0
+          ? `${skill.displayName} 已卸载。`
+          : `${skill.displayName} 已卸载，但仍有 ${result.failedTargetIDs.length} 个目标需要手动清理。`
+      };
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
     },
-    [skills, updateSkillProgress]
+    [refreshLocalBootstrap, skills, updateSkillProgress]
   );
 
   const toggleStar = useCallback(
@@ -655,7 +715,11 @@ export function useP1Workspace() {
       if (offlineEvents.length === 0 || bootstrap.connection.status !== "connected") return;
       const result = await p1Client.syncLocalEvents(offlineEvents);
       const accepted = new Set(result.acceptedEventIDs);
-      setOfflineEvents((current) => current.filter((event) => !accepted.has(event.eventID)));
+      if (accepted.size > 0) {
+        await desktopBridge.markOfflineEventsSynced([...accepted]);
+        const localBootstrap = await refreshLocalBootstrap();
+        setOfflineEvents(localBootstrap.offlineEvents);
+      }
       if (result.serverStateChanged) {
         setNotifications((current) => [
           {
@@ -673,11 +737,21 @@ export function useP1Workspace() {
         ]);
       }
     });
-  }, [bootstrap.connection.status, offlineEvents, requireAuthenticatedAction]);
+  }, [bootstrap.connection.status, offlineEvents, refreshLocalBootstrap, requireAuthenticatedAction]);
 
   const refreshTools = useCallback(async () => {
     setTools(await desktopBridge.refreshToolDetection());
   }, []);
+
+  const saveProjectConfig = useCallback(
+    async (project: { projectID?: string; name: string; projectPath: string; skillsPath: string; enabled?: boolean }) => {
+      const saved = await desktopBridge.saveProjectConfig(project);
+      const localBootstrap = await refreshLocalBootstrap();
+      setProjects(localBootstrap.projects);
+      return saved;
+    },
+    [refreshLocalBootstrap]
+  );
 
   const createDepartment = useCallback(
     async (parentDepartmentID: string, name: string) => {
@@ -810,6 +884,7 @@ export function useP1Workspace() {
     departments: departmentsFilter,
     compatibleTools,
     progress,
+    clearProgress,
     authError,
     login,
     logout,
@@ -818,11 +893,13 @@ export function useP1Workspace() {
     enableSkill,
     disableSkill,
     uninstallSkill,
+    saveProjectConfig,
     toggleStar,
     markNotificationsRead,
     syncOfflineEvents,
     refreshTools,
     requireAuth: queueLogin,
+    apiBaseURL: p1Client.currentAPIBase(),
     currentUser: bootstrap.user,
     isAdminConnected,
     adminData: {
@@ -853,3 +930,5 @@ export function useP1Workspace() {
     }
   };
 }
+
+export type P1WorkspaceState = ReturnType<typeof useP1Workspace>;

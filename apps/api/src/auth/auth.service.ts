@@ -4,7 +4,7 @@ import { MenuPermission, UserSummary } from '../common/p1-contracts';
 import { DatabaseService } from '../database/database.service';
 import { PermissionResolverService } from './permission-resolver.service';
 import { verifyPassword } from './password';
-import { P1_TOKEN_PREFIX } from './p1-auth.guard';
+import { P1_TOKEN_PREFIX } from './constants';
 
 export interface LoginRequest {
   username?: string;

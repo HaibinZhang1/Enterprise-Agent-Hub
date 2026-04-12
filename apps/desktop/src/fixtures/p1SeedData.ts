@@ -42,7 +42,7 @@ export const guestBootstrap: BootstrapContext = {
     installedCount: 0,
     enabledCount: 0,
     updateAvailableCount: 0,
-    unreadNotificationCount: 1
+    unreadNotificationCount: 0
   },
   navigation: baseNavigation,
   menuPermissions: []
