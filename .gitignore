@@ -6,4 +6,5 @@ packages/*/dist/
 apps/*/dist/
 coverage/
 target/
+*.log
 apps/desktop/src-tauri/gen/
