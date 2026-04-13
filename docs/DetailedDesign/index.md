@@ -2,7 +2,7 @@
 
 ## 文档定位
 
-本目录用于承接 `docs/RequirementDocument` 的需求方案，输出可进入工程落地的详细设计。当前批次先聚焦生产级基础架构，不展开发布审核管理台、治理报表、MCP、插件和多端客户端。
+本目录用于承接 `docs/RequirementDocument` 的需求方案，输出可进入工程落地的详细设计。当前批次聚焦生产级基础架构、游客优先 Desktop、显式菜单权限，以及在线管理员审核/管理入口。
 
 ## 已阅读输入
 
@@ -26,7 +26,7 @@
 | 数据存储 | 服务端使用 PostgreSQL；本地状态使用 SQLite；Skill 包和资源使用 MinIO；后台任务使用 Redis + BullMQ。 |
 | 搜索 | 第一阶段只使用 PostgreSQL Full-Text Search，不引入 Elasticsearch、Meilisearch 等额外搜索引擎。 |
 
-> 说明：需求文档 P1 旧口径为 copy-only。本详细设计按用户本次新增技术要求调整为 symlink 优先、失败自动 copy。实现时应同步更新 P1 数据契约中的 `installMode` 枚举和验收项，避免两套规则并存。
+> 说明：需求文档 P1 旧口径为 copy-only。本详细设计按后续技术要求调整为 symlink 优先、失败自动 copy；P1 PRD、数据契约和 Tool Adapter 契约已同步 `installMode`、`requestedMode`、`resolvedMode` 与降级验收项，后续实现不得退回 copy-only。
 
 ## 文档索引
 
@@ -35,10 +35,10 @@
 | 01 | [生产级基础架构详细设计](01_production_foundation.md) | 项目目录结构、前后端模块划分、Tauri 前端层与 Rust 层边界、核心数据表设计建议、第一阶段开发顺序。 |
 | 02 | [P1 任务详细设计](02_p1_task_design.md) | P1 任务包拆分、接口/命令/状态设计、依赖顺序、验收路径和需求差异同步项。 |
 | 03 | [服务端 Docker 一键部署详细设计](03_server_docker_deployment.md) | Compose 一键部署、低版本服务器兼容、离线镜像包、数据持久化、健康检查和验收边界。 |
+| 04 | [P1 共享契约落地对齐](04_p1_shared_contracts_alignment.md) | 共享 TypeScript 契约包、workspace 脚本、symlink-first/copy-fallback 字段和后续 DTO 对接规则。 |
 
 ## 暂不展开
 
-- 发布 Skill 表单、审核工作台、部门/用户/Skill 管理台。
 - 复杂审计报表、企业 IM、系统托盘、多端安装包。
 - 微服务拆分、独立搜索引擎、RAG、MCP/插件治理。
 - 自动依赖安装、风险脚本扫描和多维护者协作。

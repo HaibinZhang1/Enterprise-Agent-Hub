@@ -16,7 +16,8 @@
 - 时间统一使用 ISO 8601 字符串，服务端返回 UTC 时间。
 - 枚举值统一使用 lower_snake_case。
 - 服务端只返回当前用户可见、可操作范围内的数据；Desktop 不自行推导跨部门权限。
-- P1 Desktop 不写入发布、审核、部门、用户、权限变更等治理数据。
+- 游客态只消费本地数据；需要远端鉴权时由登录弹窗触发。
+- 服务端通过 `menuPermissions` 显式下发菜单权限，前后端使用同一权限源。
 - 文件包必须通过服务端授权下载凭证获取；客户端不得从列表字段中直接拿长期有效下载地址。
 - 路径可按实现增加统一前缀，例如 `/api/v1`；字段名、枚举值和语义不得漂移。
 
@@ -54,6 +55,8 @@
 | unauthenticated | 未登录或会话失效 | false |
 | permission_denied | 无权限查看详情、安装、更新 | false |
 | skill_not_found | Skill 不存在或不可见 | false |
+| resource_not_found | 审核单、部门、用户或其他治理资源不存在 | false |
+| validation_failed | 参数非法或当前状态不允许该操作 | false |
 | skill_delisted | Skill 已下架 | false |
 | scope_restricted | 权限已收缩，禁止新增安装/更新 | false |
 | package_unavailable | 包不可下载或下载凭证生成失败 | true |
@@ -79,6 +82,7 @@
 | `installMode` | `symlink` / `copy` |
 | `requestedMode` | `symlink` / `copy` |
 | `resolvedMode` | `symlink` / `copy` |
+| `menuPermission` | `home` / `market` / `my_installed` / `review` / `manage` / `tools` / `projects` / `notifications` / `settings` |
 | `notificationType` | `skill_update_available` / `skill_scope_restricted` / `local_copy_blocked` / `connection_restored` / `connection_failed` / `target_path_invalid` / `install_result` / `update_result` / `uninstall_result` / `enable_result` / `disable_result` |
 
 ## 5. 服务端接口
@@ -96,6 +100,7 @@
 | features | 是 | P1/P2/P3 功能开关 |
 | counts | 是 | 首页计数 |
 | navigation | 是 | 当前应展示的导航 |
+| menuPermissions | 是 | 当前账号具备的菜单权限集合 |
 
 示例：
 
@@ -105,6 +110,7 @@
     "userID": "u_001",
     "displayName": "张三",
     "role": "normal_user",
+    "adminLevel": null,
     "departmentID": "dept_frontend",
     "departmentName": "前端组",
     "locale": "zh-CN"
@@ -116,7 +122,7 @@
   },
   "features": {
     "p1Desktop": true,
-    "publishSkill": false,
+    "publishSkill": true,
     "reviewWorkbench": false,
     "adminManage": false,
     "mcpManage": false,
@@ -135,9 +141,35 @@
     "projects",
     "notifications",
     "settings"
+  ],
+  "menuPermissions": [
+    "home",
+    "market",
+    "my_installed",
+    "tools",
+    "projects",
+    "notifications",
+    "settings"
   ]
 }
 ```
+
+### 5.1.1 `POST /auth/login`
+
+登录成功后返回：
+
+- `accessToken`
+- `tokenType`
+- `expiresIn`
+- `expiresAt`
+- `user`
+- `menuPermissions`
+
+说明：
+
+- `accessToken` 为 Bearer session token。
+- `user.adminLevel` 仅在管理员账号上返回。
+- Desktop 通常在登录成功后继续调用 `/desktop/bootstrap` 获取完整导航、计数和功能开关。
 
 ### 5.2 `GET /skills`
 
@@ -253,6 +285,34 @@
 ### 5.8 `POST /desktop/local-events`
 
 用于恢复网络后同步离线期间发生的本地启用/停用事件。该接口不得修改服务端治理状态。
+
+### 5.9 管理端接口
+
+当前阶段新增以下管理员接口：
+
+- `GET /admin/departments`
+- `POST /admin/departments`
+- `PATCH /admin/departments/{departmentID}`
+- `DELETE /admin/departments/{departmentID}`
+- `GET /admin/users`
+- `POST /admin/users`
+- `PATCH /admin/users/{userID}`
+- `POST /admin/users/{userID}/freeze`
+- `POST /admin/users/{userID}/unfreeze`
+- `DELETE /admin/users/{userID}`
+- `GET /admin/skills`
+- `POST /admin/skills/{skillID}/delist`
+- `POST /admin/skills/{skillID}/relist`
+- `DELETE /admin/skills/{skillID}`
+- `GET /admin/reviews`
+- `GET /admin/reviews/{reviewID}`
+
+规则：
+
+- 所有 `/admin/*` 接口都要求登录且具备对应 `menuPermissions`。
+- 管理写操作额外受部门路径与 `adminLevel` 约束。
+- `publisher/*` 接口要求登录；发布上传统一使用 `multipart/form-data`。
+- `reviews` 当前阶段提供锁单、通过初审、同意、拒绝、退回接口，并继续受菜单权限、部门路径和管理员等级约束。
 
 请求：
 
