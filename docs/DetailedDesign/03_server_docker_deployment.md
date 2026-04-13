@@ -65,7 +65,7 @@ EnterpriseAgentHub/
 | --- | --- | --- | --- |
 | `api` | 企业内网镜像仓库或离线 tar | NestJS 服务端 | 无业务文件持久化；日志 stdout。 |
 | `api-migrate` | 同 `api` | 执行数据库迁移 | 一次性任务。 |
-| `api-seed` | 同 `api` | 初始化管理员账号和 P1 种子数据 | 一次性任务，可幂等。 |
+| `api-seed` | 同 `api` | 初始化管理员账号和 当前版本 种子数据 | 一次性任务，可幂等。 |
 | `postgres` | 固定版本官方镜像或企业镜像 | 主业务数据库 | `postgres_data` volume。 |
 | `redis` | 固定版本官方镜像或企业镜像 | BullMQ 队列 | `redis_data` volume，可按运维要求选择持久化策略。 |
 | `minio` | 固定版本官方镜像或企业镜像 | Skill 包和资源对象存储 | `minio_data` volume。 |
@@ -170,7 +170,7 @@ minio_data
 
 - PostgreSQL：定时 `pg_dump` 或企业数据库备份方案。
 - MinIO：按 bucket 增量备份对象数据，至少覆盖 `skill-packages` 和 `skill-assets`。
-- Redis：P1 主要承载队列，必要时启用 AOF；若企业接受任务可重放，也可降低持久化级别。
+- Redis：当前版本 主要承载队列，必要时启用 AOF；若企业接受任务可重放，也可降低持久化级别。
 
 一键部署脚本不应自动删除 volume。`server-down.sh` 默认只停止容器；清理数据必须通过显式危险命令，例如：
 
@@ -213,9 +213,9 @@ API 镜像：
 - 若进入 legacy 模式，脚本输出当前使用的 Compose 文件和降级原因。
 - 离线镜像导入后，所有镜像 tag 与 `checksums.txt` 匹配。
 
-## 9. 与 P1 任务的关系
+## 9. 与 当前版本 任务的关系
 
-- P1-T02 应落地本设计中的 `infra/docker-compose.prod.yml`、`server-up.sh`、`server-check.sh`、`server.env.example`。
-- P1-T03 的迁移和 seed 命令必须能以一次性容器方式运行。
-- P1-T10 的交付物必须包含在线部署和离线部署两种说明。
-- 若目标服务器系统版本过低，P1 验收应先运行 `server-check.sh`，检查失败时不进入后续部署。
+- 当前版本-T02 应落地本设计中的 `infra/docker-compose.prod.yml`、`server-up.sh`、`server-check.sh`、`server.env.example`。
+- 当前版本-T03 的迁移和 seed 命令必须能以一次性容器方式运行。
+- 当前版本-T10 的交付物必须包含在线部署和离线部署两种说明。
+- 若目标服务器系统版本过低，当前版本 验收应先运行 `server-check.sh`，检查失败时不进入后续部署。

@@ -45,10 +45,14 @@ Because the Docker daemon socket is absent, this host could validate Compose syn
 - Desktop API default is `http://127.0.0.1:3000`, not `/api/v1`.
 - Login stores the real API base URL and Bearer token, then calls `/auth/login` and `/desktop/bootstrap`.
 - Skills, notifications, mark-read, star, `download-ticket`, package download, and local-events now call real endpoints and throw visible errors on request failure.
+- `npm run p1:ui-closure` now boots an isolated PostgreSQL/Redis/MinIO/API/Desktop environment and proves browser-side publish -> review -> market governance flows.
+- `npm run p1:native-closure` now reuses the same newly published happy-path skill to verify download-ticket -> ZIP hash check -> Central Store install -> tool/project enable -> restart restore -> uninstall.
+- `npm run p1:full-closure` now chains the full browser governance suite and native install smoke in one isolated run.
 - Tauri local command mocks are only allowed behind `VITE_P1_ALLOW_TAURI_MOCKS=true`; otherwise browser-only mode fails visibly instead of pretending local Store/Adapter operations succeeded.
 - `codex-review-helper@1.2.0` has a real seed package zip, seed metadata matches the package size/file-count/hash, and the API seed task uploads that object to MinIO when MinIO environment variables are present.
-- Desktop install/update passes the full `downloadTicket` into Tauri. Tauri downloads the package, extracts it, validates SHA-256 and `SKILL.md`, writes Central Store + SQLite, and `list_local_installs` restores state from SQLite after restart.
+- Desktop install/update passes the full `downloadTicket` into Tauri. Tauri validates the downloaded ZIP SHA-256 first, then extracts it, validates `SKILL.md`, writes Central Store + SQLite, and `list_local_installs` restores state from SQLite after restart.
 - Tauri 本地状态已不只覆盖单一 `tool:codex` 纵向切片：当前实现包含项目配置持久化、项目级目标启用、停用、卸载、目标扫描、overwrite 确认，以及 `requestedMode` / `resolvedMode` / `fallbackReason` / pending local event 的 SQLite 落库。
+- Newly approved skills now refresh `skill_search_documents` during publish, so market search can discover non-seed skills immediately after approval.
 
 ## Packaging Evidence
 
@@ -65,3 +69,4 @@ Because the Docker daemon socket is absent, this host could validate Compose syn
 - Linux Docker live deployment remains unproven on this machine until Docker Engine is available and `./deploy/server-up.sh` can start PostgreSQL, Redis, MinIO, API, seed the package object, and return live `/health status=ok`.
 - Windows NSIS `.exe` packaging remains unproven until repeated on a Windows host or CI runner with the `x86_64-pc-windows-msvc` Tauri target.
 - Disable/uninstall、项目级目标和多 Adapter fixture 已进入代码与测试范围；当前剩余风险集中在目标环境实机部署、Windows 打包，以及本机通知持久化尚未接线。
+- `LOCAL_TEST_STARTUP.md` 仍然是快速调试路径，不是 release gate；完整闭环证明请以 `p1:ui-closure` / `p1:native-closure` / `p1:full-closure` 为准。

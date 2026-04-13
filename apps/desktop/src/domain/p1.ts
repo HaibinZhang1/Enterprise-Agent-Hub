@@ -139,6 +139,7 @@ export interface LocalBootstrap {
   installs: LocalSkillInstall[];
   tools: ToolConfig[];
   projects: ProjectConfig[];
+  notifications: LocalNotification[];
   offlineEvents: LocalEvent[];
   pendingOfflineEventCount: number;
   unreadLocalNotificationCount: number;
@@ -240,6 +241,25 @@ export interface ScanTargetSummary {
   lastError?: string | null;
 }
 
+export interface DiscoveredLocalSkillTarget {
+  targetType: TargetType;
+  targetID: string;
+  targetName: string;
+  targetPath: string;
+  relativePath: string;
+  findingKind: Exclude<ScanFindingKind, "managed">;
+  message: string;
+}
+
+export interface DiscoveredLocalSkill {
+  skillID: string;
+  displayName: string;
+  description: string;
+  sourceLabel: string;
+  matchedMarketSkill: boolean;
+  targets: DiscoveredLocalSkillTarget[];
+}
+
 export interface ValidateTargetPathResult {
   valid: boolean;
   writable: boolean;
@@ -328,6 +348,10 @@ export interface ProjectDraft {
   enabled: boolean;
 }
 
+export interface ProjectDirectorySelection {
+  projectPath: string;
+}
+
 export interface ActionAvailability {
   kind: "live" | PendingActionCode;
   label: string;
@@ -368,6 +392,9 @@ export type DesktopModalState =
     }
   | {
       type: "connection_status";
+    }
+  | {
+      type: "settings";
     };
 
 export interface LocalEvent {
@@ -400,7 +427,10 @@ export interface MarketFilters {
   installed: "all" | "installed" | "not_installed";
   enabled: "all" | "enabled" | "not_enabled";
   accessScope: "include_public" | "authorized_only";
+  category: string;
   riskLevel: "all" | RiskLevel;
+  publishedWithin: "all" | "7d" | "30d" | "90d";
+  updatedWithin: "all" | "7d" | "30d" | "90d";
   sort: "composite" | "latest_published" | "recently_updated" | "download_count" | "star_count" | "relevance";
 }
 

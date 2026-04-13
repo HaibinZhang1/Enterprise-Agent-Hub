@@ -225,6 +225,44 @@
         "apps/api/Dockerfile"
       ],
       "requiredForRelease": true
+    },
+    {
+      "id": "p1-ui-closure",
+      "label": "Full UI publish/review/market closure suite",
+      "command": "npm run p1:ui-closure",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "scripts/full-closure/run-ui-smoke.mjs",
+        "tests/full-closure/playwright.config.ts",
+        "tests/full-closure/ui/full-closure.spec.ts"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-native-closure",
+      "label": "Native Tauri install/enable closure smoke",
+      "command": "npm run p1:native-closure",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "scripts/full-closure/run-native-smoke.mjs",
+        "apps/desktop/src-tauri/tests/full_closure.rs"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-full-closure",
+      "label": "Isolated end-to-end closure harness",
+      "command": "npm run p1:full-closure",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "scripts/full-closure/run.mjs",
+        "tests/full-closure/playwright.config.ts",
+        "apps/desktop/src-tauri/tests/full_closure.rs"
+      ],
+      "requiredForRelease": true
     }
   ],
   "acceptanceScenarioIds": [
@@ -240,6 +278,12 @@
     "uninstall-managed-targets-with-confirmation",
     "offline-enable-disable-queue-restart",
     "local-events-idempotent-sync",
+    "publisher-upload-review-browser-flow",
+    "publisher-return-resubmit-browser-flow",
+    "publisher-reject-no-market-leakage",
+    "permission-change-visibility-switch-after-approval",
+    "update-publish-old-version-remains-live",
+    "same-skill-market-download-install-enable",
     "notifications-read-offline-cache"
   ],
   "generatedArtifactChecks": [

@@ -47,6 +47,26 @@ async function uploadSeedPackage(): Promise<void> {
   });
 }
 
+async function repairSeedCurrentVersions(client: Client): Promise<void> {
+  await client.query(`
+    WITH desired_versions(skill_id, version) AS (
+      VALUES
+        ('codex-review-helper', '1.2.0'),
+        ('design-guideline-lite', '0.9.0'),
+        ('legacy-dept-runbook', '2.0.1'),
+        ('prompt-lint-checklist', '1.0.0'),
+        ('frontend-a11y-guard', '1.1.0'),
+        ('ops-oncall-companion', '0.8.3')
+    )
+    UPDATE skills s
+    SET current_version_id = v.id
+    FROM desired_versions dv
+    JOIN skill_versions v ON v.version = dv.version
+    WHERE s.skill_id = dv.skill_id
+      AND v.skill_id = s.id
+  `);
+}
+
 async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -58,6 +78,7 @@ async function main(): Promise<void> {
   await client.connect();
   try {
     await client.query(sql);
+    await repairSeedCurrentVersions(client);
     await uploadSeedPackage();
   } finally {
     await client.end();

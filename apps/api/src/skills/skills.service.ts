@@ -25,6 +25,8 @@ export interface SkillListQuery {
   accessScope?: string;
   category?: string;
   riskLevel?: string;
+  publishedSince?: string;
+  updatedSince?: string;
   sort?: string;
   page?: string;
   pageSize?: string;
@@ -591,6 +593,14 @@ export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPl
 
   if (query.riskLevel) {
     conditions.push(`v.risk_level = ${push(query.riskLevel)}`);
+  }
+
+  if (query.publishedSince) {
+    conditions.push(`v.published_at >= ${push(query.publishedSince)}`);
+  }
+
+  if (query.updatedSince) {
+    conditions.push(`s.updated_at >= ${push(query.updatedSince)}`);
   }
 
   if (query.accessScope === 'authorized_only') {

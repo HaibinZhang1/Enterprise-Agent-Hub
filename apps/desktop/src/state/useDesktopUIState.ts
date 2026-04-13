@@ -14,6 +14,8 @@ import type {
   ToolDraft
 } from "../domain/p1.ts";
 import type { P1WorkspaceState } from "./useP1Workspace.ts";
+import { defaultProjectSkillsPath } from "../utils/platformPaths.ts";
+import type { DisplayLanguage } from "../ui/desktopShared.tsx";
 
 const PREFERENCES_STORAGE_KEY = "enterprise-agent-hub:desktop-preferences";
 
@@ -48,7 +50,7 @@ interface FlashMessage {
   body: string;
 }
 
-interface ConfirmModalState extends Exclude<DesktopModalState, { type: "none" | "targets" | "tool_editor" | "project_editor" | "connection_status" }> {
+interface ConfirmModalState extends Exclude<DesktopModalState, { type: "none" | "targets" | "tool_editor" | "project_editor" | "connection_status" | "settings" }> {
   onConfirm?: () => Promise<void> | void;
 }
 
@@ -61,6 +63,18 @@ function loadPreferences(): PreferenceState {
   } catch {
     return defaultPreferences;
   }
+}
+
+function resolveDisplayLanguage(preferences: PreferenceState, fallbackLocale?: string): DisplayLanguage {
+  if (!preferences.autoDetectLanguage && preferences.language !== "auto") {
+    return preferences.language;
+  }
+
+  const candidate =
+    (typeof navigator !== "undefined" ? navigator.language : "") ||
+    fallbackLocale ||
+    "zh-CN";
+  return candidate.toLocaleLowerCase().startsWith("en") ? "en-US" : "zh-CN";
 }
 
 function buildPendingAvailability(kind: ActionAvailability["kind"], label: string, reason: string): ActionAvailability {
@@ -121,6 +135,11 @@ function buildTargetDrafts(skill: SkillSummary, workspace: P1WorkspaceState): Ta
 
 function uniq(items: string[]): string[] {
   return [...new Set(items.filter((item) => item.trim().length > 0))];
+}
+
+function lastPathSegment(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] ?? "";
 }
 
 export function collectInstalledSkillIssues(skill: SkillSummary, workspace: Pick<P1WorkspaceState, "tools" | "projects" | "scanTargets">): string[] {
@@ -271,12 +290,17 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
   const [modal, setModal] = useState<DesktopModalState>({ type: "none" });
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
   const [flash, setFlash] = useState<FlashMessage | null>(null);
+  const language = useMemo<DisplayLanguage>(
+    () => resolveDisplayLanguage(preferences, workspace.currentUser.locale),
+    [preferences, workspace.currentUser.locale]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
     document.body.dataset.theme = preferences.theme;
-  }, [preferences]);
+    document.documentElement.lang = language;
+  }, [language, preferences]);
 
   useEffect(() => {
     if (activePage === "review" && !workspace.visibleNavigation.includes("review")) {
@@ -284,6 +308,9 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     }
     if (activePage === "manage" && !workspace.visibleNavigation.includes("manage")) {
       setActivePage("home");
+    }
+    if (activePage === "settings") {
+      setActivePage(lastShellPage);
     }
     if (activePage === "detail" && !workspace.selectedSkill) {
       setActivePage(lastShellPage);
@@ -354,6 +381,11 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     if (page === "detail") {
       if (!visibleSkillDetail) return;
       setActivePage("detail");
+      return;
+    }
+
+    if (page === "settings") {
+      setModal({ type: "settings" });
       return;
     }
 
@@ -499,6 +531,10 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     setModal({ type: "connection_status" });
   }, []);
 
+  const openSettingsModal = useCallback(() => {
+    setModal({ type: "settings" });
+  }, []);
+
   const openToolEditor = useCallback((tool?: P1WorkspaceState["tools"][number]) => {
     setToolDraft(
       tool
@@ -528,6 +564,35 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     );
     setModal({ type: "project_editor" });
   }, []);
+
+  const pickProjectDirectoryForDraft = useCallback(async () => {
+    try {
+      const picked = await workspace.pickProjectDirectory();
+      if (!picked?.projectPath) return;
+
+      setProjectDraft((current) => {
+        const nextProjectPath = picked.projectPath;
+        const nextProjectName = lastPathSegment(nextProjectPath);
+        const previousDefaultSkillsPath = defaultProjectSkillsPath(current.projectPath);
+        const nextDefaultSkillsPath = defaultProjectSkillsPath(nextProjectPath);
+        const shouldUpdateName = !current.name.trim() || current.name.trim() === lastPathSegment(current.projectPath);
+        const shouldUpdateSkillsPath = !current.skillsPath.trim() || current.skillsPath === previousDefaultSkillsPath;
+
+        return {
+          ...current,
+          name: shouldUpdateName ? nextProjectName : current.name,
+          projectPath: nextProjectPath,
+          skillsPath: shouldUpdateSkillsPath ? nextDefaultSkillsPath : current.skillsPath
+        };
+      });
+    } catch (error) {
+      setFlash({
+        tone: "warning",
+        title: "无法打开文件夹选择器",
+        body: error instanceof Error ? error.message : "请手动填写项目路径。"
+      });
+    }
+  }, [workspace]);
 
   const submitToolDraft = useCallback(async () => {
     const validation = await workspace.validateTargetPath(toolDraft.skillsPath);
@@ -589,6 +654,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     modal,
     confirmModal,
     flash,
+    language,
     notificationFilter,
     reviewTab,
     preferences,
@@ -613,6 +679,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     toggleTargetDraft,
     applyTargetDrafts,
     openConnectionStatus,
+    openSettingsModal,
     setNotificationFilter,
     setReviewTab,
     setPreferences,
@@ -620,6 +687,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     setInstalledFilter,
     openToolEditor,
     openProjectEditor,
+    pickProjectDirectoryForDraft,
     setToolDraft,
     setProjectDraft,
     submitToolDraft,

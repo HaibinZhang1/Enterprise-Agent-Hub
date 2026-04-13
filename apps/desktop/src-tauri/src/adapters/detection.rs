@@ -381,13 +381,10 @@ fn result(
 
 #[cfg(test)]
 mod tests {
-    use super::super::config::{builtin_adapters, AdapterID};
+    use super::super::config::{builtin_adapters, AdapterID, PlatformPathTable};
     use super::*;
     use std::fs;
-    use std::sync::Mutex;
     use std::time::{SystemTime, UNIX_EPOCH};
-
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn expands_platform_paths_for_windows_and_macos() {
@@ -415,27 +412,22 @@ mod tests {
 
     #[test]
     fn mac_default_path_can_report_missing_configurable_without_detecting() {
-        let _lock = ENV_LOCK.lock().expect("lock env");
         let temp = TestTemp::new("detect-adapter-macos");
-        let home = temp.path.join("home");
-        fs::create_dir_all(&home).unwrap();
-        let previous_home = std::env::var("HOME").ok();
-        std::env::set_var("HOME", &home);
-        let adapter = builtin_adapters()
+        let missing_path = temp.path.join("macos").join(".codex").join("skills");
+        fs::create_dir_all(missing_path.parent().expect("missing path parent")).unwrap();
+        let mut adapter = builtin_adapters()
             .into_iter()
             .find(|candidate| candidate.tool_id == AdapterID::Codex)
             .expect("codex adapter");
+        adapter.detection.default_paths = PlatformPathTable {
+            windows: vec![],
+            macos: vec![missing_path.to_string_lossy().to_string()],
+        };
 
         let result = detect_adapter_for_platform(&adapter, None, Platform::Macos);
         assert_eq!(result.status, AdapterStatus::Missing);
         assert_eq!(result.path_state, DetectionPathState::MissingConfigurable);
         assert!(result.detected_path.is_none());
-
-        if let Some(value) = previous_home {
-            std::env::set_var("HOME", value);
-        } else {
-            std::env::remove_var("HOME");
-        }
     }
 
     struct TestTemp {

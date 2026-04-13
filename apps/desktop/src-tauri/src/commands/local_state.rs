@@ -27,7 +27,7 @@ use crate::store::commands::{
     update_skill_package as store_update_skill_package, InstallSkillPackageRequest,
     UninstallSkillRequest, UpdateSkillPackageRequest,
 };
-use crate::store::hash::{hex_digest, Sha256};
+use crate::store::hash::{hex_digest, sha256_hex, Sha256};
 use crate::store::models::{
     EnabledTarget, EnabledTargetStatus, InstallMode, LocalSkillInstall, TargetType,
 };
@@ -61,6 +61,7 @@ pub struct LocalBootstrapPayload {
     pub installs: Vec<LocalSkillInstallPayload>,
     pub tools: Vec<ToolConfigPayload>,
     pub projects: Vec<ProjectConfigPayload>,
+    pub notifications: Vec<LocalNotificationPayload>,
     pub offline_events: Vec<LocalEventPayload>,
     pub pending_offline_event_count: u32,
     pub unread_local_notification_count: u32,
@@ -187,6 +188,23 @@ pub struct LocalEventPayload {
     pub result: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalNotificationPayload {
+    #[serde(rename = "notificationID")]
+    pub notification_id: String,
+    #[serde(rename = "type")]
+    pub notification_type: String,
+    pub title: String,
+    pub summary: String,
+    #[serde(rename = "relatedSkillID")]
+    pub related_skill_id: Option<String>,
+    pub target_page: String,
+    pub occurred_at: String,
+    pub unread: bool,
+    pub source: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DisableSkillPayload {
@@ -297,6 +315,8 @@ impl P1LocalState {
             projects: self
                 .list_project_configs_from_conn(&conn)
                 .map_err(|error| error.to_string())?,
+            notifications: load_local_notifications(&conn)
+                .map_err(|error| error.to_string())?,
             offline_events: load_pending_offline_events(&conn)
                 .map_err(|error| error.to_string())?,
             pending_offline_event_count: count_pending_offline_events(&conn)
@@ -383,7 +403,7 @@ impl P1LocalState {
             version: download_ticket.version.clone(),
             downloaded_package_dir: package_dir.clone(),
             central_store_root: self.central_store_root.clone(),
-            expected_package_hash: Some(download_ticket.package_hash.clone()),
+            source_package_hash: download_ticket.package_hash.clone(),
             installed_at: timestamp.clone(),
         })
         .map_err(|error| error.to_string())?;
@@ -407,7 +427,7 @@ impl P1LocalState {
             version: download_ticket.version.clone(),
             downloaded_package_dir: package_dir.clone(),
             central_store_root: self.central_store_root.clone(),
-            expected_package_hash: Some(download_ticket.package_hash.clone()),
+            source_package_hash: download_ticket.package_hash.clone(),
             updated_at: timestamp.clone(),
         })
         .map_err(|error| error.to_string())?;
@@ -494,6 +514,40 @@ impl P1LocalState {
                 reason: Some(error.to_string()),
             }),
         }
+    }
+
+    pub fn upsert_local_notifications(
+        &self,
+        notifications: Vec<LocalNotificationPayload>,
+    ) -> Result<(), String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        for notification in notifications {
+            upsert_local_notification(&conn, &notification).map_err(|error| error.to_string())?;
+        }
+        Ok(())
+    }
+
+    pub fn mark_local_notifications_read(
+        &self,
+        notification_ids: Vec<String>,
+        all: bool,
+    ) -> Result<(), String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        let read_at = now_iso();
+        if all {
+            conn.execute(statements::MARK_ALL_LOCAL_NOTIFICATIONS_READ, params![read_at])
+                .map_err(|error| error.to_string())?;
+            return Ok(());
+        }
+
+        for notification_id in notification_ids {
+            conn.execute(
+                statements::MARK_LOCAL_NOTIFICATION_READ,
+                params![&read_at, notification_id],
+            )
+            .map_err(|error| error.to_string())?;
+        }
+        Ok(())
     }
 
     pub fn mark_offline_events_synced(
@@ -725,6 +779,7 @@ impl P1LocalState {
         for (_, sql) in ordered_migrations() {
             conn.execute_batch(sql)?;
         }
+        ensure_local_notification_cache_columns(&conn)?;
         Ok(conn)
     }
 
@@ -762,6 +817,13 @@ impl P1LocalState {
                 "downloaded package size mismatch: expected {}, actual {}",
                 ticket.package_size,
                 bytes.len()
+            ));
+        }
+        let actual_hash = format!("sha256:{}", sha256_hex(bytes.as_ref()));
+        if !ticket.package_hash.eq_ignore_ascii_case(&actual_hash) {
+            return Err(format!(
+                "downloaded package hash mismatch: expected {}, actual {}",
+                ticket.package_hash, actual_hash
             ));
         }
 
@@ -952,6 +1014,33 @@ fn upsert_enabled_target(conn: &Connection, target: &EnabledTargetPayload) -> ru
             &target.last_error,
             &target.enabled_at,
             &target.updated_at,
+        ],
+    )?;
+    Ok(())
+}
+
+fn upsert_local_notification(
+    conn: &Connection,
+    notification: &LocalNotificationPayload,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        statements::UPSERT_LOCAL_NOTIFICATION,
+        params![
+            &notification.notification_id,
+            &notification.notification_type,
+            &notification.title,
+            &notification.summary,
+            target_page_to_object_type(&notification.target_page),
+            target_page_to_object_id(&notification.target_page, notification.related_skill_id.clone()),
+            &notification.related_skill_id,
+            &notification.target_page,
+            &notification.source,
+            if notification.unread {
+                None::<String>
+            } else {
+                Some(notification.occurred_at.clone())
+            },
+            &notification.occurred_at,
         ],
     )?;
     Ok(())
@@ -1182,6 +1271,58 @@ fn load_pending_offline_events(conn: &Connection) -> rusqlite::Result<Vec<LocalE
         })
     })?;
     rows.collect()
+}
+
+fn load_local_notifications(conn: &Connection) -> rusqlite::Result<Vec<LocalNotificationPayload>> {
+    let mut statement = conn.prepare(
+        "
+        SELECT notification_id, type, title, summary, related_skill_id, target_page, created_at, read_at, source
+        FROM local_notifications
+        ORDER BY created_at DESC
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok(LocalNotificationPayload {
+            notification_id: row.get(0)?,
+            notification_type: row.get(1)?,
+            title: row.get(2)?,
+            summary: row.get(3)?,
+            related_skill_id: row.get(4)?,
+            target_page: row.get(5)?,
+            occurred_at: row.get(6)?,
+            unread: row.get::<_, Option<String>>(7)?.is_none(),
+            source: row.get(8)?,
+        })
+    })?;
+    rows.collect()
+}
+
+fn ensure_local_notification_cache_columns(conn: &Connection) -> rusqlite::Result<()> {
+    let mut statement = conn.prepare("PRAGMA table_info(local_notifications)")?;
+    let column_names = statement
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    if !column_names.iter().any(|name| name == "related_skill_id") {
+        conn.execute(
+            "ALTER TABLE local_notifications ADD COLUMN related_skill_id TEXT",
+            [],
+        )?;
+    }
+    if !column_names.iter().any(|name| name == "target_page") {
+        conn.execute(
+            "ALTER TABLE local_notifications ADD COLUMN target_page TEXT NOT NULL DEFAULT 'notifications'",
+            [],
+        )?;
+    }
+    if !column_names.iter().any(|name| name == "source") {
+        conn.execute(
+            "ALTER TABLE local_notifications ADD COLUMN source TEXT NOT NULL DEFAULT 'local'",
+            [],
+        )?;
+    }
+
+    Ok(())
 }
 
 fn load_install_row(
@@ -2004,6 +2145,26 @@ fn sanitize_segment(value: &str) -> String {
         .collect()
 }
 
+fn target_page_to_object_type(target_page: &str) -> Option<String> {
+    match target_page {
+        "market" => Some("skill".to_string()),
+        "tools" => Some("tool".to_string()),
+        "projects" => Some("project".to_string()),
+        "notifications" => Some("connection".to_string()),
+        _ => None,
+    }
+}
+
+fn target_page_to_object_id(
+    target_page: &str,
+    related_skill_id: Option<String>,
+) -> Option<String> {
+    if target_page == "market" {
+        return related_skill_id;
+    }
+    None
+}
+
 fn now_iso() -> String {
     let millis = now_millis();
     format!("p1-local-{millis}")
@@ -2025,6 +2186,17 @@ mod tests {
     use std::thread;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn seed_download_ticket(package_bytes: &[u8], package_url: String) -> DownloadTicketPayload {
+        DownloadTicketPayload {
+            skill_id: "codex-review-helper".to_string(),
+            version: "1.2.0".to_string(),
+            package_url,
+            package_hash: format!("sha256:{}", sha256_hex(package_bytes)),
+            package_size: package_bytes.len() as u64,
+            package_file_count: 2,
+        }
+    }
 
     #[test]
     fn installs_enables_and_restores_from_sqlite() {
@@ -2052,16 +2224,7 @@ mod tests {
             .expect("save codex tool config");
 
         let installed = state
-            .install_skill_package(DownloadTicketPayload {
-                skill_id: "codex-review-helper".to_string(),
-                version: "1.2.0".to_string(),
-                package_url,
-                package_hash:
-                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
-                        .to_string(),
-                package_size: package_bytes.len() as u64,
-                package_file_count: 2,
-            })
+            .install_skill_package(seed_download_ticket(&package_bytes, package_url))
             .expect("install skill");
         assert_eq!(installed.local_version, "1.2.0");
         assert!(Path::new(&installed.central_store_path)
@@ -2144,16 +2307,7 @@ mod tests {
         assert_eq!(project.project_id, "enterprise-agent-hub");
 
         let installed = state
-            .install_skill_package(DownloadTicketPayload {
-                skill_id: "codex-review-helper".to_string(),
-                version: "1.2.0".to_string(),
-                package_url,
-                package_hash:
-                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
-                        .to_string(),
-                package_size: package_bytes.len() as u64,
-                package_file_count: 2,
-            })
+            .install_skill_package(seed_download_ticket(&package_bytes, package_url))
             .expect("install skill");
 
         let tool_target = state
@@ -2254,16 +2408,7 @@ mod tests {
             .expect("save codex tool config");
 
         state
-            .install_skill_package(DownloadTicketPayload {
-                skill_id: "codex-review-helper".to_string(),
-                version: "1.2.0".to_string(),
-                package_url,
-                package_hash:
-                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
-                        .to_string(),
-                package_size: package_bytes.len() as u64,
-                package_file_count: 2,
-            })
+            .install_skill_package(seed_download_ticket(&package_bytes, package_url))
             .expect("install skill");
         state
             .enable_skill(
@@ -2422,16 +2567,7 @@ mod tests {
         let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
 
         state
-            .install_skill_package(DownloadTicketPayload {
-                skill_id: "codex-review-helper".to_string(),
-                version: "1.2.0".to_string(),
-                package_url,
-                package_hash:
-                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
-                        .to_string(),
-                package_size: package_bytes.len() as u64,
-                package_file_count: 2,
-            })
+            .install_skill_package(seed_download_ticket(&package_bytes, package_url))
             .expect("install skill");
 
         let error = state
@@ -2471,16 +2607,7 @@ mod tests {
             .expect("save codex tool config");
 
         state
-            .install_skill_package(DownloadTicketPayload {
-                skill_id: "codex-review-helper".to_string(),
-                version: "1.2.0".to_string(),
-                package_url,
-                package_hash:
-                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
-                        .to_string(),
-                package_size: package_bytes.len() as u64,
-                package_file_count: 2,
-            })
+            .install_skill_package(seed_download_ticket(&package_bytes, package_url))
             .expect("install skill");
 
         let target = state
@@ -2527,6 +2654,61 @@ mod tests {
             )
             .expect("overwrite target");
         assert_eq!(overwrite.target_id, "codex");
+    }
+
+    #[test]
+    fn caches_local_notifications_and_marks_them_read() {
+        let _lock = ENV_LOCK.lock().expect("lock env");
+        let temp = TestTemp::new("local-state-notifications");
+        let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+
+        state
+            .upsert_local_notifications(vec![
+                LocalNotificationPayload {
+                    notification_id: "srv_001".to_string(),
+                    notification_type: "connection_failed".to_string(),
+                    title: "服务连接失败".to_string(),
+                    summary: "当前展示为缓存通知。".to_string(),
+                    related_skill_id: None,
+                    target_page: "notifications".to_string(),
+                    occurred_at: "2026-04-13T00:00:00.000Z".to_string(),
+                    unread: true,
+                    source: "server".to_string(),
+                },
+                LocalNotificationPayload {
+                    notification_id: "local_001".to_string(),
+                    notification_type: "enable_result".to_string(),
+                    title: "启用完成".to_string(),
+                    summary: "Skill 已启用到 Codex".to_string(),
+                    related_skill_id: Some("codex-review-helper".to_string()),
+                    target_page: "tools".to_string(),
+                    occurred_at: "2026-04-13T01:00:00.000Z".to_string(),
+                    unread: false,
+                    source: "local".to_string(),
+                },
+            ])
+            .expect("cache notifications");
+
+        let bootstrap = state.get_local_bootstrap().expect("bootstrap");
+        assert_eq!(bootstrap.notifications.len(), 2);
+        assert_eq!(bootstrap.notifications[0].notification_id, "local_001");
+        assert_eq!(bootstrap.notifications[0].source, "local");
+        assert_eq!(bootstrap.notifications[1].notification_id, "srv_001");
+        assert_eq!(bootstrap.unread_local_notification_count, 1);
+
+        state
+            .mark_local_notifications_read(vec!["srv_001".to_string()], false)
+            .expect("mark one notification read");
+
+        let after_single = state.get_local_bootstrap().expect("bootstrap after single read");
+        assert_eq!(after_single.unread_local_notification_count, 0);
+
+        state
+            .mark_local_notifications_read(Vec::new(), true)
+            .expect("mark all notifications read");
+
+        let after_all = state.get_local_bootstrap().expect("bootstrap after mark all");
+        assert!(after_all.notifications.iter().all(|notification| !notification.unread));
     }
 
     fn serve_once(body: Vec<u8>) -> String {

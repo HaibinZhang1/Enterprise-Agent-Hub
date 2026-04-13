@@ -18,7 +18,7 @@ import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import { Client as MinioClient } from 'minio';
 import { Redis } from 'ioredis';
-import { PoolClient, QueryResultRow } from 'pg';
+import { PoolClient } from 'pg';
 import {
   PublishScopeType,
   PublisherSkillSummaryDto,
@@ -51,7 +51,6 @@ import {
   parseSimpleFrontmatter,
   readSkillMarkdown,
   sha256WithPrefix,
-  statSize,
 } from './publishing.utils';
 
 const execFileAsync = promisify(execFile);
@@ -181,10 +180,6 @@ interface StagedPackageRecord {
 }
 
 type UploadedSubmissionFile = { originalname: string; buffer: Buffer; size: number };
-
-interface DbExecutor {
-  query<T extends QueryResultRow = QueryResultRow>(text: string, values?: unknown[]): Promise<{ rows: T[] }>;
-}
 
 @Injectable()
 export class PublishingService implements OnModuleInit, OnModuleDestroy {
@@ -741,10 +736,10 @@ export class PublishingService implements OnModuleInit, OnModuleDestroy {
     let frontmatterNameMatches = true;
     let versionValid = isSemver(review.requested_version ?? '');
     let versionIncrementValid = true;
-    let sizeValid = (review.staged_package_size_bytes ?? 0) <= 5 * 1024 * 1024 || review.review_type === 'permission_change';
-    let fileCountValid = (review.staged_package_file_count ?? 0) <= 100 || review.review_type === 'permission_change';
-    let visibilityValid = isVisibilityLevel(review.requested_visibility_level);
-    let scopeValid = isScopeType(review.requested_scope_type);
+    const sizeValid = (review.staged_package_size_bytes ?? 0) <= 5 * 1024 * 1024 || review.review_type === 'permission_change';
+    const fileCountValid = (review.staged_package_file_count ?? 0) <= 100 || review.review_type === 'permission_change';
+    const visibilityValid = isVisibilityLevel(review.requested_visibility_level);
+    const scopeValid = isScopeType(review.requested_scope_type);
 
     const currentSkill = review.current_version ? await this.loadSkillByID(review.skill_id) : null;
     if (review.review_type === 'update' && currentSkill && review.requested_version) {
@@ -1020,6 +1015,8 @@ export class PublishingService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
+      await client.query('SELECT refresh_skill_search_document($1)', [skillUUID]);
+
       await client.query(
         `
         UPDATE review_items
@@ -1105,11 +1102,10 @@ export class PublishingService implements OnModuleInit, OnModuleDestroy {
     await this.recordJobRun(reviewID, 'queued');
     if (this.queue) {
       await this.queue.add(reviewID, { reviewID }, { removeOnComplete: 10, removeOnFail: 10 });
-      return;
     }
     setTimeout(() => {
       void this.processSystemPrecheck(reviewID);
-    }, 0);
+    }, this.queue ? 250 : 0);
   }
 
   private async loadActor(userID: string): Promise<ActorContext> {
@@ -1860,10 +1856,6 @@ function buildAvailableActions(review: ReviewRecord, actorUserID: string): Revie
 
 function isLockActive(lockExpiresAt: Date | null): boolean {
   return !!lockExpiresAt && lockExpiresAt.getTime() > Date.now();
-}
-
-function buildPackageUrl(packageRef: string): string {
-  return `/skill-packages/${encodeURIComponent(packageRef)}/download?ticket=p1-dev-ticket`;
 }
 
 function findCommonRootPrefix(paths: string[]): string {

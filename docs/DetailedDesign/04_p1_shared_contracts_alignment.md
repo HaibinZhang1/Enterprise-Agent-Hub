@@ -1,14 +1,14 @@
-# 04. P1 共享契约落地对齐
+# 04. 当前版本 共享契约落地对齐
 
 ## 1. 目的
 
-`packages/shared-contracts` 是 P1 Desktop 与 API 的共享 TypeScript 契约源，承接 `docs/RequirementDocument/21_p1_data_contract.md` 中的枚举、DTO、分页、错误响应、最小 HTTP 路由和 Tauri command 签名，避免 Desktop/API/Rust command 边界出现字段漂移。
+`packages/shared-contracts` 是 当前版本 Desktop 与 API 的共享 TypeScript 契约源，承接 `docs/RequirementDocument/21_p1_data_contract.md` 中的枚举、DTO、分页、错误响应、最小 HTTP 路由和 Tauri command 签名，避免 Desktop/API/Rust command 边界出现字段漂移。
 
 ## 2. 落地范围
 
 - 根目录采用 npm workspaces：`apps/*` 与 `packages/*`。
 - 根目录脚本固定为 `build`、`typecheck`、`test`、`lint`、`clean`，当前通过 workspace 转发执行。
-- `packages/shared-contracts` 导出 P1 枚举、错误码、分页响应、Bootstrap/Login/Skill/DownloadTicket/Notification/LocalEvents DTO、`menuPermissions`、`adminLevel`、管理端 DTO、本地状态模型，以及最小 Tauri command 请求/响应映射。
+- `packages/shared-contracts` 导出 当前版本 枚举、错误码、分页响应、Bootstrap/Login/Skill/DownloadTicket/Notification/LocalEvents DTO、`menuPermissions`、`adminLevel`、管理端 DTO、本地状态模型，以及最小 Tauri command 请求/响应映射。
 - JSON 字段继续使用 camelCase，历史业务字段保持 `skillID`、`userID`、`departmentID`、`deviceID` 写法。
 
 ## 3. symlink-first/copy-fallback 约束

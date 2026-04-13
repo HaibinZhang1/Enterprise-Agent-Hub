@@ -18,7 +18,9 @@ import type {
 
 const API_BASE_STORAGE_KEY = "enterprise-agent-hub:p1-api-base";
 const TOKEN_STORAGE_KEY = "enterprise-agent-hub:p1-token";
-const DEFAULT_API_BASE = import.meta.env.VITE_DESKTOP_API_BASE_URL ?? "http://127.0.0.1:3000";
+const DEFAULT_API_BASE =
+  (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_DESKTOP_API_BASE_URL ??
+  "http://127.0.0.1:3000";
 
 interface ApiPage<T> {
   items: T[];
@@ -181,16 +183,27 @@ function normalizeSkill(skill: ApiSkill): SkillSummary {
   };
 }
 
-function filtersToQuery(filters: MarketFilters): URLSearchParams {
+function sinceISOString(within: MarketFilters["publishedWithin"] | MarketFilters["updatedWithin"], now: Date): string | null {
+  const days = within === "7d" ? 7 : within === "30d" ? 30 : within === "90d" ? 90 : 0;
+  if (days === 0) {
+    return null;
+  }
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+export function buildSkillListQuery(filters: MarketFilters, now = new Date()): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.query.trim()) params.set("q", filters.query.trim());
   if (filters.department !== "all") params.set("departmentID", filters.department);
   if (filters.compatibleTool !== "all") params.set("compatibleTool", filters.compatibleTool);
   if (filters.accessScope !== "include_public") params.set("accessScope", filters.accessScope);
+  if (filters.category !== "all") params.set("category", filters.category);
   if (filters.riskLevel !== "all") params.set("riskLevel", filters.riskLevel);
+  const publishedSince = sinceISOString(filters.publishedWithin, now);
+  if (publishedSince) params.set("publishedSince", publishedSince);
+  const updatedSince = sinceISOString(filters.updatedWithin, now);
+  if (updatedSince) params.set("updatedSince", updatedSince);
   if (filters.sort) params.set("sort", filters.sort);
-  if (filters.installed !== "all") params.set("installed", String(filters.installed === "installed"));
-  if (filters.enabled !== "all") params.set("enabled", String(filters.enabled === "enabled"));
   return params;
 }
 
@@ -319,7 +332,7 @@ export const p1Client: P1Client = {
   },
 
   async listSkills(filters) {
-    const response = await requestJSON<ApiPage<ApiSkill>>(`/skills?${filtersToQuery(filters).toString()}`);
+    const response = await requestJSON<ApiPage<ApiSkill>>(`/skills?${buildSkillListQuery(filters).toString()}`);
     return response.items.map(normalizeSkill);
   },
 

@@ -1,4 +1,4 @@
-import { PendingLocalCommandError, type DownloadTicket, type EnabledTarget, type LocalBootstrap, type LocalEvent, type LocalSkillInstall, type ProjectConfig, type RequestedMode, type ScanTargetSummary, type SkillSummary, type TargetType, type ToolConfig, type ValidateTargetPathResult } from "../domain/p1";
+import { PendingLocalCommandError, type DownloadTicket, type EnabledTarget, type LocalBootstrap, type LocalEvent, type LocalNotification, type LocalSkillInstall, type ProjectConfig, type ProjectDirectorySelection, type RequestedMode, type ScanTargetSummary, type SkillSummary, type TargetType, type ToolConfig, type ValidateTargetPathResult } from "../domain/p1";
 import { seedProjects, seedSkills, seedTools } from "../fixtures/p1SeedData";
 import { appendSkillPath, defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsCandidates, defaultToolSkillsPath, detectDesktopPlatform, previewCentralStorePath, type DesktopPlatform } from "../utils/platformPaths";
 
@@ -45,6 +45,7 @@ function browserPreviewBootstrap(): LocalBootstrap {
     installs: [],
     tools: [],
     projects: [],
+    notifications: [],
     offlineEvents: [],
     pendingOfflineEventCount: 0,
     unreadLocalNotificationCount: 0,
@@ -260,11 +261,14 @@ export interface DesktopBridge {
   uninstallSkill(skillID: string): Promise<{ removedTargetIDs: string[]; failedTargetIDs: string[]; event: LocalEvent }>;
   enableSkill(input: { skill: SkillSummary; targetType: TargetType; targetID: string; requestedMode: RequestedMode; allowOverwrite?: boolean }): Promise<{ target: EnabledTarget; event: LocalEvent }>;
   disableSkill(input: { skill: SkillSummary; targetID: string; targetType?: TargetType }): Promise<{ event: LocalEvent }>;
+  upsertLocalNotifications(notifications: LocalNotification[]): Promise<void>;
+  markLocalNotificationsRead(notificationIDs: string[] | "all"): Promise<void>;
   markOfflineEventsSynced(eventIDs: string[]): Promise<string[]>;
   listLocalInstalls(): Promise<LocalSkillInstall[]>;
   refreshToolDetection(): Promise<ToolConfig[]>;
   scanLocalTargets(): Promise<ScanTargetSummary[]>;
   validateTargetPath(targetPath: string): Promise<ValidateTargetPathResult>;
+  pickProjectDirectory(): Promise<ProjectDirectorySelection | null>;
 }
 
 export const desktopBridge: DesktopBridge = {
@@ -284,9 +288,10 @@ export const desktopBridge: DesktopBridge = {
       installs: seedLocalInstalls(),
       tools: seedTools.map((tool) => mapPreviewTool(tool, detectDesktopPlatform())),
       projects: seedProjects.map((project) => mapPreviewProject(project, detectDesktopPlatform())),
+      notifications: [],
       offlineEvents: [],
       pendingOfflineEventCount: 0,
-      unreadLocalNotificationCount: 1,
+      unreadLocalNotificationCount: 0,
       centralStorePath: previewCentralStorePath()
     };
   },
@@ -549,6 +554,42 @@ export const desktopBridge: DesktopBridge = {
     };
   },
 
+  async upsertLocalNotifications(notifications) {
+    if (notifications.length === 0) {
+      return;
+    }
+    const invoke = getInvoke();
+    if (invoke) {
+      await invoke("upsert_local_notifications", { notifications });
+      return;
+    }
+    if (isBrowserPreviewMode()) {
+      return;
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
+    await mockWait(80);
+  },
+
+  async markLocalNotificationsRead(notificationIDs) {
+    const invoke = getInvoke();
+    if (invoke) {
+      await invoke("mark_local_notifications_read", {
+        notificationIDs: notificationIDs === "all" ? [] : notificationIDs,
+        all: notificationIDs === "all"
+      });
+      return;
+    }
+    if (isBrowserPreviewMode()) {
+      return;
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
+    await mockWait(80);
+  },
+
   async markOfflineEventsSynced(eventIDs) {
     const invoke = getInvoke();
     if (invoke) {
@@ -636,6 +677,23 @@ export const desktopBridge: DesktopBridge = {
       exists: false,
       canCreate: targetPath.trim().length > 0,
       reason: targetPath.trim().length > 0 ? null : "路径不能为空"
+    };
+  },
+
+  async pickProjectDirectory() {
+    const invoke = getInvoke();
+    if (invoke) {
+      return invoke("pick_project_directory");
+    }
+    if (isBrowserPreviewMode()) {
+      return null;
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
+    await mockWait(120);
+    return {
+      projectPath: detectDesktopPlatform() === "windows" ? "D:\\workspace\\selected-project" : "~/workspace/selected-project"
     };
   }
 };

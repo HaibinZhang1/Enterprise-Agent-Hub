@@ -5,7 +5,8 @@ import { useP1Workspace } from "../state/useP1Workspace";
 import { useDesktopUIState } from "../state/useDesktopUIState";
 import { DesktopModals, FlashToast } from "./desktopModals";
 import { ActivePageContent } from "./desktopPages";
-import { IMAGE_POOL, pageMeta, roleLabel, shellBrand } from "./desktopShared";
+import type { DisplayLanguage } from "./desktopShared";
+import { localize, pageMetaFor, roleLabel, shellBrand } from "./desktopShared";
 
 function defaultLoginForm(apiBaseURL: string) {
   return {
@@ -15,7 +16,7 @@ function defaultLoginForm(apiBaseURL: string) {
   };
 }
 
-function LoginModal({ workspace }: { workspace: ReturnType<typeof useP1Workspace> }) {
+function LoginModal({ workspace, language }: { workspace: ReturnType<typeof useP1Workspace>; language: DisplayLanguage }) {
   const [form, setForm] = useState(() => defaultLoginForm(workspace.apiBaseURL));
 
   useEffect(() => {
@@ -39,39 +40,32 @@ function LoginModal({ workspace }: { workspace: ReturnType<typeof useP1Workspace
 
   return (
     <div className="modal-overlay" role="presentation" onClick={() => workspace.setLoginModalOpen(false)}>
-      <section className="login-modal-panel" role="dialog" aria-modal="true" aria-label="登录同步企业服务" onClick={(event) => event.stopPropagation()}>
-        <div className="login-card-shell">
-          <div className="login-panel">
+      <section className="login-modal-panel" role="dialog" aria-modal="true" aria-label="登录同步企业服务" data-testid="login-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="login-card-shell compact">
+          <div className="login-panel compact">
             <div className="brand-mark">{shellBrand.icon}</div>
-            <div className="eyebrow">连接企业服务</div>
-            <h1>登录后解锁市场、通知和管理员能力</h1>
-            <p>本机已安装 Skill、工具和项目配置会继续保留。登录仅同步真实远端能力，不会覆盖本地副本。</p>
+            <div className="eyebrow">{localize(language, "登录", "Sign In")}</div>
+            <h1>{localize(language, "连接企业服务", "Connect to Enterprise Service")}</h1>
+            <p>{localize(language, "登录后同步市场、通知和权限。本地 Skill、工具和项目配置会继续保留。", "Sign in to sync market, notifications, and permissions. Local skills, tools, and projects stay on this device.")}</p>
             <form className="form-stack" onSubmit={submit}>
               <label className="field">
-                <span>服务地址</span>
-                <input name="serverURL" value={form.serverURL} onChange={updateField} />
+                <span>{localize(language, "服务地址", "Server URL")}</span>
+                <input name="serverURL" value={form.serverURL} onChange={updateField} data-testid="login-server-url" />
               </label>
               <label className="field">
-                <span>用户名</span>
-                <input name="username" value={form.username} onChange={updateField} />
+                <span>{localize(language, "用户名", "Username")}</span>
+                <input name="username" value={form.username} onChange={updateField} data-testid="login-username" />
               </label>
               <label className="field">
-                <span>密码</span>
-                <input name="password" type="password" value={form.password} onChange={updateField} />
+                <span>{localize(language, "密码", "Password")}</span>
+                <input name="password" type="password" value={form.password} onChange={updateField} data-testid="login-password" />
               </label>
               {workspace.authError ? <div className="callout warning"><WifiOff size={16} /> {workspace.authError}</div> : null}
               <div className="inline-actions wrap">
-                <button className="btn btn-primary" type="submit"><LogIn size={15} />登录并同步</button>
-                <button className="btn" type="button" onClick={() => workspace.setLoginModalOpen(false)}>稍后再说</button>
+                <button className="btn btn-primary" type="submit" data-testid="login-submit"><LogIn size={15} />{localize(language, "登录", "Sign In")}</button>
+                <button className="btn" type="button" onClick={() => workspace.setLoginModalOpen(false)}>{localize(language, "取消", "Cancel")}</button>
               </div>
             </form>
-          </div>
-          <div className="login-visual">
-            <img src={IMAGE_POOL.login} alt="团队工作区" />
-            <div className="visual-caption">
-              <strong>Windows-first Desktop</strong>
-              <p>真实前端入口为 `apps/desktop`；这里的登录、市场、通知和管理员权限都直接连接 live 服务端。</p>
-            </div>
           </div>
         </div>
       </section>
@@ -82,18 +76,20 @@ function LoginModal({ workspace }: { workspace: ReturnType<typeof useP1Workspace
 export function DesktopApp() {
   const workspace = useP1Workspace();
   const ui = useDesktopUIState(workspace);
+  const pageMeta = pageMetaFor(ui.language);
+  const shellNavigation = ui.navigation.filter((page) => page !== "settings");
 
   const connection = workspace.bootstrap.connection.status;
   const connectionLabel =
     workspace.authState === "guest"
-      ? "本地模式"
+      ? localize(ui.language, "本地模式", "Local Mode")
       : connection === "connected"
-        ? "已连接"
+        ? localize(ui.language, "已连接", "Connected")
         : connection === "connecting"
-          ? "正在连接"
+          ? localize(ui.language, "正在连接", "Connecting")
           : connection === "offline"
-            ? "离线模式"
-            : "连接失败";
+            ? localize(ui.language, "离线模式", "Offline")
+            : localize(ui.language, "连接失败", "Connection Failed");
 
   function globalSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,28 +99,40 @@ export function DesktopApp() {
   return (
     <div className="desktop-shell">
       <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-mark compact">{shellBrand.icon}</div>
-          <div>
-            <strong>{shellBrand.title}</strong>
-            <span>{shellBrand.subtitle}</span>
+        <div className="sidebar-main">
+          <div className="sidebar-brand">
+            <div className="brand-mark compact">{shellBrand.icon}</div>
+            <div>
+              <strong>{shellBrand.title}</strong>
+              <span>{shellBrand.subtitle}</span>
+            </div>
           </div>
+
+          <nav className="sidebar-nav">
+            {shellNavigation.map((page) => (
+              <button key={page} className={ui.activePage === page ? "nav-item active" : "nav-item"} data-testid={`nav-${page}`} onClick={() => ui.navigate(page)}>
+                <span className="nav-item-main">
+                  {pageMeta[page].icon}
+                  <span>{pageMeta[page].label}</span>
+                </span>
+                <span className="nav-item-side">
+                  {pageMeta[page].mark ? <small>{pageMeta[page].mark}</small> : null}
+                  {page === "notifications" && workspace.bootstrap.counts.unreadNotificationCount > 0 ? <b>{workspace.bootstrap.counts.unreadNotificationCount}</b> : null}
+                </span>
+              </button>
+            ))}
+          </nav>
         </div>
 
-        <nav className="sidebar-nav">
-          {ui.navigation.map((page) => (
-            <button key={page} className={ui.activePage === page ? "nav-item active" : "nav-item"} onClick={() => ui.navigate(page)}>
-              <span className="nav-item-main">
-                {pageMeta[page].icon}
-                <span>{pageMeta[page].label}</span>
-              </span>
-              <span className="nav-item-side">
-                {pageMeta[page].mark ? <small>{pageMeta[page].mark}</small> : null}
-                {page === "notifications" && workspace.bootstrap.counts.unreadNotificationCount > 0 ? <b>{workspace.bootstrap.counts.unreadNotificationCount}</b> : null}
-              </span>
-            </button>
-          ))}
-        </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-divider" />
+          <button className={ui.modal.type === "settings" ? "nav-item active" : "nav-item"} onClick={ui.openSettingsModal}>
+            <span className="nav-item-main">
+              {pageMeta.settings.icon}
+              <span>{pageMeta.settings.label}</span>
+            </span>
+          </button>
+        </div>
       </aside>
 
       <div className="main-shell">
@@ -132,38 +140,38 @@ export function DesktopApp() {
           <form className="search-shell top-search" onSubmit={globalSearch}>
             <Search size={16} />
             <input
-              aria-label="全局搜索 Skill"
+              aria-label={localize(ui.language, "全局搜索 Skill", "Global Skill Search")}
               value={workspace.filters.query}
               name="global-search"
-              placeholder={workspace.loggedIn ? "搜索 Skill 名称、标签、作者或 skillID" : "登录后搜索企业 Skill"}
+              placeholder={workspace.loggedIn ? localize(ui.language, "搜索 Skill 名称、标签、作者或 skillID", "Search by skill name, tag, author, or skill ID") : localize(ui.language, "登录后搜索企业 Skill", "Sign in to search enterprise skills")}
               onChange={(event) => workspace.setFilters((current) => ({ ...current, query: event.target.value }))}
             />
           </form>
 
-          <button className={`status-chip ${connection}`} type="button" onClick={ui.openConnectionStatus} aria-label="查看连接状态详情">
+          <button className={`status-chip ${connection}`} type="button" onClick={ui.openConnectionStatus} aria-label={localize(ui.language, "查看连接状态详情", "View connection details")}>
             {connection === "connected" ? <CheckCircle2 size={16} /> : <WifiOff size={16} />}
             {connectionLabel}
           </button>
 
           <button className="btn btn-small" onClick={() => void workspace.refreshBootstrap()}>
             <RefreshCw size={15} />
-            刷新
+            {localize(ui.language, "刷新", "Refresh")}
           </button>
 
           <div className="account-chip">
             <div>
               <strong>{workspace.currentUser.displayName}</strong>
-              <small>{roleLabel(workspace.currentUser)}</small>
+              <small>{roleLabel(workspace.currentUser, ui.language)}</small>
             </div>
             {workspace.loggedIn ? (
               <button className="btn btn-small" onClick={() => void workspace.logout()}>
                 <LogOut size={15} />
-                退出
+                {localize(ui.language, "退出", "Sign Out")}
               </button>
             ) : (
-              <button className="btn btn-primary btn-small" onClick={() => workspace.requireAuth(null)}>
+              <button className="btn btn-primary btn-small" data-testid="open-login" onClick={() => workspace.requireAuth(null)}>
                 <LogIn size={15} />
-                登录
+                {localize(ui.language, "登录", "Sign In")}
               </button>
             )}
           </div>
@@ -174,7 +182,7 @@ export function DesktopApp() {
         </main>
       </div>
 
-      <LoginModal workspace={workspace} />
+      <LoginModal workspace={workspace} language={ui.language} />
       <DesktopModals workspace={workspace} ui={ui} />
       <FlashToast ui={ui} />
     </div>

@@ -15,6 +15,12 @@ const requiredScenarioIds = [
   'uninstall-managed-targets-with-confirmation',
   'offline-enable-disable-queue-restart',
   'local-events-idempotent-sync',
+  'publisher-upload-review-browser-flow',
+  'publisher-return-resubmit-browser-flow',
+  'publisher-reject-no-market-leakage',
+  'permission-change-visibility-switch-after-approval',
+  'update-publish-old-version-remains-live',
+  'same-skill-market-download-install-enable',
   'notifications-read-offline-cache',
 ];
 
@@ -29,6 +35,9 @@ const requiredCommandIds = [
   'docker-config-prod',
   'deploy-script-syntax',
   'w6-acceptance-matrix-test',
+  'p1-ui-closure',
+  'p1-native-closure',
+  'p1-full-closure',
 ];
 
 function readJson(path) {

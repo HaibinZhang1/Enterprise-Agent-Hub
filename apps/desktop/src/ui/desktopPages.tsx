@@ -15,22 +15,27 @@ import {
   Star,
   UserPlus
 } from "lucide-react";
-import type { MarketFilters, PreferenceState, PublishDraft, PublisherSkillSummary, SkillSummary } from "../domain/p1";
+import type { DiscoveredLocalSkill, MarketFilters, PreferenceState, PublishDraft, PublisherSkillSummary, SkillSummary } from "../domain/p1";
 import type { DesktopUIState } from "../state/useDesktopUIState";
 import { buildPublishPrecheck } from "../state/useDesktopUIState";
 import type { P1WorkspaceState } from "../state/useP1Workspace";
 import { downloadAuthenticatedFile } from "../services/p1Client";
 import { previewCentralStorePath } from "../utils/platformPaths";
 import {
-  IMAGE_POOL,
+  adapterStatusLabel,
+  categoryIcon,
+  detectionMethodLabel,
   flattenDepartments,
   formatDate,
-  imageForSkill,
+  localize,
+  notificationSourceLabel,
   reviewActionLabel,
   riskLabel,
   statusLabel,
   submissionTypeLabel,
+  settingsLanguageLabel,
   themeLabel,
+  transformStrategyLabel,
   workflowStateLabel
 } from "./desktopShared";
 
@@ -65,12 +70,27 @@ function TagPill({ children, tone = "neutral" }: { children: ReactNode; tone?: "
   return <span className={`pill tone-${tone}`}>{children}</span>;
 }
 
-function SelectField({ label, value, options, onChange, disabled = false }: { label: string; value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean }) {
+function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  disabled = false
+}: {
+  label: string;
+  value: string;
+  options: Array<string | { value: string; label: string }>;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   return (
     <label className="field">
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled}>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => {
+          const normalized = typeof option === "string" ? { value: option, label: option } : option;
+          return <option key={normalized.value} value={normalized.value}>{normalized.label}</option>;
+        })}
       </select>
     </label>
   );
@@ -91,12 +111,53 @@ function bumpPatchVersion(version: string): string {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-function HomeMetricCards({ workspace }: { workspace: P1WorkspaceState }) {
+function formatMetricCount(value: number, language: "zh-CN" | "en-US") {
+  return new Intl.NumberFormat(language, {
+    notation: value >= 1000 ? "compact" : "standard",
+    compactDisplay: "short",
+    maximumFractionDigits: value >= 1000 ? 1 : 0
+  }).format(value);
+}
+
+function discoveredLocationSummary(skill: DiscoveredLocalSkill) {
+  const toolCount = skill.targets.filter((target) => target.targetType === "tool").length;
+  const projectCount = skill.targets.filter((target) => target.targetType === "project").length;
+  const issueCount = skill.targets.filter((target) => target.findingKind !== "unmanaged").length;
+  const parts = [`${skill.targets.length} 个位置`];
+
+  if (toolCount > 0) parts.push(`${toolCount} 个工具`);
+  if (projectCount > 0) parts.push(`${projectCount} 个项目`);
+  parts.push(issueCount > 0 ? `${issueCount} 个需处理` : "待确认");
+
+  return parts.join(" · ");
+}
+
+function discoveredPreview(skill: DiscoveredLocalSkill) {
+  if (skill.targets.some((target) => target.findingKind === "conflict")) {
+    return "目录内容与登记不一致，建议先确认来源和覆盖策略。";
+  }
+  if (skill.targets.some((target) => target.findingKind === "orphan")) {
+    return "目录有托管痕迹但登记缺失，建议尽快修复来源。";
+  }
+  if (skill.matchedMarketSkill) {
+    return "市场已存在同名 Skill，可先看详情再决定是否纳入管理。";
+  }
+  return "本地目录里发现未托管副本，默认不会直接覆盖。";
+}
+
+function discoveryManageLabel(skill: DiscoveredLocalSkill) {
+  const hasTool = skill.targets.some((target) => target.targetType === "tool");
+  const hasProject = skill.targets.some((target) => target.targetType === "project");
+  if (hasTool && hasProject) return "前往位置管理";
+  return hasProject ? "前往项目页" : "前往工具页";
+}
+
+function HomeMetricCards({ workspace, ui }: { workspace: P1WorkspaceState; ui: DesktopUIState }) {
   const metrics = [
-    ["本机已安装", workspace.bootstrap.counts.installedCount],
-    ["已启用目标", workspace.bootstrap.counts.enabledCount],
-    ["待更新", workspace.bootstrap.counts.updateAvailableCount],
-    ["未读通知", workspace.bootstrap.counts.unreadNotificationCount]
+    [localize(ui.language, "本机已安装", "Installed"), workspace.bootstrap.counts.installedCount],
+    [localize(ui.language, "已启用目标", "Enabled Targets"), workspace.bootstrap.counts.enabledCount],
+    [localize(ui.language, "待更新", "Updates"), workspace.bootstrap.counts.updateAvailableCount],
+    [localize(ui.language, "未读通知", "Unread"), workspace.bootstrap.counts.unreadNotificationCount]
   ] as const;
 
   return (
@@ -113,13 +174,13 @@ function HomeMetricCards({ workspace }: { workspace: P1WorkspaceState }) {
 
 function HomeRecommendation({ skill, ui }: { skill: SkillSummary; ui: DesktopUIState }) {
   return (
-    <button className="recommendation-row" onClick={() => ui.openSkillDetail(skill.skillID, "home")}>
-      <img src={imageForSkill(skill)} alt={skill.displayName} />
+    <button className="recommendation-row no-art" onClick={() => ui.openSkillDetail(skill.skillID, "home")}>
+      <div className="signal-mark">{categoryIcon(skill)}</div>
       <span>
         <strong>{skill.displayName}</strong>
-        <small>{skill.authorDepartment} · 风险{riskLabel(skill)}</small>
+        <small>{skill.authorDepartment} · {localize(ui.language, "风险", "Risk")} {riskLabel(skill, ui.language)}</small>
       </span>
-      <TagPill tone="info">{statusLabel(skill)}</TagPill>
+      <TagPill tone="info">{statusLabel(skill, ui.language)}</TagPill>
     </button>
   );
 }
@@ -127,26 +188,26 @@ function HomeRecommendation({ skill, ui }: { skill: SkillSummary; ui: DesktopUIS
 function HomeSignalCard({ skill, workspace, ui }: { skill: SkillSummary; workspace: P1WorkspaceState; ui: DesktopUIState }) {
   const action = !skill.localVersion ? "install" : skill.installState === "update_available" ? "update" : "detail";
   return (
-    <article className="signal-card">
-      <img src={imageForSkill(skill)} alt={skill.displayName} />
+    <article className="signal-card no-art">
+      <div className="signal-mark">{categoryIcon(skill)}</div>
       <div>
         <div className="inline-heading">
           <strong>{skill.displayName}</strong>
-          <TagPill tone={skill.installState === "update_available" ? "warning" : "success"}>{statusLabel(skill)}</TagPill>
+          <TagPill tone={skill.installState === "update_available" ? "warning" : "success"}>{statusLabel(skill, ui.language)}</TagPill>
         </div>
         <p>{skill.description}</p>
         <div className="inline-actions">
           {action === "install" ? (
-            <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "install")}>安装</button>
+            <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "install")}>{localize(ui.language, "安装", "Install")}</button>
           ) : null}
           {action === "update" ? (
-            <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "update")}>更新</button>
+            <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "update")}>{localize(ui.language, "更新", "Update")}</button>
           ) : null}
           {action === "detail" ? (
-            <button className="btn" onClick={() => ui.openSkillDetail(skill.skillID, "home")}>查看详情</button>
+            <button className="btn" onClick={() => ui.openSkillDetail(skill.skillID, "home")}>{localize(ui.language, "查看详情", "View")}</button>
           ) : null}
           {skill.localVersion ? (
-            <button className="btn" onClick={() => workspace.openPage("my_installed")}>已安装</button>
+            <button className="btn" onClick={() => workspace.openPage("my_installed")}>{localize(ui.language, "已安装", "Installed")}</button>
           ) : null}
         </div>
       </div>
@@ -160,55 +221,27 @@ function HomePage({ workspace, ui }: PageProps) {
     .slice(0, 3);
   const recommended = (workspace.loggedIn ? workspace.skills : workspace.installedSkills).slice(0, 3);
   const notices = workspace.notifications.filter((notice) => notice.unread).slice(0, 3);
-  const heroImage = imageForSkill(recommended[0] ?? localSignals[0] ?? workspace.skills[0] ?? workspace.installedSkills[0] ?? {
-    skillID: "dashboard",
-    displayName: "工作台",
-    description: "",
-    version: "0.0.0",
-    localVersion: null,
-    status: "published",
-    visibilityLevel: "detail_visible",
-    detailAccess: "summary",
-    canInstall: false,
-    canUpdate: false,
-    installState: "not_installed",
-    currentVersionUpdatedAt: new Date().toISOString(),
-    publishedAt: new Date().toISOString(),
-    compatibleTools: [],
-    compatibleSystems: [],
-    tags: [],
-    category: "dashboard",
-    riskLevel: "unknown",
-    starCount: 0,
-    downloadCount: 0,
-    starred: false,
-    isScopeRestricted: false,
-    hasLocalHashDrift: false,
-    enabledTargets: [],
-    lastEnabledAt: null
-  });
 
   return (
     <div className="page-stack">
-      <section className="hero-surface">
-        <img src={heroImage || IMAGE_POOL.dashboard} alt="workspace" />
-        <div className="hero-overlay">
-          <div className="eyebrow">本地工作台</div>
-          <h1>{workspace.loggedIn ? "本机 Skill 状态正常" : "先从本地模式开始"}</h1>
+      <section className="home-hero panel">
+        <div>
+          <div className="eyebrow">{localize(ui.language, "本地工作台", "Local Workspace")}</div>
+          <h1>{workspace.loggedIn ? localize(ui.language, "本机 Skill 与服务状态", "Local Skills and Service Status") : localize(ui.language, "先用本地模式开始", "Start in Local Mode")}</h1>
           <p>
             {workspace.loggedIn
-              ? workspace.bootstrap.connection.lastError ?? "市场、通知、管理员权限和本地安装状态已经同步。"
-              : "当前先展示本机已安装 Skill、工具和项目配置。需要市场、通知或管理员能力时再登录。"}
+              ? workspace.bootstrap.connection.lastError ?? localize(ui.language, "查看本地 Skill、工具和项目；需要在线能力时再同步服务端数据。", "Review local skills, tools, and projects. Sync server data only when needed.")
+              : localize(ui.language, "先查看本地 Skill、工具和项目；需要市场、通知或管理员能力时再登录。", "Use local skills, tools, and projects first. Sign in when you need market, notifications, or admin features.")}
           </p>
-          <div className="inline-actions">
-            <button className="btn btn-primary" onClick={() => workspace.loggedIn ? ui.navigate("market") : workspace.requireAuth("market")}>进入市场</button>
-            <button className="btn" onClick={() => ui.navigate("my_installed")}>查看我的 Skill</button>
-            <button className="btn" onClick={() => ui.navigate("tools")}>工具管理</button>
-          </div>
+        </div>
+        <div className="inline-actions wrap">
+          <button className="btn btn-primary" onClick={() => workspace.loggedIn ? ui.navigate("market") : workspace.requireAuth("market")}>{localize(ui.language, "进入市场", "Open Market")}</button>
+          <button className="btn" onClick={() => ui.navigate("my_installed")}>{localize(ui.language, "查看我的 Skill", "My Skills")}</button>
+          <button className="btn" onClick={() => ui.navigate("tools")}>{localize(ui.language, "工具管理", "Manage Tools")}</button>
         </div>
       </section>
 
-      <HomeMetricCards workspace={workspace} />
+      <HomeMetricCards workspace={workspace} ui={ui} />
 
       {!workspace.loggedIn ? (
         <section className="panel">
@@ -257,7 +290,7 @@ function HomePage({ workspace, ui }: PageProps) {
                   <strong>{notice.title}</strong>
                   <small>{notice.summary}</small>
                 </span>
-                <small>{formatDate(notice.occurredAt)}</small>
+                <small>{formatDate(notice.occurredAt, ui.language)}</small>
               </button>
             ))}
           </div>
@@ -281,7 +314,7 @@ function HomePage({ workspace, ui }: PageProps) {
   );
 }
 
-function MarketToolbar({ workspace }: PageProps) {
+function MarketToolbar({ workspace, ui }: PageProps) {
   const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
   return (
     <section className="toolbar-shell">
@@ -296,54 +329,154 @@ function MarketToolbar({ workspace }: PageProps) {
         />
       </form>
       <div className="toolbar-grid">
-        <SelectField label="部门" value={workspace.filters.department} options={["all", ...workspace.departments]} onChange={(value) => workspace.setFilters((current) => ({ ...current, department: value }))} disabled={offline} />
-        <SelectField label="工具" value={workspace.filters.compatibleTool} options={["all", ...workspace.compatibleTools]} onChange={(value) => workspace.setFilters((current) => ({ ...current, compatibleTool: value }))} disabled={offline} />
-        <SelectField label="安装" value={workspace.filters.installed} options={["all", "installed", "not_installed"]} onChange={(value) => workspace.setFilters((current) => ({ ...current, installed: value as MarketFilters["installed"] }))} disabled={offline} />
-        <SelectField label="启用" value={workspace.filters.enabled} options={["all", "enabled", "not_enabled"]} onChange={(value) => workspace.setFilters((current) => ({ ...current, enabled: value as MarketFilters["enabled"] }))} disabled={offline} />
-        <SelectField label="权限" value={workspace.filters.accessScope} options={["include_public", "authorized_only"]} onChange={(value) => workspace.setFilters((current) => ({ ...current, accessScope: value as MarketFilters["accessScope"] }))} disabled={offline} />
-        <SelectField label="风险" value={workspace.filters.riskLevel} options={["all", "low", "medium", "high", "unknown"]} onChange={(value) => workspace.setFilters((current) => ({ ...current, riskLevel: value as MarketFilters["riskLevel"] }))} disabled={offline} />
-        <SelectField label="排序" value={workspace.filters.sort} options={["composite", "latest_published", "recently_updated", "download_count", "star_count", "relevance"]} onChange={(value) => workspace.setFilters((current) => ({ ...current, sort: value as MarketFilters["sort"] }))} disabled={false} />
+        <SelectField
+          label={localize(ui.language, "部门", "Department")}
+          value={workspace.filters.department}
+          options={[
+            { value: "all", label: localize(ui.language, "全部", "All") },
+            ...workspace.departments.map((department) => ({ value: department, label: department }))
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, department: value }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "工具", "Tool")}
+          value={workspace.filters.compatibleTool}
+          options={[
+            { value: "all", label: localize(ui.language, "全部", "All") },
+            ...workspace.compatibleTools.map((tool) => ({ value: tool, label: tool }))
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, compatibleTool: value }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "安装", "Install")}
+          value={workspace.filters.installed}
+          options={[
+            { value: "all", label: localize(ui.language, "全部", "All") },
+            { value: "installed", label: localize(ui.language, "已安装", "Installed") },
+            { value: "not_installed", label: localize(ui.language, "未安装", "Not Installed") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, installed: value as MarketFilters["installed"] }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "启用", "Enabled")}
+          value={workspace.filters.enabled}
+          options={[
+            { value: "all", label: localize(ui.language, "全部", "All") },
+            { value: "enabled", label: localize(ui.language, "已启用", "Enabled") },
+            { value: "not_enabled", label: localize(ui.language, "未启用", "Not Enabled") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, enabled: value as MarketFilters["enabled"] }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "权限", "Access")}
+          value={workspace.filters.accessScope}
+          options={[
+            { value: "include_public", label: localize(ui.language, "全部可见", "All Visible") },
+            { value: "authorized_only", label: localize(ui.language, "仅授权", "Authorized Only") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, accessScope: value as MarketFilters["accessScope"] }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "分类", "Category")}
+          value={workspace.filters.category}
+          options={[
+            { value: "all", label: localize(ui.language, "全部", "All") },
+            ...workspace.categories.map((category) => ({ value: category, label: category }))
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, category: value }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "风险", "Risk")}
+          value={workspace.filters.riskLevel}
+          options={[
+            { value: "all", label: localize(ui.language, "全部", "All") },
+            { value: "low", label: localize(ui.language, "低", "Low") },
+            { value: "medium", label: localize(ui.language, "中", "Medium") },
+            { value: "high", label: localize(ui.language, "高", "High") },
+            { value: "unknown", label: localize(ui.language, "未知", "Unknown") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, riskLevel: value as MarketFilters["riskLevel"] }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "发布时间", "Published")}
+          value={workspace.filters.publishedWithin}
+          options={[
+            { value: "all", label: localize(ui.language, "全部时间", "Any Time") },
+            { value: "7d", label: localize(ui.language, "最近 7 天", "Last 7 Days") },
+            { value: "30d", label: localize(ui.language, "最近 30 天", "Last 30 Days") },
+            { value: "90d", label: localize(ui.language, "最近 90 天", "Last 90 Days") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, publishedWithin: value as MarketFilters["publishedWithin"] }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "更新时间", "Updated")}
+          value={workspace.filters.updatedWithin}
+          options={[
+            { value: "all", label: localize(ui.language, "全部时间", "Any Time") },
+            { value: "7d", label: localize(ui.language, "最近 7 天", "Last 7 Days") },
+            { value: "30d", label: localize(ui.language, "最近 30 天", "Last 30 Days") },
+            { value: "90d", label: localize(ui.language, "最近 90 天", "Last 90 Days") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, updatedWithin: value as MarketFilters["updatedWithin"] }))}
+          disabled={offline}
+        />
+        <SelectField
+          label={localize(ui.language, "排序", "Sort")}
+          value={workspace.filters.sort}
+          options={[
+            { value: "composite", label: localize(ui.language, "综合排序", "Recommended") },
+            { value: "latest_published", label: localize(ui.language, "最新发布", "Latest Published") },
+            { value: "recently_updated", label: localize(ui.language, "最近更新", "Recently Updated") },
+            { value: "download_count", label: localize(ui.language, "下载量", "Downloads") },
+            { value: "star_count", label: localize(ui.language, "收藏数", "Stars") },
+            { value: "relevance", label: localize(ui.language, "相关度", "Relevance") }
+          ]}
+          onChange={(value) => workspace.setFilters((current) => ({ ...current, sort: value as MarketFilters["sort"] }))}
+          disabled={false}
+        />
       </div>
     </section>
   );
 }
 
 function SkillCard({ skill, workspace, ui }: { skill: SkillSummary; workspace: P1WorkspaceState; ui: DesktopUIState }) {
-  const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
   return (
-    <article className="skill-card" key={skill.skillID}>
-      <img src={imageForSkill(skill)} alt={skill.displayName} />
-      <div className="skill-card-body">
-        <div className="inline-heading">
-          <TagPill tone={skill.installState === "update_available" ? "warning" : skill.installState === "blocked" ? "danger" : "success"}>{statusLabel(skill)}</TagPill>
-          <button className="icon-button" onClick={() => void workspace.toggleStar(skill.skillID)} aria-label={skill.starred ? `取消收藏 ${skill.displayName}` : `收藏 ${skill.displayName}`}>
-            <Star size={15} fill={skill.starred ? "currentColor" : "none"} />
-            <span>{skill.starCount}</span>
-          </button>
+    <article className="skill-card no-art" key={skill.skillID} data-testid="market-skill-card" data-skill-id={skill.skillID}>
+      <button className="skill-row-main" onClick={() => ui.openSkillDetail(skill.skillID, "market")}>
+        <div className="signal-mark">{categoryIcon(skill)}</div>
+        <div className="skill-row-copy">
+          <h3>{skill.displayName}</h3>
+          <p className="skill-row-description">{skill.description}</p>
         </div>
-        <h3>{skill.displayName}</h3>
-        <code>{skill.skillID}</code>
-        <p>{skill.description}</p>
-        <div className="pill-row">
-          {skill.tags.slice(0, 3).map((tag) => <TagPill key={tag}>{tag}</TagPill>)}
+      </button>
+      <div className="skill-row-metrics">
+        <button
+          className="skill-metric skill-metric-button"
+          onClick={() => void workspace.toggleStar(skill.skillID)}
+          aria-label={skill.starred ? `取消收藏 ${skill.displayName}` : `收藏 ${skill.displayName}`}
+        >
+          <Star size={15} fill={skill.starred ? "currentColor" : "none"} />
+          <span>{formatMetricCount(skill.starCount, ui.language)}</span>
+        </button>
+        <div className="skill-metric">
+          <Download size={15} />
+          <span>{formatMetricCount(skill.downloadCount, ui.language)}</span>
         </div>
-        <small>{skill.authorName} / {skill.authorDepartment}</small>
-        <small>v{skill.version} · 风险{riskLabel(skill)} · 更新于 {formatDate(skill.currentVersionUpdatedAt)}</small>
-        <div className="inline-actions wrap">
-          <button className="btn" onClick={() => ui.openSkillDetail(skill.skillID, "market")}>进入详情</button>
-          {!skill.localVersion && skill.canInstall && skill.detailAccess === "full" ? (
-            <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "install")} disabled={offline}>安装</button>
-          ) : null}
-          {skill.installState === "update_available" && skill.canUpdate ? (
-            <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "update")} disabled={offline}>更新</button>
-          ) : null}
-          {skill.localVersion ? (
-            <button className="btn" onClick={() => ui.openTargetsModal(skill)} disabled={skill.isScopeRestricted}>
-              <Link2 size={15} />
-              配置目标
-            </button>
-          ) : null}
-          {!skill.canInstall && !skill.localVersion ? <TagPill tone="warning">{skill.cannotInstallReason ?? "不可安装"}</TagPill> : null}
+        <div className="skill-metric skill-metric-status">
+          <TagPill tone={skill.installState === "update_available" ? "warning" : skill.installState === "blocked" ? "danger" : "success"}>
+            {statusLabel(skill, ui.language)}
+          </TagPill>
+        </div>
+        <div className="skill-metric skill-metric-version">
+          <span>v{skill.version}</span>
         </div>
       </div>
     </article>
@@ -354,9 +487,8 @@ function SkillDetailPanel({ skill, workspace, ui, standalone }: { skill: SkillSu
   const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
   return (
     <aside className={standalone ? "detail-shell page-detail" : "detail-shell"}>
-      <div className="detail-hero">
-        <img src={imageForSkill(skill)} alt={skill.displayName} />
-        <div className="detail-hero-copy">
+      <div className="detail-head">
+        <div className="detail-head-copy">
           <div className="inline-heading">
             <TagPill tone={skill.detailAccess === "summary" ? "warning" : "info"}>{skill.detailAccess === "summary" ? "摘要详情" : "完整详情"}</TagPill>
             <button className="icon-button" onClick={() => void workspace.toggleStar(skill.skillID)} aria-label={skill.starred ? `取消收藏 ${skill.displayName}` : `收藏 ${skill.displayName}`}>
@@ -498,16 +630,13 @@ function MarketPage({ workspace, ui }: PageProps) {
         </section>
       ) : null}
       <MarketToolbar workspace={workspace} ui={ui} />
-      <div className="market-layout">
-        <section className="skill-grid-panel">
-          {disconnected ? <SectionEmpty title={statusTitle} body={statusBody} /> : null}
-          {!disconnected && workspace.marketSkills.length === 0 ? <SectionEmpty title="没有找到匹配的 Skill" body="清空筛选后再试一次。" /> : null}
-          <div className="skill-grid">
-            {!disconnected ? workspace.marketSkills.map((skill) => <SkillCard key={skill.skillID} skill={skill} workspace={workspace} ui={ui} />) : null}
-          </div>
-        </section>
-        {!disconnected && ui.visibleSkillDetail ? <SkillDetailPanel skill={ui.visibleSkillDetail} workspace={workspace} ui={ui} /> : null}
-      </div>
+      <section className="panel skill-grid-panel">
+        {disconnected ? <SectionEmpty title={statusTitle} body={statusBody} /> : null}
+        {!disconnected && workspace.marketSkills.length === 0 ? <SectionEmpty title="没有找到匹配的 Skill" body="清空筛选后再试一次。" /> : null}
+        <div className="skill-grid">
+          {!disconnected ? workspace.marketSkills.map((skill) => <SkillCard key={skill.skillID} skill={skill} workspace={workspace} ui={ui} />) : null}
+        </div>
+      </section>
     </div>
   );
 }
@@ -538,6 +667,7 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
   const [toolInput, setToolInput] = useState("");
   const [systemInput, setSystemInput] = useState("windows");
   const [reviewComment, setReviewComment] = useState("");
+  const [expandedDiscoveredSkillIDs, setExpandedDiscoveredSkillIDs] = useState<string[]>([]);
 
   const selectedPublisherSkill =
     workspace.publisherData.publisherSkills.find((skill) => skill.latestSubmissionID === workspace.publisherData.selectedPublisherSubmissionID) ??
@@ -557,6 +687,12 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
       setMySkillTab("installed");
     }
   }, [workspace.loggedIn]);
+
+  function toggleDiscoveredDetails(skillID: string) {
+    setExpandedDiscoveredSkillIDs((current) =>
+      current.includes(skillID) ? current.filter((item) => item !== skillID) : [...current, skillID]
+    );
+  }
 
   function applyDraftLists(nextDraft: PublishDraft) {
     setDraft(nextDraft);
@@ -660,6 +796,17 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
   }
 
   function renderInstalledContent() {
+    const query = ui.installedQuery.trim().toLocaleLowerCase();
+    const visibleDiscoveredSkills =
+      ui.installedFilter === "all" || ui.installedFilter === "issues"
+        ? workspace.discoveredLocalSkills.filter((skill) =>
+            query.length === 0 ||
+            skill.displayName.toLocaleLowerCase().includes(query) ||
+            skill.skillID.toLocaleLowerCase().includes(query) ||
+            skill.targets.some((target) => target.targetName.toLocaleLowerCase().includes(query) || target.relativePath.toLocaleLowerCase().includes(query))
+          )
+        : [];
+
     return (
       <section className="panel">
         <div className="installed-filter-bar">
@@ -693,21 +840,23 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
         </div>
         <div className="toolbar-grid installed-toolbar">
           <TagPill tone="info">{workspace.installedSkills.length} 个本地副本</TagPill>
-          <TagPill tone="warning">{ui.installedFilterCounts.updates} 个待更新</TagPill>
-          <TagPill tone="success">{ui.installedFilterCounts.enabled} 个已启用</TagPill>
-          <TagPill tone={ui.installedFilterCounts.issues > 0 ? "danger" : "info"}>{ui.installedFilterCounts.issues} 个异常</TagPill>
+          {workspace.discoveredLocalSkills.length > 0 ? <TagPill tone="warning">{workspace.discoveredLocalSkills.length} 个目录扫描发现</TagPill> : null}
+          {ui.installedFilterCounts.updates > 0 ? <TagPill tone="warning">{ui.installedFilterCounts.updates} 个待更新</TagPill> : null}
+          {ui.installedFilterCounts.issues > 0 ? <TagPill tone="danger">{ui.installedFilterCounts.issues} 个异常</TagPill> : null}
         </div>
-        {workspace.installedSkills.length === 0 ? <SectionEmpty title="你还没有安装 Skill" body="进入市场安装后会出现在这里。" /> : null}
-        {workspace.installedSkills.length > 0 && ui.filteredInstalledSkills.length === 0 ? <SectionEmpty title="没有符合当前筛选的 Skill" body="清空搜索词或切换筛选后再试一次。" /> : null}
+        {workspace.installedSkills.length === 0 && workspace.discoveredLocalSkills.length === 0 ? <SectionEmpty title="你还没有安装 Skill" body="进入市场安装后会出现在这里。" /> : null}
+        {workspace.installedSkills.length > 0 && ui.filteredInstalledSkills.length === 0 && visibleDiscoveredSkills.length === 0 ? <SectionEmpty title="没有符合当前筛选的 Skill" body="清空搜索词或切换筛选后再试一次。" /> : null}
         <div className="stack-list">
           {ui.filteredInstalledSkills.map((skill) => {
             const enabledTools = skill.enabledTargets.filter((target) => target.targetType === "tool").length;
             const enabledProjects = skill.enabledTargets.filter((target) => target.targetType === "project").length;
             const issues = ui.installedSkillIssuesByID[skill.skillID] ?? [];
+            const visibleTargets = skill.enabledTargets.slice(0, 3);
+            const hiddenTargetCount = Math.max(0, skill.enabledTargets.length - visibleTargets.length);
 
             return (
-              <article className="installed-card" key={skill.skillID}>
-                <img src={imageForSkill(skill)} alt={skill.displayName} />
+              <article className="installed-card no-art" key={skill.skillID}>
+                <div className="signal-mark">{categoryIcon(skill)}</div>
                 <div>
                   <div className="inline-heading">
                     <strong>{skill.displayName}</strong>
@@ -737,11 +886,12 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
                   </div>
                   {skill.enabledTargets.length > 0 ? (
                     <div className="pill-row">
-                      {skill.enabledTargets.map((target) => (
+                      {visibleTargets.map((target) => (
                         <TagPill key={`${target.targetType}:${target.targetID}`} tone="info">
                           {target.targetName}
                         </TagPill>
                       ))}
+                      {hiddenTargetCount > 0 ? <TagPill tone="neutral">+{hiddenTargetCount} 个位置</TagPill> : null}
                     </div>
                   ) : null}
                 </div>
@@ -749,6 +899,71 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
             );
           })}
         </div>
+        {visibleDiscoveredSkills.length > 0 ? (
+          <div className="stack-list">
+            <div className="section-heading">
+              <div>
+                <div className="eyebrow">目录扫描发现</div>
+                <h2>工具或项目目录里的外部 Skill</h2>
+                <p>先看摘要；具体路径和处理提示按需展开，避免列表被诊断信息撑满。</p>
+              </div>
+              <button className="btn btn-small" onClick={() => void workspace.scanLocalTargets()}>
+                <RefreshCw size={15} />
+                重新扫描
+              </button>
+            </div>
+            {visibleDiscoveredSkills.map((skill) => {
+              const expanded = expandedDiscoveredSkillIDs.includes(skill.skillID);
+
+              return (
+                <article className="panel discovered-skill-card" key={skill.skillID}>
+                  <div className="inline-heading">
+                    <div className="discovered-skill-summary">
+                      <strong>{skill.displayName}</strong>
+                      <p>{skill.skillID}</p>
+                    </div>
+                    <div className="pill-row">
+                      <TagPill tone="warning">{skill.sourceLabel}</TagPill>
+                      {skill.matchedMarketSkill ? <TagPill tone="info">市场已存在同名 Skill</TagPill> : null}
+                    </div>
+                  </div>
+                  <p>{discoveredPreview(skill)}</p>
+                  <div className="discovered-meta-line">
+                    <span>{discoveredLocationSummary(skill)}</span>
+                  </div>
+                  <div className="inline-actions wrap">
+                    {skill.matchedMarketSkill ? (
+                      <button className="btn btn-primary" onClick={() => ui.openSkillDetail(skill.skillID, "my_installed")}>查看市场详情</button>
+                    ) : (
+                      <button className="btn btn-primary" onClick={() => ui.navigate(skill.targets.some((target) => target.targetType === "project") ? "projects" : "tools")}>
+                        {discoveryManageLabel(skill)}
+                      </button>
+                    )}
+                    <button className="btn" onClick={() => toggleDiscoveredDetails(skill.skillID)}>
+                      {expanded ? "收起位置" : `查看 ${skill.targets.length} 个位置`}
+                    </button>
+                  </div>
+                  {expanded ? (
+                    <div className="discovered-target-list">
+                      {skill.targets.map((target) => (
+                        <div className="discovered-target-row" key={`${skill.skillID}:${target.targetType}:${target.targetID}:${target.relativePath}`}>
+                          <div className="inline-heading">
+                            <strong>{target.targetName}</strong>
+                            <TagPill tone={target.findingKind === "unmanaged" ? "info" : "warning"}>
+                              {target.findingKind === "conflict" ? "内容不一致" : target.findingKind === "orphan" ? "登记缺失" : "未托管"}
+                            </TagPill>
+                          </div>
+                          <small className="target-path-line" title={target.targetPath}>{target.targetPath}</small>
+                          <small>{target.message}</small>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -771,7 +986,7 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
           {workspace.publisherData.publisherSkills.length === 0 ? <SectionEmpty title="还没有发布记录" body="上传 ZIP 或文件夹后会在这里看到治理状态。" /> : null}
           <div className="stack-list">
             {workspace.publisherData.publisherSkills.map((skill) => (
-              <article className="panel" key={skill.skillID}>
+              <article className="panel" key={skill.skillID} data-testid="publisher-skill-row" data-skill-id={skill.skillID}>
                 <div className="inline-heading">
                   <div>
                     <strong>{skill.displayName}</strong>
@@ -811,7 +1026,7 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel" data-testid="publisher-submission-detail">
           {!workspace.publisherData.selectedPublisherSubmission ? (
             <SectionEmpty title="选择一条提交查看详情" body="这里会显示预检查结果、下载包、历史时间线和当前可执行动作。" />
           ) : (
@@ -895,13 +1110,13 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
           </div>
           <TagPill tone="info">{submissionTypeLabel(draft.submissionType)}</TagPill>
         </div>
-        <form className="form-stack" onSubmit={submitDraft}>
+        <form className="form-stack" data-testid="publish-form" onSubmit={submitDraft}>
           <SelectField label="提交类型" value={draft.submissionType} options={["publish", "update", "permission_change"]} onChange={(value) => resetDraft(value as PublishDraft["submissionType"], selectedPublisherSkill ?? undefined)} />
-          <label className="field"><span>skillID</span><input value={draft.skillID} onChange={(event) => setDraft((current) => ({ ...current, skillID: event.target.value }))} disabled={draft.submissionType !== "publish"} /></label>
-          <label className="field"><span>显示名称</span><input value={draft.displayName} onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} /></label>
-          <label className="field"><span>描述</span><textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} /></label>
-          <label className="field"><span>版本号</span><input value={draft.version} onChange={(event) => setDraft((current) => ({ ...current, version: event.target.value }))} disabled={draft.submissionType === "permission_change"} /></label>
-          <label className="field"><span>变更说明</span><textarea value={draft.changelog} onChange={(event) => setDraft((current) => ({ ...current, changelog: event.target.value }))} rows={3} disabled={draft.submissionType === "permission_change"} /></label>
+          <label className="field"><span>skillID</span><input value={draft.skillID} data-testid="publish-skill-id" onChange={(event) => setDraft((current) => ({ ...current, skillID: event.target.value }))} disabled={draft.submissionType !== "publish"} /></label>
+          <label className="field"><span>显示名称</span><input value={draft.displayName} data-testid="publish-display-name" onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} /></label>
+          <label className="field"><span>描述</span><textarea value={draft.description} data-testid="publish-description" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} /></label>
+          <label className="field"><span>版本号</span><input value={draft.version} data-testid="publish-version" onChange={(event) => setDraft((current) => ({ ...current, version: event.target.value }))} disabled={draft.submissionType === "permission_change"} /></label>
+          <label className="field"><span>变更说明</span><textarea value={draft.changelog} data-testid="publish-changelog" onChange={(event) => setDraft((current) => ({ ...current, changelog: event.target.value }))} rows={3} disabled={draft.submissionType === "permission_change"} /></label>
           <SelectField label="授权范围" value={draft.scope} options={["current_department", "department_tree", "selected_departments", "all_employees"]} onChange={(value) => setDraft((current) => ({ ...current, scope: value as PublishDraft["scope"] }))} />
           {draft.scope === "selected_departments" ? (
             <label className="field">
@@ -921,19 +1136,19 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
             </label>
           ) : null}
           <SelectField label="公开级别" value={draft.visibility} options={["private", "summary_visible", "detail_visible", "public_installable"]} onChange={(value) => setDraft((current) => ({ ...current, visibility: value as PublishDraft["visibility"] }))} />
-          <label className="field"><span>分类</span><input value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} /></label>
-          <label className="field"><span>标签（逗号分隔）</span><input value={tagInput} onChange={(event) => { const value = event.target.value; setTagInput(value); setDraft((current) => ({ ...current, tags: splitCSV(value) })); }} /></label>
-          <label className="field"><span>适用工具（逗号分隔）</span><input value={toolInput} onChange={(event) => { const value = event.target.value; setToolInput(value); setDraft((current) => ({ ...current, compatibleTools: splitCSV(value) })); }} /></label>
-          <label className="field"><span>适用系统（逗号分隔）</span><input value={systemInput} onChange={(event) => { const value = event.target.value; setSystemInput(value); setDraft((current) => ({ ...current, compatibleSystems: splitCSV(value) })); }} /></label>
+          <label className="field"><span>分类</span><input value={draft.category} data-testid="publish-category" onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} /></label>
+          <label className="field"><span>标签（逗号分隔）</span><input value={tagInput} data-testid="publish-tags" onChange={(event) => { const value = event.target.value; setTagInput(value); setDraft((current) => ({ ...current, tags: splitCSV(value) })); }} /></label>
+          <label className="field"><span>适用工具（逗号分隔）</span><input value={toolInput} data-testid="publish-tools" onChange={(event) => { const value = event.target.value; setToolInput(value); setDraft((current) => ({ ...current, compatibleTools: splitCSV(value) })); }} /></label>
+          <label className="field"><span>适用系统（逗号分隔）</span><input value={systemInput} data-testid="publish-systems" onChange={(event) => { const value = event.target.value; setSystemInput(value); setDraft((current) => ({ ...current, compatibleSystems: splitCSV(value) })); }} /></label>
           {draft.submissionType !== "permission_change" ? (
             <>
               <label className="field">
                 <span>上传 ZIP</span>
-                <input type="file" accept=".zip,application/zip" onChange={handleZipUpload} />
+                <input type="file" accept=".zip,application/zip" data-testid="publish-zip-input" onChange={handleZipUpload} />
               </label>
               <label className="field">
                 <span>上传文件夹</span>
-                <input type="file" multiple {...folderInputProps} onChange={handleFolderUpload} />
+                <input type="file" multiple data-testid="publish-folder-input" {...folderInputProps} onChange={handleFolderUpload} />
               </label>
               <div className="detail-block">
                 <h3>当前上传内容</h3>
@@ -971,7 +1186,7 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
             </div>
           )}
           <div className="inline-actions wrap">
-            <button className="btn btn-primary" type="submit" disabled={!canSubmitDraft}>提交发布</button>
+            <button className="btn btn-primary" type="submit" data-testid="publish-submit" disabled={!canSubmitDraft}>提交发布</button>
             <button className="btn" type="button" onClick={() => resetDraft(draft.submissionType, selectedPublisherSkill ?? undefined)}>重置</button>
           </div>
         </form>
@@ -988,9 +1203,9 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
           <p>{mySkillTab === "installed" ? "按文档展示本机副本、启用范围、更新状态、权限收缩和异常提示。" : mySkillTab === "published" ? "作者侧展示最新治理状态、预检查和审核历史。" : "支持 ZIP 与文件夹双上传，提交后进入系统初审与管理员审核。"}</p>
         </div>
         <div className="inline-actions wrap">
-          <button className={mySkillTab === "installed" ? "btn btn-primary" : "btn"} onClick={() => setMySkillTab("installed")}>已安装</button>
-          <button className={mySkillTab === "published" ? "btn btn-primary" : "btn"} onClick={() => setMySkillTab("published")} disabled={!workspace.loggedIn}>我发布的</button>
-          <button className={mySkillTab === "publish" ? "btn btn-primary" : "btn"} onClick={() => setMySkillTab("publish")} disabled={!workspace.loggedIn}>发布 Skill</button>
+          <button className={mySkillTab === "installed" ? "btn btn-primary" : "btn"} data-testid="my-skills-installed-tab" onClick={() => setMySkillTab("installed")}>已安装</button>
+          <button className={mySkillTab === "published" ? "btn btn-primary" : "btn"} data-testid="my-skills-published-tab" onClick={() => setMySkillTab("published")} disabled={!workspace.loggedIn}>我发布的</button>
+          <button className={mySkillTab === "publish" ? "btn btn-primary" : "btn"} data-testid="my-skills-publish-tab" onClick={() => setMySkillTab("publish")} disabled={!workspace.loggedIn}>发布 Skill</button>
           <button className="btn" onClick={() => ui.navigate("market")}>去市场看看</button>
         </div>
       </section>
@@ -1064,7 +1279,7 @@ function ReviewPage({ workspace, ui }: PageProps) {
           </thead>
           <tbody>
             {ui.filteredReviews.map((review) => (
-              <tr key={review.reviewID}>
+              <tr key={review.reviewID} data-testid="review-row" data-review-id={review.reviewID} data-skill-id={review.skillID}>
                 <td>
                   <strong>{review.skillDisplayName}</strong>
                   <div className="table-meta">{review.skillID} · {submissionTypeLabel(review.reviewType)}</div>
@@ -1095,7 +1310,7 @@ function ReviewPage({ workspace, ui }: PageProps) {
         </table>
       </div>
 
-      <section className="panel">
+      <section className="panel" data-testid="review-detail-panel">
         {!workspace.adminData.selectedReview ? <SectionEmpty title="选择一条审核单查看详情" body="这里会显示预检查结果、提交包下载与可执行动作。" /> : (
           <>
             <div className="section-heading">
@@ -1162,13 +1377,14 @@ function ReviewPage({ workspace, ui }: PageProps) {
               <h3>审核动作</h3>
               <label className="field">
                 <span>说明</span>
-                <textarea value={decisionComment} onChange={(event) => setDecisionComment(event.target.value)} rows={3} placeholder="补充审核意见、退回原因或通过说明" />
+                <textarea value={decisionComment} data-testid="review-comment" onChange={(event) => setDecisionComment(event.target.value)} rows={3} placeholder="补充审核意见、退回原因或通过说明" />
               </label>
               <div className="inline-actions wrap">
                 {workspace.adminData.selectedReview.availableActions.map((action) => (
                   <button
                     className={action === "approve" || action === "pass_precheck" ? "btn btn-primary btn-small" : "btn btn-small"}
                     key={action}
+                    data-testid={`review-action-${action}`}
                     onClick={() => runReviewAction(action, workspace.adminData.selectedReview?.reviewID ?? "")}
                   >
                     {reviewActionLabel(action)}
@@ -1439,65 +1655,71 @@ function ToolsPage({ workspace, ui }: PageProps) {
     <div className="page-stack">
       <section className="page-head">
         <div>
-          <div className="eyebrow">工具管理</div>
-          <h1>本机 AI 工具</h1>
-          <p>工具状态、注册表/默认路径检测、手动覆盖和目录扫描都来自真实 Tauri 本地状态。</p>
+          <div className="eyebrow">{localize(ui.language, "工具管理", "Tools")}</div>
+          <h1>{localize(ui.language, "本机 AI 工具", "Local AI Tools")}</h1>
+          <p>{localize(ui.language, "工具状态、注册表/默认路径检测、手动覆盖和目录扫描都来自真实 Tauri 本地状态。", "Tool status, path detection, manual overrides, and scans all come from local Tauri state.")}</p>
         </div>
         <div className="inline-actions">
-          <button className="btn" onClick={() => void workspace.refreshTools()}><RefreshCw size={15} />刷新检测</button>
-          <button className="btn btn-primary" onClick={() => ui.openToolEditor()}><Plus size={15} />添加自定义工具</button>
+          <button className="btn" onClick={() => void workspace.refreshTools()}><RefreshCw size={15} />{localize(ui.language, "刷新检测", "Refresh")}</button>
+          <button className="btn btn-primary" onClick={() => ui.openToolEditor()}><Plus size={15} />{localize(ui.language, "添加自定义工具", "Add Custom Tool")}</button>
         </div>
       </section>
 
-      <div className="card-grid">
+      <section className="panel tool-list">
         {workspace.tools.map((tool) => {
           const scanSummary = workspace.scanTargets.find((summary) => summary.targetType === "tool" && summary.targetID === tool.toolID) ?? null;
           const abnormalCount = scanSummary ? scanSummary.counts.unmanaged + scanSummary.counts.conflict + scanSummary.counts.orphan : 0;
           return (
-            <article className="panel tool-card" key={tool.toolID}>
-              <div className="inline-heading">
-                <div className="tool-mark"><CircleGauge size={18} /></div>
-                <div>
-                  <h3>{tool.name}</h3>
-                  <small>{tool.transformStrategy}</small>
+            <article className="tool-list-row" key={tool.toolID}>
+              <div className="tool-list-main">
+                <div className="inline-heading">
+                  <div className="tool-list-title">
+                    <div className="tool-mark"><CircleGauge size={18} /></div>
+                    <div>
+                      <h3>{tool.name}</h3>
+                      <small>{transformStrategyLabel(tool.transformStrategy, ui.language)}</small>
+                    </div>
+                  </div>
+                  <div className="pill-row">
+                    <TagPill tone={tool.adapterStatus === "detected" ? "success" : tool.adapterStatus === "manual" ? "info" : "warning"}>{adapterStatusLabel(tool.adapterStatus, ui.language)}</TagPill>
+                    <TagPill tone="info">{detectionMethodLabel(tool.detectionMethod, ui.language)}</TagPill>
+                    {abnormalCount > 0 ? <TagPill tone="warning">{localize(ui.language, `异常 ${abnormalCount}`, `${abnormalCount} issues`)}</TagPill> : null}
+                  </div>
                 </div>
+                <div className="tool-list-meta">
+                  <small>{localize(ui.language, "配置路径", "Config")}: {tool.configPath || localize(ui.language, "未配置", "Not set")}</small>
+                  <small>{localize(ui.language, "自动检测路径", "Detected")}: {tool.detectedPath ?? localize(ui.language, "未命中", "Not found")}</small>
+                  <small>{localize(ui.language, "手动覆盖路径", "Manual Override")}: {tool.configuredPath ?? localize(ui.language, "未覆盖", "None")}</small>
+                  <small>{localize(ui.language, "Skills 路径", "Skills Path")}: {tool.skillsPath || localize(ui.language, "未配置", "Not set")}</small>
+                  <small>{localize(ui.language, "已启用 Skill", "Enabled Skills")}: {tool.enabledSkillCount} · {tool.enabled ? localize(ui.language, "配置已启用", "Enabled") : localize(ui.language, "配置已停用", "Disabled")} · {localize(ui.language, "最近扫描", "Last Scan")}: {formatDate(tool.lastScannedAt ?? null, ui.language)}</small>
+                </div>
+                {tool.adapterStatus === "missing" || tool.adapterStatus === "invalid" ? (
+                  <div className="callout warning">
+                    <AlertTriangle size={16} />
+                    <span>
+                      <strong>{tool.adapterStatus === "missing" ? localize(ui.language, "工具未检测到", "Tool Not Found") : localize(ui.language, "工具路径不可用", "Invalid Tool Path")}</strong>
+                      <small>{localize(ui.language, "请修改当前项路径后重新检测。", "Update the path and scan again.")}</small>
+                    </span>
+                  </div>
+                ) : null}
+                {scanSummary && abnormalCount > 0 ? (
+                  <div className="callout warning">
+                    <AlertTriangle size={16} />
+                    <span>
+                      <strong>{localize(ui.language, "扫描摘要", "Scan Summary")}</strong>
+                      <small>{scanSummary.findings.filter((finding) => finding.kind !== "managed").slice(0, 2).map((finding) => finding.message).join("；")}</small>
+                    </span>
+                  </div>
+                ) : null}
               </div>
-              <div className="pill-row">
-                <TagPill tone={tool.adapterStatus === "detected" ? "success" : tool.adapterStatus === "manual" ? "info" : "warning"}>{tool.adapterStatus}</TagPill>
-                <TagPill tone="info">{tool.detectionMethod}</TagPill>
-                {abnormalCount > 0 ? <TagPill tone="warning">扫描异常 {abnormalCount}</TagPill> : null}
-              </div>
-              <p>配置路径：{tool.configPath || "未配置"}</p>
-              <small>自动检测路径：{tool.detectedPath ?? "未命中"}</small>
-              <small>手动覆盖路径：{tool.configuredPath ?? "未覆盖"}</small>
-              <small>skills 路径：{tool.skillsPath}</small>
-              <small>已启用 Skill：{tool.enabledSkillCount} · {tool.enabled ? "配置已启用" : "配置已停用"} · 最近扫描：{formatDate(tool.lastScannedAt ?? null)}</small>
-              {tool.adapterStatus === "missing" || tool.adapterStatus === "invalid" ? (
-                <div className="callout warning">
-                  <AlertTriangle size={16} />
-                  <span>
-                    <strong>{tool.adapterStatus === "missing" ? "工具未检测到" : "工具路径不可用"}</strong>
-                    <small>请修改当前项路径后重新检测。</small>
-                  </span>
-                </div>
-              ) : null}
-              {scanSummary && abnormalCount > 0 ? (
-                <div className="callout warning">
-                  <AlertTriangle size={16} />
-                  <span>
-                    <strong>扫描摘要</strong>
-                    <small>{scanSummary.findings.filter((finding) => finding.kind !== "managed").slice(0, 2).map((finding) => finding.message).join("；")}</small>
-                  </span>
-                </div>
-              ) : null}
-              <div className="inline-actions wrap">
-                <button className="btn" onClick={() => ui.openToolEditor(tool)}>修改路径</button>
-                <button className="btn btn-small" onClick={() => void workspace.scanLocalTargets()}>重新扫描</button>
+              <div className="tool-list-actions">
+                <button className="btn" onClick={() => ui.openToolEditor(tool)}>{localize(ui.language, "修改路径", "Edit Paths")}</button>
+                <button className="btn btn-small" onClick={() => void workspace.scanLocalTargets()}>{localize(ui.language, "重新扫描", "Rescan")}</button>
               </div>
             </article>
           );
         })}
-      </div>
+      </section>
     </div>
   );
 }
@@ -1559,27 +1781,47 @@ function ProjectsPage({ workspace, ui }: PageProps) {
 }
 
 function NotificationsPage({ workspace, ui }: PageProps) {
-  if (!workspace.loggedIn) {
-    return <AuthGateCard title="通知需要登录后同步" body="登录后可查看真实服务端通知、标记已读并同步离线事件。" onLogin={() => workspace.requireAuth("notifications")} />;
-  }
+  const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
 
   return (
     <div className="page-stack">
       <section className="page-head">
         <div>
-          <div className="eyebrow">应用内消息中心</div>
-          <h1>通知</h1>
-          <p>服务端通知、本地事件同步结果和未读状态在这里统一汇总。</p>
+          <div className="eyebrow">{localize(ui.language, "应用内消息中心", "Inbox")}</div>
+          <h1>{localize(ui.language, "通知", "Notifications")}</h1>
+          <p>{workspace.loggedIn
+            ? localize(ui.language, "服务端通知、本地事件同步结果和未读状态在这里统一汇总。", "Server notifications, local event sync results, and unread state are shown here.")
+            : localize(ui.language, "这里保留本机通知和最近一次同步下来的缓存消息。", "This view keeps local notifications and the most recently synced cached messages.")}</p>
         </div>
         <div className="inline-actions wrap">
-          <button className={ui.notificationFilter === "all" ? "btn btn-primary" : "btn"} onClick={() => ui.setNotificationFilter("all")}>全部</button>
-          <button className={ui.notificationFilter === "unread" ? "btn btn-primary" : "btn"} onClick={() => ui.setNotificationFilter("unread")}>未读</button>
-          <button className="btn" onClick={() => void workspace.markNotificationsRead("all")}>全部已读</button>
-          <button className="btn" onClick={() => void workspace.syncOfflineEvents()}>同步本地事件（{workspace.offlineEvents.length}）</button>
+          <button className={ui.notificationFilter === "all" ? "btn btn-primary" : "btn"} onClick={() => ui.setNotificationFilter("all")}>{localize(ui.language, "全部", "All")}</button>
+          <button className={ui.notificationFilter === "unread" ? "btn btn-primary" : "btn"} onClick={() => ui.setNotificationFilter("unread")}>{localize(ui.language, "未读", "Unread")}</button>
+          <button className="btn" onClick={() => void workspace.markNotificationsRead("all")}>{localize(ui.language, "全部已读", "Mark All Read")}</button>
+          <button className="btn" onClick={() => void workspace.syncOfflineEvents()}>{localize(ui.language, `同步本地事件（${workspace.offlineEvents.length}）`, `Sync Local Events (${workspace.offlineEvents.length})`)}</button>
         </div>
       </section>
 
-      {ui.filteredNotifications.length === 0 ? <SectionEmpty title="暂无通知" body="新的安装、更新、路径异常或连接状态会出现在这里。" /> : null}
+      {!workspace.loggedIn ? (
+        <div className="callout info">
+          <CircleGauge size={16} />
+          <span>
+            <strong>{localize(ui.language, "当前为本地模式", "Local Mode")}</strong>
+            <small>{localize(ui.language, "登录后可继续同步真实服务端通知和离线事件。", "Sign in to continue syncing server notifications and offline events.")}</small>
+          </span>
+        </div>
+      ) : null}
+
+      {offline ? (
+        <div className="callout warning">
+          <AlertTriangle size={16} />
+          <span>
+            <strong>{localize(ui.language, "当前展示缓存通知", "Showing Cached Notifications")}</strong>
+            <small>{localize(ui.language, "网络恢复后可重新同步服务端未读状态。", "Reconnect to refresh unread state from the server.")}</small>
+          </span>
+        </div>
+      ) : null}
+
+      {ui.filteredNotifications.length === 0 ? <SectionEmpty title={localize(ui.language, "暂无通知", "No Notifications")} body={localize(ui.language, "新的安装、更新、路径异常或连接状态会出现在这里。", "Install results, updates, path issues, and connection changes will appear here.")} /> : null}
       <div className="stack-list">
         {ui.filteredNotifications.map((notice) => (
           <button className={notice.unread ? "notice-row unread" : "notice-row"} key={notice.notificationID} onClick={() => { ui.navigate(notice.targetPage); void workspace.markNotificationsRead([notice.notificationID]); }}>
@@ -1587,7 +1829,7 @@ function NotificationsPage({ workspace, ui }: PageProps) {
               <strong>{notice.title}</strong>
               <small>{notice.summary}</small>
             </span>
-            <small>{notice.source} · {formatDate(notice.occurredAt)}</small>
+            <small>{notificationSourceLabel(notice.source, ui.language)} · {formatDate(notice.occurredAt, ui.language)}</small>
           </button>
         ))}
       </div>
@@ -1613,39 +1855,63 @@ function SettingsPage({ workspace, ui }: PageProps) {
     <div className="page-stack">
       <section className="page-head">
         <div>
-          <div className="eyebrow">基础偏好</div>
-          <h1>设置</h1>
-          <p>语言、主题和同步偏好都保存在本地，不依赖远端接口。</p>
+          <div className="eyebrow">{localize(ui.language, "基础偏好", "Preferences")}</div>
+          <h1>{localize(ui.language, "设置", "Settings")}</h1>
+          <p>{localize(ui.language, "语言、主题和同步偏好都保存在本地，不依赖远端接口。", "Language, theme, and sync preferences are stored locally and do not depend on the server.")}</p>
         </div>
-        <TagPill tone="info">{themeLabel(ui.preferences.theme)}</TagPill>
+        <TagPill tone="info">{themeLabel(ui.preferences.theme, ui.language)}</TagPill>
       </section>
 
       <div className="card-grid">
         <section className="panel">
-          <h2>语言</h2>
-          <SelectField label="显示语言" value={ui.preferences.language} options={["auto", "zh-CN", "en-US"]} onChange={(value) => updatePreference("language", value as PreferenceState["language"])} />
-          <PreferenceToggle label="按系统地区自动识别" checked={ui.preferences.autoDetectLanguage} onChange={(value) => updatePreference("autoDetectLanguage", value)} />
+          <h2>{localize(ui.language, "语言", "Language")}</h2>
+          <SelectField
+            label={localize(ui.language, "显示语言", "Display Language")}
+            value={ui.preferences.language}
+            options={[
+              { value: "auto", label: settingsLanguageLabel("auto", ui.language) },
+              { value: "zh-CN", label: settingsLanguageLabel("zh-CN", ui.language) },
+              { value: "en-US", label: settingsLanguageLabel("en-US", ui.language) }
+            ]}
+            onChange={(value) =>
+              ui.setPreferences((current) => ({
+                ...current,
+                language: value as PreferenceState["language"],
+                autoDetectLanguage: value === "auto"
+              }))
+            }
+          />
+          <PreferenceToggle label={localize(ui.language, "按系统地区自动识别", "Follow System Language")} checked={ui.preferences.autoDetectLanguage} onChange={(value) => updatePreference("autoDetectLanguage", value)} />
         </section>
         <section className="panel">
-          <h2>主题</h2>
-          <SelectField label="主题" value={ui.preferences.theme} options={["classic", "fresh", "contrast"]} onChange={(value) => updatePreference("theme", value as PreferenceState["theme"])} />
+          <h2>{localize(ui.language, "主题", "Theme")}</h2>
+          <SelectField
+            label={localize(ui.language, "主题", "Theme")}
+            value={ui.preferences.theme}
+            options={[
+              { value: "classic", label: themeLabel("classic", ui.language) },
+              { value: "fresh", label: themeLabel("fresh", ui.language) },
+              { value: "contrast", label: themeLabel("contrast", ui.language) }
+            ]}
+            onChange={(value) => updatePreference("theme", value as PreferenceState["theme"])}
+          />
           <div className="pill-row">
-            <TagPill>经典白</TagPill>
-            <TagPill>清爽绿</TagPill>
-            <TagPill>高对比</TagPill>
+            <TagPill>{themeLabel("classic", ui.language)}</TagPill>
+            <TagPill>{themeLabel("fresh", ui.language)}</TagPill>
+            <TagPill>{themeLabel("contrast", ui.language)}</TagPill>
           </div>
         </section>
         <section className="panel">
           <h2>Central Store</h2>
           <p>{workspace.localCentralStorePath || previewCentralStorePath()}</p>
-          <small>前端只展示路径；真实文件写入仍通过 Tauri 命令完成。</small>
+          <small>{localize(ui.language, "前端只展示路径；真实文件写入仍通过 Tauri 命令完成。", "The frontend only shows the path. Real file writes still go through Tauri commands.")}</small>
         </section>
         <section className="panel">
-          <h2>同步偏好</h2>
-          <PreferenceToggle label="显示安装/更新结果" checked={ui.preferences.showInstallResults} onChange={(value) => updatePreference("showInstallResults", value)} />
-          <PreferenceToggle label="联网后同步本地事件" checked={ui.preferences.syncLocalEvents} onChange={(value) => updatePreference("syncLocalEvents", value)} />
+          <h2>{localize(ui.language, "同步偏好", "Sync")}</h2>
+          <PreferenceToggle label={localize(ui.language, "显示安装/更新结果", "Show Install and Update Results")} checked={ui.preferences.showInstallResults} onChange={(value) => updatePreference("showInstallResults", value)} />
+          <PreferenceToggle label={localize(ui.language, "联网后同步本地事件", "Sync Local Events After Reconnect")} checked={ui.preferences.syncLocalEvents} onChange={(value) => updatePreference("syncLocalEvents", value)} />
           <div className="inline-actions">
-            <button className="btn" onClick={() => void workspace.refreshBootstrap()}><RefreshCw size={15} />刷新启动上下文</button>
+            <button className="btn" onClick={() => void workspace.refreshBootstrap()}><RefreshCw size={15} />{localize(ui.language, "刷新启动上下文", "Refresh Bootstrap")}</button>
           </div>
         </section>
       </div>

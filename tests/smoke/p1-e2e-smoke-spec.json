@@ -223,6 +223,90 @@
       ]
     },
     {
+      "id": "publisher-return-resubmit-browser-flow",
+      "title": "Browser return-for-changes flow supports folder resubmission and later publish",
+      "coverage": ["POST /publisher/submissions", "POST /admin/reviews/{id}/return", "GET /publisher/skills", "folder upload"],
+      "preconditions": ["API, PostgreSQL, Redis and MinIO are running", "Desktop Vite app is connected to the real API"],
+      "steps": [
+        "Log in as a normal author and submit one folder package.",
+        "Log in as an eligible admin and return the review for changes.",
+        "Resubmit the same skillID from the browser with updated folder contents.",
+        "Approve the resubmitted review."
+      ],
+      "expectedEvidence": [
+        "Returned submissions expose returned_for_changes state and keep market hidden.",
+        "Resubmission creates a new latest submission for the same skillID.",
+        "Approved resubmission writes the skill into the market-facing dataset."
+      ]
+    },
+    {
+      "id": "publisher-reject-no-market-leakage",
+      "title": "Rejected publish attempts never leak into market visibility or download-ticket paths",
+      "coverage": ["POST /admin/reviews/{id}/reject", "GET /skills", "POST /skills/{skillID}/download-ticket"],
+      "preconditions": ["A new publish submission exists and is reviewable"],
+      "steps": [
+        "Log in as an eligible admin and reject the new publish review.",
+        "Search the market for that skillID.",
+        "Attempt to fetch detail or download-ticket through the normal user path."
+      ],
+      "expectedEvidence": [
+        "Rejected submissions move into review_rejected with history retained.",
+        "The rejected skill is absent from market search results.",
+        "Normal-user detail/download paths do not expose installable package data for the rejected skill."
+      ]
+    },
+    {
+      "id": "permission-change-visibility-switch-after-approval",
+      "title": "Permission change keeps old market visibility until approval, then switches atomically",
+      "coverage": ["permission_change review flow", "market detailAccess", "canInstall gating"],
+      "preconditions": ["A published public_installable skill exists", "At least one outsider user can observe market access changes"],
+      "steps": [
+        "Create a permission_change submission that narrows visibility/access.",
+        "Check market access for an outsider user before approval.",
+        "Approve the permission change review.",
+        "Check the outsider market view again."
+      ],
+      "expectedEvidence": [
+        "Before approval, outsider users still see the old visibility/install state.",
+        "After approval, outsider users lose installability and only see the new summary/detail contract.",
+        "The switch happens only after review approval, not at submit time."
+      ]
+    },
+    {
+      "id": "update-publish-old-version-remains-live",
+      "title": "Update publish keeps the old market version live until review approval",
+      "coverage": ["update publish flow", "market version visibility", "download-ticket versioning"],
+      "preconditions": ["A published v1 skill exists and a v2 package is available for submission"],
+      "steps": [
+        "Submit an update review for v2.",
+        "Before approval, open the market detail and inspect the visible version.",
+        "Approve the update review.",
+        "Open the market detail and download-ticket again."
+      ],
+      "expectedEvidence": [
+        "While v2 is pending, market still exposes v1 as the current version.",
+        "After approval, market switches to v2.",
+        "download-ticket resolves against the newly approved version only after approval."
+      ]
+    },
+    {
+      "id": "same-skill-market-download-install-enable",
+      "title": "The same newly published skill can be downloaded, installed, enabled, restarted, and uninstalled locally",
+      "coverage": ["same skill continuity", "download-ticket", "Tauri install", "Central Store", "enable_skill", "restart restore", "uninstall_skill"],
+      "preconditions": ["A newly published skill from the happy-path browser flow exists", "Native local-state harness can access the real API"],
+      "steps": [
+        "Use the exact same skillID/version published in the browser happy path.",
+        "Fetch a real download-ticket for that skill.",
+        "Install, enable to one tool and one project, restart local state, then uninstall."
+      ],
+      "expectedEvidence": [
+        "download-ticket hash matches the downloaded ZIP archive.",
+        "Local install records sourcePackageHash as the ZIP hash and localHash as the installed content hash.",
+        "Restart restores enabled targets from SQLite.",
+        "Disable/uninstall remove managed targets and Central Store state for that same published skill."
+      ]
+    },
+    {
       "id": "notifications-read-offline-cache",
       "title": "Notifications support mark-read and offline cache display",
       "coverage": ["GET /notifications", "POST /notifications/mark-read", "local_notifications"],

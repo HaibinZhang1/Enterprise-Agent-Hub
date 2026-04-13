@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "P1 foundation loop verification path",
-  "generatedAt": "2026-04-13T06:51:37.049Z",
+  "generatedAt": "2026-04-13T16:13:56.551Z",
   "strict": true,
   "overallStatus": "pass",
   "summary": {
@@ -16,7 +16,7 @@
       "fail": 0
     },
     "commands": {
-      "pass": 12,
+      "pass": 15,
       "pending": 0,
       "fail": 0
     }
@@ -180,8 +180,8 @@
       "error": null,
       "stdout": "\n> enterprise-agent-hub@0.1.0 typecheck\n> npm run typecheck --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 typecheck\n> tsc --noEmit -p tsconfig.json\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 typecheck\n> tsc -b --pretty false --noEmit\n\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:31.280Z",
-      "endedAt": "2026-04-13T06:51:32.885Z"
+      "startedAt": "2026-04-13T16:13:03.183Z",
+      "endedAt": "2026-04-13T16:13:04.996Z"
     },
     {
       "id": "workspace-test",
@@ -194,10 +194,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> enterprise-agent-hub@0.1.0 test\n> npm run test --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.777417ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.101333ms)\n✔ download-ticket points at a real package download URL with matching seed package metadata (0.118291ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.061666ms)\n✔ publishing utils parse frontmatter and detect semver expansion rules (0.617209ms)\n✔ PublishingService routes normal-user submissions to direct department admins (0.141833ms)\n✔ PublishingService routes level-4 private submissions to peer admins before escalation (0.091709ms)\n✔ PublishingService routes public submissions to nearest level-3 reviewer on the org chain (0.111583ms)\n✔ buildSkillListQueryPlan pushes search, filters, sort, and pagination into SQL (0.666792ms)\n✔ SkillsService.list executes the database plan and maps paged rows to summaries (0.319ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 274.821292\n\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n✔ publish precheck passes for a valid folder upload with SKILL.md (0.349708ms)\n✔ publish precheck blocks invalid semver and oversized packages (0.078458ms)\n✔ prototype backend actions reject with explicit pending backend errors (0.201958ms)\n✔ installed skill issues cover local hash drift and unavailable targets (0.167167ms)\n✔ platform path helpers emit mac-friendly defaults when requested (0.066709ms)\n✔ platform path helpers preserve windows project suffix conventions (0.046167ms)\nℹ tests 6\nℹ suites 0\nℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 55.074458\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 test\n> npm run build && node --test test/*.test.mjs\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 build\n> tsc -b\n\n✔ P1 enums preserve documented lower_snake_case values (0.250667ms)\n✔ enable/install mode supports symlink-first and copy fallback (0.215708ms)\n✔ cut-slice route and Tauri command names are centralized (0.052375ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 28.055625\n\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.433917ms)\n✔ all declared golden fixture files exist (0.185708ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.728625\n",
+      "stdout": "\n> enterprise-agent-hub@0.1.0 test\n> npm run test --workspaces --if-present\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.318833ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.122208ms)\n✔ download-ticket points at a real package download URL with matching seed package metadata (0.123584ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.061ms)\n✔ publishing utils parse frontmatter and detect semver expansion rules (0.841209ms)\n✔ PublishingService routes normal-user submissions to direct department admins (0.158666ms)\n✔ PublishingService routes level-4 private submissions to peer admins before escalation (0.102208ms)\n✔ PublishingService routes public submissions to nearest level-3 reviewer on the org chain (0.13075ms)\n✔ buildSkillListQueryPlan pushes search, filters, sort, and pagination into SQL (0.736042ms)\n✔ SkillsService.list executes the database plan and maps paged rows to summaries (0.321334ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 303.551833\n\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n✔ publish precheck passes for a valid folder upload with SKILL.md (0.434458ms)\n✔ publish precheck blocks invalid semver and oversized packages (0.105875ms)\n✔ prototype backend actions reject with explicit pending backend errors (0.242792ms)\n✔ installed skill issues cover local hash drift and unavailable targets (0.184833ms)\n✔ platform path helpers emit mac-friendly defaults when requested (0.0785ms)\n✔ platform path helpers preserve windows project suffix conventions (0.082208ms)\n✔ market query builder keeps installed/enabled local-only while sending category and date filters (0.877875ms)\n✔ display date parser accepts p1-local timestamps from desktop local state (7.713041ms)\n✔ display date formatter tolerates invalid timestamps without throwing (0.078333ms)\n✔ discovered local skills include unmanaged tool directories and ignore hidden/system entries (0.305542ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 73.615375\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 test\n> npm run build && node --test test/*.test.mjs\n\n\n> @enterprise-agent-hub/shared-contracts@0.1.0 build\n> tsc -b\n\n✔ P1 enums preserve documented lower_snake_case values (0.313208ms)\n✔ enable/install mode supports symlink-first and copy fallback (0.252625ms)\n✔ cut-slice route and Tauri command names are centralized (0.058584ms)\nℹ tests 3\nℹ suites 0\nℹ pass 3\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 33.880417\n\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.443416ms)\n✔ all declared golden fixture files exist (0.183625ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 32.865167\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:32.885Z",
-      "endedAt": "2026-04-13T06:51:34.666Z"
+      "startedAt": "2026-04-13T16:13:04.996Z",
+      "endedAt": "2026-04-13T16:13:06.973Z"
     },
     {
       "id": "api-test",
@@ -210,10 +210,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.653125ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.094458ms)\n✔ download-ticket points at a real package download URL with matching seed package metadata (0.11525ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.063ms)\n✔ publishing utils parse frontmatter and detect semver expansion rules (0.609458ms)\n✔ PublishingService routes normal-user submissions to direct department admins (0.141167ms)\n✔ PublishingService routes level-4 private submissions to peer admins before escalation (0.099917ms)\n✔ PublishingService routes public submissions to nearest level-3 reviewer on the org chain (0.111667ms)\n✔ buildSkillListQueryPlan pushes search, filters, sort, and pagination into SQL (0.672333ms)\n✔ SkillsService.list executes the database plan and maps paged rows to summaries (0.326917ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 262.803042\n",
+      "stdout": "\n> @enterprise-agent-hub/api@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 API contracts preserve symlink-first copy fallback fields (0.324125ms)\n✔ P1 seed covers full, restricted, and delisted skill scenarios (0.12175ms)\n✔ download-ticket points at a real package download URL with matching seed package metadata (0.13275ms)\n✔ PostgreSQL migration includes FTS and local-event idempotency gates (0.059625ms)\n✔ publishing utils parse frontmatter and detect semver expansion rules (0.648417ms)\n✔ PublishingService routes normal-user submissions to direct department admins (0.152167ms)\n✔ PublishingService routes level-4 private submissions to peer admins before escalation (0.1125ms)\n✔ PublishingService routes public submissions to nearest level-3 reviewer on the org chain (0.125667ms)\n✔ buildSkillListQueryPlan pushes search, filters, sort, and pagination into SQL (0.675917ms)\n✔ SkillsService.list executes the database plan and maps paged rows to summaries (0.308583ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 290.960042\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:34.666Z",
-      "endedAt": "2026-04-13T06:51:35.022Z"
+      "startedAt": "2026-04-13T16:13:06.973Z",
+      "endedAt": "2026-04-13T16:13:07.371Z"
     },
     {
       "id": "desktop-frontend-test",
@@ -226,10 +226,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n✔ publish precheck passes for a valid folder upload with SKILL.md (0.356292ms)\n✔ publish precheck blocks invalid semver and oversized packages (0.07925ms)\n✔ prototype backend actions reject with explicit pending backend errors (0.203ms)\n✔ installed skill issues cover local hash drift and unavailable targets (0.170417ms)\n✔ platform path helpers emit mac-friendly defaults when requested (0.069209ms)\n✔ platform path helpers preserve windows project suffix conventions (0.047125ms)\nℹ tests 6\nℹ suites 0\nℹ pass 6\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 55.48225\n",
+      "stdout": "\n> @enterprise-agent-hub/desktop@0.1.0 test\n> npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts\n\n\n> @enterprise-agent-hub/desktop@0.1.0 typecheck\n> tsc --noEmit\n\n✔ publish precheck passes for a valid folder upload with SKILL.md (0.393458ms)\n✔ publish precheck blocks invalid semver and oversized packages (0.080041ms)\n✔ prototype backend actions reject with explicit pending backend errors (0.221875ms)\n✔ installed skill issues cover local hash drift and unavailable targets (0.178542ms)\n✔ platform path helpers emit mac-friendly defaults when requested (0.067792ms)\n✔ platform path helpers preserve windows project suffix conventions (0.063958ms)\n✔ market query builder keeps installed/enabled local-only while sending category and date filters (0.821333ms)\n✔ display date parser accepts p1-local timestamps from desktop local state (7.605958ms)\n✔ display date formatter tolerates invalid timestamps without throwing (0.098167ms)\n✔ discovered local skills include unmanaged tool directories and ignore hidden/system entries (0.345667ms)\nℹ tests 10\nℹ suites 0\nℹ pass 10\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 72.583708\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:35.022Z",
-      "endedAt": "2026-04-13T06:51:36.175Z"
+      "startedAt": "2026-04-13T16:13:07.371Z",
+      "endedAt": "2026-04-13T16:13:08.667Z"
     },
     {
       "id": "cargo-check",
@@ -243,9 +243,9 @@
       "signal": null,
       "error": null,
       "stdout": "",
-      "stderr": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s\n",
-      "startedAt": "2026-04-13T06:51:36.175Z",
-      "endedAt": "2026-04-13T06:51:36.319Z"
+      "stderr": "    Checking enterprise-agent-hub-desktop v0.1.0 (/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/apps/desktop/src-tauri)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.25s\n",
+      "startedAt": "2026-04-13T16:13:08.667Z",
+      "endedAt": "2026-04-13T16:13:09.950Z"
     },
     {
       "id": "cargo-test",
@@ -258,10 +258,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\nrunning 50 tests\ntest adapters::config::tests::platform_resolution_is_injectable ... ok\ntest adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest commands::distribution::adapters::config::tests::platform_resolution_is_injectable ... ok\ntest adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::distribution::adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest commands::distribution::adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::distribution::adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest commands::distribution::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::path_validation::adapters::config::tests::platform_resolution_is_injectable ... ok\ntest commands::path_validation::adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::path_validation::adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest commands::path_validation::adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::path_validation::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::distribution::adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::path_validation::adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::tool_detection::adapters::config::tests::platform_resolution_is_injectable ... ok\ntest commands::tool_detection::adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::tool_detection::adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest commands::tool_detection::adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::tool_detection::adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest commands::tool_detection::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::distribution::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::distribution::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest store::central_store::tests::rejects_path_traversal_segments ... ok\ntest store::hash::tests::hashes_known_vector ... ok\ntest store::offline_queue::tests::enable_result_json_preserves_requested_resolved_and_fallback ... ok\ntest store::sqlite::tests::migration_contains_store_owned_tables ... ok\ntest store::sqlite::tests::persistence_statements_cover_queue_notifications_and_store_metadata ... ok\ntest commands::path_validation::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::path_validation::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::distribution::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::path_validation::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::tool_detection::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... o\n...[truncated 1406 chars]",
-      "stderr": "warning: unused import: `AdapterResult`\n  --> src/commands/../adapters/mod.rs:25:38\n   |\n25 | pub use self::errors::{AdapterError, AdapterResult};\n   |                                      ^^^^^^^^^^^^^\n   |\n   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `enable_artifact` is never used\n  --> src/commands/../adapters/distribution.rs:34:8\n   |\n34 | pub fn enable_artifact(\n   |        ^^^^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: associated function `current` is never used\n --> src/commands/../adapters/config.rs:8:12\n  |\n7 | impl Platform {\n  | ------------- associated function in this implementation\n8 |     pub fn current() -> Self {\n  |            ^^^^^^^\n\nwarning: method `as_str` is never used\n  --> src/commands/../adapters/config.rs:39:12\n   |\n38 | impl DetectionMethod {\n   | -------------------- method in this implementation\n39 |     pub fn as_str(self) -> &'static str {\n   |            ^^^^^^\n\nwarning: method `as_str` is never used\n  --> src/commands/../adapters/config.rs:55:12\n   |\n54 | impl InstallMode {\n   | ---------------- method in this implementation\n55 |     pub fn as_str(self) -> &'static str {\n   |            ^^^^^^\n\nwarning: method `as_str` is never used\n  --> src/commands/../adapters/detection.rs:18:12\n   |\n17 | impl AdapterStatus {\n   | ------------------ method in this implementation\n18 |     pub fn as_str(self) -> &'static str {\n   |            ^^^^^^\n\nwarning: function `detect_adapter` is never used\n  --> src/commands/../adapters/detection.rs:50:8\n   |\n50 | pub fn detect_adapter(adapter: &AdapterConfig, manual_path: Option<PathBuf>) -> DetectionResult {\n   |        ^^^^^^^^^^^^^^\n\nwarning: function `enable_artifact` is never used\n  --> src/commands/../adapters/distribution.rs:34:8\n   |\n34 | pub fn enable_artifact(\n   |        ^^^^^^^^^^^^^^^\n\nwarning: variants `UnsupportedMode` and `UnsupportedTransform` are never constructed\n  --> src/commands/../adapters/errors.rs:15:5\n   |\n 8 | pub enum AdapterError {\n   |          ------------ variants in this enum\n...\n15 |     UnsupportedMode(String),\n   |     ^^^^^^^^^^^^^^^\n16 |     UnsupportedTransform(String),\n   |     ^^^^^^^^^^^^^^^^^^^^\n   |\n   = note: `AdapterError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n\nwarning: method `code` is never used\n  --> src/commands/../adapters/errors.rs:28:12\n   |\n20 | impl AdapterError {\n   | ----------------- method in this implementation\n...\n28 |     pub fn code(&self) -> &'static str {\n   |            ^^^^\n\nwarning: `enterprise-agent-hub-desktop` (lib test) generated 11 warnings (1 duplicate) (run `cargo fix --lib -p enterprise-agent-hub-desktop --tests` to apply 1 suggestion)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s\n     Running unittests src/lib.rs (apps/desktop/src-tauri/target/debug/deps/enterprise_agent_hub_desktop-3c404f9b9fc917b6)\n     Running unittests src/main.rs (apps/desktop/src-tauri/target/debug/deps/enterprise_agent_hub_desktop-a806890380dd3205)\n   Doc-tests enterprise_agent_hub_desktop\n",
-      "startedAt": "2026-04-13T06:51:36.319Z",
-      "endedAt": "2026-04-13T06:51:36.740Z"
+      "stdout": "\nrunning 52 tests\ntest adapters::config::tests::platform_resolution_is_injectable ... ok\ntest adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest commands::distribution::adapters::config::tests::platform_resolution_is_injectable ... ok\ntest adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::distribution::adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::distribution::adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::distribution::adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest commands::distribution::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::path_validation::adapters::config::tests::platform_resolution_is_injectable ... ok\ntest commands::path_validation::adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::path_validation::adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::path_validation::adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest commands::path_validation::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::distribution::adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::path_validation::adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest commands::distribution::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::project_directory::tests::normalizes_selected_paths ... ok\ntest commands::tool_detection::adapters::config::tests::platform_resolution_is_injectable ... ok\ntest commands::tool_detection::adapters::config::tests::resolved_adapter_config_switches_paths_by_platform ... ok\ntest commands::tool_detection::adapters::detection::tests::expands_platform_paths_for_windows_and_macos ... ok\ntest adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::tool_detection::adapters::detection::tests::manual_only_adapter_reports_manual_required_without_fake_detection ... ok\ntest adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest commands::tool_detection::adapters::tests::builtin_adapters_match_p1_contract ... ok\ntest commands::path_validation::adapters::tests::disable_refuses_unmanaged_target_and_keeps_central_store ... ok\ntest commands::distribution::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest store::central_store::tests::rejects_path_traversal_segments ... ok\ntest commands::tool_detection::adapters::detection::tests::mac_default_path_can_report_missing_configurable_without_detecting ... ok\ntest store::hash::tests::hashes_known_vector ... ok\ntest store::offline_queue::tests::enable_result_json_preserves_requested_resolved_and_fallback ... ok\ntest store::sqlite::tests::migration_contains_store_owned_tables ... ok\ntest store::sqlite::tests::persistence_statements_cover_queue_notifications_and_store_metadata ... ok\ntest commands::path_validation::adapters::tests::symlink_failure_falls_back_to_managed_copy_with_reason ... ok\ntest adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::distribution::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::path_validation::adapters::tests::cursor_transform_writes_rule_without_touching_target_dir ... ok\ntest commands::tool_detection::adapt\n...[truncated 1759 chars]",
+      "stderr": "warning: unused import: `AdapterResult`\n  --> src/commands/../adapters/mod.rs:25:38\n   |\n25 | pub use self::errors::{AdapterError, AdapterResult};\n   |                                      ^^^^^^^^^^^^^\n   |\n   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default\n\nwarning: function `enable_artifact` is never used\n  --> src/commands/../adapters/distribution.rs:34:8\n   |\n34 | pub fn enable_artifact(\n   |        ^^^^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: associated function `current` is never used\n --> src/commands/../adapters/config.rs:8:12\n  |\n7 | impl Platform {\n  | ------------- associated function in this implementation\n8 |     pub fn current() -> Self {\n  |            ^^^^^^^\n\nwarning: method `as_str` is never used\n  --> src/commands/../adapters/config.rs:39:12\n   |\n38 | impl DetectionMethod {\n   | -------------------- method in this implementation\n39 |     pub fn as_str(self) -> &'static str {\n   |            ^^^^^^\n\nwarning: method `as_str` is never used\n  --> src/commands/../adapters/config.rs:55:12\n   |\n54 | impl InstallMode {\n   | ---------------- method in this implementation\n55 |     pub fn as_str(self) -> &'static str {\n   |            ^^^^^^\n\nwarning: method `as_str` is never used\n  --> src/commands/../adapters/detection.rs:18:12\n   |\n17 | impl AdapterStatus {\n   | ------------------ method in this implementation\n18 |     pub fn as_str(self) -> &'static str {\n   |            ^^^^^^\n\nwarning: function `detect_adapter` is never used\n  --> src/commands/../adapters/detection.rs:50:8\n   |\n50 | pub fn detect_adapter(adapter: &AdapterConfig, manual_path: Option<PathBuf>) -> DetectionResult {\n   |        ^^^^^^^^^^^^^^\n\nwarning: function `enable_artifact` is never used\n  --> src/commands/../adapters/distribution.rs:34:8\n   |\n34 | pub fn enable_artifact(\n   |        ^^^^^^^^^^^^^^^\n\nwarning: variants `UnsupportedMode` and `UnsupportedTransform` are never constructed\n  --> src/commands/../adapters/errors.rs:15:5\n   |\n 8 | pub enum AdapterError {\n   |          ------------ variants in this enum\n...\n15 |     UnsupportedMode(String),\n   |     ^^^^^^^^^^^^^^^\n16 |     UnsupportedTransform(String),\n   |     ^^^^^^^^^^^^^^^^^^^^\n   |\n   = note: `AdapterError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis\n\nwarning: method `code` is never used\n  --> src/commands/../adapters/errors.rs:28:12\n   |\n20 | impl AdapterError {\n   | ----------------- method in this implementation\n...\n28 |     pub fn code(&self) -> &'static str {\n   |            ^^^^\n\nwarning: `enterprise-agent-hub-desktop` (lib test) generated 11 warnings (1 duplicate) (run `cargo fix --lib -p enterprise-agent-hub-desktop --tests` to apply 1 suggestion)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s\n     Running unittests src/lib.rs (apps/desktop/src-tauri/target/debug/deps/enterprise_agent_hub_desktop-3c404f9b9fc917b6)\n     Running unittests src/main.rs (apps/desktop/src-tauri/target/debug/deps/enterprise_agent_hub_desktop-a806890380dd3205)\n     Running tests/full_closure.rs (apps/desktop/src-tauri/target/debug/deps/full_closure-7b42c55f0cd5dadd)\n   Doc-tests enterprise_agent_hub_desktop\n",
+      "startedAt": "2026-04-13T16:13:09.950Z",
+      "endedAt": "2026-04-13T16:13:10.586Z"
     },
     {
       "id": "fixture-transform-check",
@@ -274,10 +274,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.408958ms)\n✔ all declared golden fixture files exist (0.17075ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 27.640708\n",
+      "stdout": "\n> @enterprise-agent-hub/tool-adapter-fixtures@0.1.0-p1 test\n> node --test test/*.test.mjs\n\n✔ P1 adapter fixtures cover symlink-first/copy-fallback expectations (0.462041ms)\n✔ all declared golden fixture files exist (0.228875ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 32.755042\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:36.740Z",
-      "endedAt": "2026-04-13T06:51:36.863Z"
+      "startedAt": "2026-04-13T16:13:10.586Z",
+      "endedAt": "2026-04-13T16:13:10.726Z"
     },
     {
       "id": "docker-config-prod",
@@ -292,8 +292,8 @@
       "error": null,
       "stdout": "name: infra\nservices:\n  api:\n    depends_on:\n      api-seed:\n        condition: service_completed_successfully\n        required: true\n      minio:\n        condition: service_healthy\n        required: true\n      redis:\n        condition: service_healthy\n        required: true\n    environment:\n      API_PORT: \"3000\"\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      JWT_SECRET: change-me-before-deploy\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n      REDIS_URL: redis://redis:6379/0\n    healthcheck:\n      test:\n        - CMD-SHELL\n        - node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"\n      timeout: 5s\n      interval: 15s\n      retries: 12\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 3000\n        published: \"3000\"\n        protocol: tcp\n  api-migrate:\n    command:\n      - npm\n      - run\n      - migrate\n    depends_on:\n      postgres:\n        condition: service_healthy\n        required: true\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  api-seed:\n    command:\n      - npm\n      - run\n      - seed\n    depends_on:\n      api-migrate:\n        condition: service_completed_successfully\n        required: true\n      minio-init:\n        condition: service_completed_successfully\n        required: true\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  minio:\n    command:\n      - server\n      - /data\n      - --console-address\n      - :9001\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n    healthcheck:\n      test:\n        - CMD\n        - curl\n        - -f\n        - http://localhost:9000/minio/health/live\n      timeout: 5s\n      interval: 10s\n      retries: 10\n    image: minio/minio:RELEASE.2024-12-18T13-15-44Z\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 9000\n        published: \"9000\"\n        protocol: tcp\n      - mode: ingress\n        target: 9001\n        published: \"9001\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: minio_data\n        target: /data\n        volume: {}\n  minio-init:\n    depends_on:\n      minio:\n        condition: service_healthy\n        required: true\n    entrypoint:\n      - /bin/sh\n      - -c\n      - ' mc alias set eah http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing eah/$${MINIO_SKILL_PACKAGE_BUCKET:-skill-packages} && mc mb --ignore-existing eah/$${MINIO_SKILL_ASSET_BUCKET:-skill-assets} '\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n    image: minio/mc:RELEASE.2024-11-21T17-21-54Z\n    networks:\n      default: null\n  postgres:\n    environment:\n      POSTGRES_DB: enterprise_agent_hub\n      POSTGRES_PASSWORD: change-me\n      POSTGRES_USER: eah\n    healthcheck:\n      test:\n        - CMD-SHELL\n        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}\n      timeout: 5s\n      interval: 10s\n      retries: 10\n    image: postgres:16.6-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 5432\n        published: \"5432\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: p\n...[truncated 738 chars]",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:36.863Z",
-      "endedAt": "2026-04-13T06:51:36.903Z"
+      "startedAt": "2026-04-13T16:13:10.726Z",
+      "endedAt": "2026-04-13T16:13:10.813Z"
     },
     {
       "id": "docker-config-legacy",
@@ -308,8 +308,8 @@
       "error": null,
       "stdout": "name: infra\nservices:\n  api:\n    depends_on:\n      minio:\n        condition: service_started\n        required: true\n      postgres:\n        condition: service_started\n        required: true\n      redis:\n        condition: service_started\n        required: true\n    environment:\n      API_PORT: \"3000\"\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      JWT_SECRET: change-me-before-deploy\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n      REDIS_URL: redis://redis:6379/0\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 3000\n        published: \"3000\"\n        protocol: tcp\n  api-migrate:\n    command:\n      - npm\n      - run\n      - migrate\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  api-seed:\n    command:\n      - npm\n      - run\n      - seed\n    environment:\n      DATABASE_URL: postgresql://eah:change-me@postgres:5432/enterprise_agent_hub\n      MINIO_ACCESS_KEY: minioadmin\n      MINIO_ENDPOINT: minio\n      MINIO_PORT: \"9000\"\n      MINIO_SECRET_KEY: change-me-minio-secret\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n    image: enterprise-agent-hub-api:0.1.0-p1\n    networks:\n      default: null\n  minio:\n    command:\n      - server\n      - /data\n      - --console-address\n      - :9001\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n    image: minio/minio:RELEASE.2024-12-18T13-15-44Z\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 9000\n        published: \"9000\"\n        protocol: tcp\n      - mode: ingress\n        target: 9001\n        published: \"9001\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: minio_data\n        target: /data\n        volume: {}\n  minio-init:\n    entrypoint:\n      - /bin/sh\n      - -c\n      - ' mc alias set eah http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc mb --ignore-existing eah/$${MINIO_SKILL_PACKAGE_BUCKET:-skill-packages} && mc mb --ignore-existing eah/$${MINIO_SKILL_ASSET_BUCKET:-skill-assets} '\n    environment:\n      MINIO_ROOT_PASSWORD: change-me-minio-secret\n      MINIO_ROOT_USER: minioadmin\n      MINIO_SKILL_ASSET_BUCKET: skill-assets\n      MINIO_SKILL_PACKAGE_BUCKET: skill-packages\n    image: minio/mc:RELEASE.2024-11-21T17-21-54Z\n    networks:\n      default: null\n  postgres:\n    environment:\n      POSTGRES_DB: enterprise_agent_hub\n      POSTGRES_PASSWORD: change-me\n      POSTGRES_USER: eah\n    image: postgres:16.6-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 5432\n        published: \"5432\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: postgres_data\n        target: /var/lib/postgresql/data\n        volume: {}\n  redis:\n    command:\n      - redis-server\n      - --appendonly\n      - \"yes\"\n    image: redis:7.4.1-bookworm\n    networks:\n      default: null\n    ports:\n      - mode: ingress\n        target: 6379\n        published: \"6379\"\n        protocol: tcp\n    volumes:\n      - type: volume\n        source: redis_data\n        target: /data\n        volume: {}\nnetworks:\n  default:\n    name: infra_default\nvolumes:\n  minio_data:\n    name: infra_minio_data\n  postgres_data:\n    name: infra_postgres_data\n  redis_data:\n    name: infra_redis_data\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:36.903Z",
-      "endedAt": "2026-04-13T06:51:36.943Z"
+      "startedAt": "2026-04-13T16:13:10.813Z",
+      "endedAt": "2026-04-13T16:13:10.858Z"
     },
     {
       "id": "deploy-script-syntax",
@@ -324,8 +324,8 @@
       "error": null,
       "stdout": "",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:36.943Z",
-      "endedAt": "2026-04-13T06:51:36.947Z"
+      "startedAt": "2026-04-13T16:13:10.858Z",
+      "endedAt": "2026-04-13T16:13:10.863Z"
     },
     {
       "id": "w6-acceptance-matrix-test",
@@ -338,10 +338,10 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "✔ W6 verification runner and config are present (0.262625ms)\n✔ verification config includes required release-gate command lanes (0.146167ms)\n✔ smoke/e2e spec covers required P1 acceptance scenarios (0.428917ms)\n✔ verification config rejects tracked generated dependency/build artifacts (0.081167ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 28.47575\n",
+      "stdout": "✔ W6 verification runner and config are present (0.456209ms)\n✔ verification config includes required release-gate command lanes (0.218916ms)\n✔ smoke/e2e spec covers required P1 acceptance scenarios (0.607958ms)\n✔ verification config rejects tracked generated dependency/build artifacts (0.095917ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 34.5375\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:36.947Z",
-      "endedAt": "2026-04-13T06:51:36.997Z"
+      "startedAt": "2026-04-13T16:13:10.863Z",
+      "endedAt": "2026-04-13T16:13:10.924Z"
     },
     {
       "id": "p1-real-delivery-static-test",
@@ -354,15 +354,63 @@
       "exitCode": 0,
       "signal": null,
       "error": null,
-      "stdout": "✔ Desktop client defaults to the real API surface and does not auto-fallback to seed data (0.322875ms)\n✔ Tauri bridge only permits local command mocks behind an explicit env flag (0.07775ms)\n✔ Desktop login defaults do not hardcode demo credentials in the product UI (0.07525ms)\n✔ Tauri packaging config exposes Windows installer intent and command registration (0.244166ms)\n✔ Desktop install flow passes download-ticket into Tauri and restores local state from SQLite bootstrap (0.56675ms)\n✔ React desktop app is split into shell, pages, modals, and UI placeholder contracts (0.143917ms)\n✔ Domain types now support prototype pages, modal state, preferences, and pending action errors (0.059666ms)\n✔ API production image uses compiled migrate and seed scripts instead of ts-node (0.035542ms)\n✔ Live smoke scripts exist for real source-start API verification (0.094208ms)\n✔ Publishing and review client routes are wired to the live API (0.09375ms)\n✔ Desktop runtime does not import ui-prototype as executable code (0.071583ms)\nℹ tests 11\nℹ suites 0\nℹ pass 11\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 30.904542\n",
+      "stdout": "✔ Desktop client defaults to the real API surface and does not auto-fallback to seed data (0.389208ms)\n✔ Tauri bridge only permits local command mocks behind an explicit env flag (0.094ms)\n✔ Desktop login defaults do not hardcode demo credentials in the product UI (0.081625ms)\n✔ Tauri packaging config exposes Windows installer intent and command registration (0.278791ms)\n✔ Desktop install flow passes download-ticket into Tauri and restores local state from SQLite bootstrap (0.664417ms)\n✔ React desktop app is split into shell, pages, modals, and UI placeholder contracts (0.167584ms)\n✔ Domain types now support prototype pages, modal state, preferences, and pending action errors (0.057042ms)\n✔ API production image uses compiled migrate and seed scripts instead of ts-node (0.031584ms)\n✔ Live smoke scripts exist for real source-start API verification (0.152166ms)\n✔ Publishing and review client routes are wired to the live API (0.104ms)\n✔ Desktop runtime does not import ui-prototype as executable code (0.097667ms)\nℹ tests 11\nℹ suites 0\nℹ pass 11\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 37.394417\n",
       "stderr": "",
-      "startedAt": "2026-04-13T06:51:36.997Z",
-      "endedAt": "2026-04-13T06:51:37.049Z"
+      "startedAt": "2026-04-13T16:13:10.924Z",
+      "endedAt": "2026-04-13T16:13:10.986Z"
+    },
+    {
+      "id": "p1-ui-closure",
+      "label": "Full UI publish/review/market closure suite",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm run p1:ui-closure",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> enterprise-agent-hub@0.1.0 p1:ui-closure\n> node scripts/full-closure/run-ui-smoke.mjs\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 migrate:dev\n> ts-node src/scripts/migrate.ts\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 seed:dev\n> ts-node src/scripts/seed.ts\n\n\nRunning 5 tests using 1 worker\n\n\n  ✓  1 tests/full-closure/ui/full-closure.spec.ts:17:1 › happy path publishes same skill through review and exposes installable market artifact (1.6s)\n  ✓  2 tests/full-closure/ui/full-closure.spec.ts:72:1 › return and resubmit flow publishes after second review (2.3s)\n\n  ✓  3 tests/full-closure/ui/full-closure.spec.ts:128:1 › reject flow keeps skill out of market (1.4s)\n\n  ✓  4 tests/full-closure/ui/full-closure.spec.ts:165:1 › permission change keeps old visibility until approval and switches after approval (3.8s)\n\n  ✓  5 tests/full-closure/ui/full-closure.spec.ts:255:1 › update flow keeps v1 live before approval and exposes v2 after approval (2.4s)\n\n  5 passed (11.8s)\nP1 ui closure PASS (/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/test-results/full-closure/fc-1776096791150)\n",
+      "stderr": "(node:88292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:88292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+      "startedAt": "2026-04-13T16:13:10.986Z",
+      "endedAt": "2026-04-13T16:13:29.151Z"
+    },
+    {
+      "id": "p1-native-closure",
+      "label": "Native Tauri install/enable closure smoke",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm run p1:native-closure",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> enterprise-agent-hub@0.1.0 p1:native-closure\n> node scripts/full-closure/run-native-smoke.mjs\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 migrate:dev\n> ts-node src/scripts/migrate.ts\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 seed:dev\n> ts-node src/scripts/seed.ts\n\n\nRunning 1 test using 1 worker\n\n\n  ✓  1 tests/full-closure/ui/full-closure.spec.ts:17:1 › happy path publishes same skill through review and exposes installable market artifact (1.7s)\n\n  1 passed (2.0s)\n\nrunning 1 test\ntest installs_enables_restarts_and_uninstalls_the_same_published_skill ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s\n\nP1 native closure PASS (/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/test-results/full-closure/fc-1776096809337)\n",
+      "stderr": "(node:89797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:89797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s\n     Running tests/full_closure.rs (apps/desktop/src-tauri/target/debug/deps/full_closure-7b42c55f0cd5dadd)\n",
+      "startedAt": "2026-04-13T16:13:29.151Z",
+      "endedAt": "2026-04-13T16:13:38.053Z"
+    },
+    {
+      "id": "p1-full-closure",
+      "label": "Isolated end-to-end closure harness",
+      "type": "command",
+      "status": "pass",
+      "requiredForRelease": true,
+      "command": "npm run p1:full-closure",
+      "cwd": ".",
+      "exitCode": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "\n> enterprise-agent-hub@0.1.0 p1:full-closure\n> node scripts/full-closure/run.mjs\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 migrate:dev\n> ts-node src/scripts/migrate.ts\n\n\n> @enterprise-agent-hub/api@0.1.0-p1 seed:dev\n> ts-node src/scripts/seed.ts\n\n\nRunning 5 tests using 1 worker\n\n\n  ✓  1 tests/full-closure/ui/full-closure.spec.ts:17:1 › happy path publishes same skill through review and exposes installable market artifact (1.7s)\n  ✓  2 tests/full-closure/ui/full-closure.spec.ts:72:1 › return and resubmit flow publishes after second review (2.2s)\n\n  ✓  3 tests/full-closure/ui/full-closure.spec.ts:128:1 › reject flow keeps skill out of market (1.3s)\n\n  ✓  4 tests/full-closure/ui/full-closure.spec.ts:165:1 › permission change keeps old visibility until approval and switches after approval (3.7s)\n\n  ✓  5 tests/full-closure/ui/full-closure.spec.ts:255:1 › update flow keeps v1 live before approval and exposes v2 after approval (2.4s)\n\n  5 passed (11.7s)\n\nrunning 1 test\ntest installs_enables_restarts_and_uninstalls_the_same_published_skill ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s\n\nP1 full closure PASS (/Users/zhb/Documents/MyProjects/EnterpriseAgentHub/test-results/full-closure/fc-1776096818205)\n",
+      "stderr": "(node:90651) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n(node:90651) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.\n(Use `node --trace-warnings ...` to show where the warning was created)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s\n     Running tests/full_closure.rs (apps/desktop/src-tauri/target/debug/deps/full_closure-7b42c55f0cd5dadd)\n",
+      "startedAt": "2026-04-13T16:13:38.053Z",
+      "endedAt": "2026-04-13T16:13:56.551Z"
     }
   ],
   "acceptance": {
-    "expected": 13,
-    "covered": 13,
+    "expected": 19,
+    "covered": 19,
     "scenarios": [
       {
         "id": "bootstrap-login-p1-navigation",
@@ -410,6 +458,30 @@
       },
       {
         "id": "local-events-idempotent-sync",
+        "covered": true
+      },
+      {
+        "id": "publisher-upload-review-browser-flow",
+        "covered": true
+      },
+      {
+        "id": "publisher-return-resubmit-browser-flow",
+        "covered": true
+      },
+      {
+        "id": "publisher-reject-no-market-leakage",
+        "covered": true
+      },
+      {
+        "id": "permission-change-visibility-switch-after-approval",
+        "covered": true
+      },
+      {
+        "id": "update-publish-old-version-remains-live",
+        "covered": true
+      },
+      {
+        "id": "same-skill-market-download-install-enable",
         "covered": true
       },
       {
