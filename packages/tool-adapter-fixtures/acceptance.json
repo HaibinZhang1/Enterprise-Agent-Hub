@@ -1,0 +1,18 @@
+{
+  "skillID": "example-skill",
+  "version": "1.0.0",
+  "strategies": {
+    "codex_skill": ["SKILL.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"],
+    "claude_skill": ["SKILL.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"],
+    "cursor_rule": ["example-skill.mdc", ".enterprise-agent-hub-managed.json"],
+    "windsurf_rule": ["example-skill.md", ".enterprise-agent-hub-managed.json"],
+    "opencode_skill": ["AGENTS.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"],
+    "generic_directory": ["SKILL.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"]
+  },
+  "distributionExpectations": {
+    "defaultRequestedMode": "symlink",
+    "fallbackMode": "copy",
+    "records": ["requestedMode", "resolvedMode", "fallbackReason"],
+    "disableSafety": "remove only symlink targets or targets with .enterprise-agent-hub-managed.json; never delete Central Store on disable"
+  }
+}
