@@ -10,14 +10,14 @@ pub const MANAGED_MARKER_FILE: &str = ".enterprise-agent-hub-managed.json";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DistributionOptions {
-    pub allow_overwrite_managed: bool,
+    pub allow_overwrite_target: bool,
     pub simulated_symlink_failure: Option<String>,
 }
 
 impl Default for DistributionOptions {
     fn default() -> Self {
         Self {
-            allow_overwrite_managed: true,
+            allow_overwrite_target: false,
             simulated_symlink_failure: None,
         }
     }
@@ -63,7 +63,7 @@ pub fn enable_artifact_with_options(
 
     ensure_target_root(target_root)?;
     let target_path = target_root.join(target_name);
-    prepare_target(&target_path, options.allow_overwrite_managed)?;
+    prepare_target(&target_path, options.allow_overwrite_target)?;
 
     match requested_mode {
         InstallMode::Copy => {
@@ -95,7 +95,7 @@ pub fn enable_artifact_with_options(
                 }),
                 Err(error) => {
                     let fallback_reason = normalize_symlink_error(&error);
-                    prepare_target(&target_path, options.allow_overwrite_managed)?;
+                    prepare_target(&target_path, options.allow_overwrite_target)?;
                     copy_dir(artifact_path, &target_path)?;
                     Ok(DistributionOutcome {
                         target_path,
@@ -147,19 +147,31 @@ fn is_managed_copy(path: &Path) -> bool {
     path.join(MANAGED_MARKER_FILE).is_file()
 }
 
-fn prepare_target(path: &Path, allow_overwrite_managed: bool) -> AdapterResult<()> {
+fn prepare_target(path: &Path, allow_overwrite_target: bool) -> AdapterResult<()> {
     if !path.exists() && fs::symlink_metadata(path).is_err() {
         return Ok(());
     }
 
-    if allow_overwrite_managed && is_managed_target(path) {
-        disable_managed_target(path)?;
+    if allow_overwrite_target {
+        remove_existing_target(path)?;
         return Ok(());
     }
 
     Err(AdapterError::TargetConflict {
         path: path.to_path_buf(),
     })
+}
+
+fn remove_existing_target(path: &Path) -> AdapterResult<()> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => fs::remove_file(path)
+            .map_err(|error| AdapterError::io(format!("remove symlink {}", path.display()), error)),
+        Ok(metadata) if metadata.is_dir() => fs::remove_dir_all(path)
+            .map_err(|error| AdapterError::io(format!("remove target {}", path.display()), error)),
+        Ok(_) => fs::remove_file(path)
+            .map_err(|error| AdapterError::io(format!("remove file {}", path.display()), error)),
+        Err(error) => Err(AdapterError::io(format!("stat target {}", path.display()), error)),
+    }
 }
 
 fn normalize_symlink_error(error: &std::io::Error) -> String {

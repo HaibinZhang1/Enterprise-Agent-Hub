@@ -577,6 +577,15 @@ function MyInstalledPage({ workspace, ui }: PageProps) {
                   <button className="btn" onClick={() => ui.openTargetsModal(skill)} disabled={skill.isScopeRestricted}>编辑启用范围</button>
                   <button className="btn btn-danger" onClick={() => ui.openUninstallConfirm(skill)}>卸载</button>
                 </div>
+                {skill.enabledTargets.length > 0 ? (
+                  <div className="pill-row">
+                    {skill.enabledTargets.map((target) => (
+                      <TagPill key={`${target.targetType}:${target.targetID}`} tone="info">
+                        {target.targetName}
+                      </TagPill>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </article>
             );
@@ -939,7 +948,7 @@ function ToolsPage({ workspace, ui }: PageProps) {
         <div>
           <div className="eyebrow">工具管理</div>
           <h1>本机 AI 工具</h1>
-          <p>工具状态和路径来自真实 Tauri 本地状态；编辑交互会直接展示当前项，未接入保存动作会明确标记为待接入。</p>
+          <p>工具状态、注册表/默认路径检测、手动覆盖和目录扫描都来自真实 Tauri 本地状态。</p>
         </div>
         <div className="inline-actions">
           <button className="btn" onClick={() => void workspace.refreshTools()}><RefreshCw size={15} />刷新检测</button>
@@ -948,34 +957,53 @@ function ToolsPage({ workspace, ui }: PageProps) {
       </section>
 
       <div className="card-grid">
-        {workspace.tools.map((tool) => (
-          <article className="panel tool-card" key={tool.toolID}>
-            <div className="inline-heading">
-              <div className="tool-mark"><CircleGauge size={18} /></div>
-              <div>
-                <h3>{tool.name}</h3>
-                <small>{tool.transform}</small>
+        {workspace.tools.map((tool) => {
+          const scanSummary = workspace.scanTargets.find((summary) => summary.targetType === "tool" && summary.targetID === tool.toolID) ?? null;
+          const abnormalCount = scanSummary ? scanSummary.counts.unmanaged + scanSummary.counts.conflict + scanSummary.counts.orphan : 0;
+          return (
+            <article className="panel tool-card" key={tool.toolID}>
+              <div className="inline-heading">
+                <div className="tool-mark"><CircleGauge size={18} /></div>
+                <div>
+                  <h3>{tool.name}</h3>
+                  <small>{tool.transformStrategy}</small>
+                </div>
               </div>
-            </div>
-            <TagPill tone={tool.status === "detected" ? "success" : tool.status === "manual" ? "info" : "warning"}>{tool.status}</TagPill>
-            <p>配置路径：{tool.configPath}</p>
-            <small>skills 路径：{tool.skillsPath}</small>
-            <small>已启用 Skill：{tool.enabledSkillCount} · {tool.enabled ? "配置已启用" : "配置已停用"}</small>
-            {tool.status === "missing" || tool.status === "invalid" ? (
-              <div className="callout warning">
-                <AlertTriangle size={16} />
-                <span>
-                  <strong>{tool.status === "missing" ? "工具未检测到" : "工具路径不可用"}</strong>
-                  <small>请修改当前项路径；保存命令未接入前不会伪造修复成功。</small>
-                </span>
+              <div className="pill-row">
+                <TagPill tone={tool.adapterStatus === "detected" ? "success" : tool.adapterStatus === "manual" ? "info" : "warning"}>{tool.adapterStatus}</TagPill>
+                <TagPill tone="info">{tool.detectionMethod}</TagPill>
+                {abnormalCount > 0 ? <TagPill tone="warning">扫描异常 {abnormalCount}</TagPill> : null}
               </div>
-            ) : null}
-            <div className="inline-actions wrap">
-              <button className="btn" onClick={() => ui.openToolEditor(tool)}>修改路径</button>
-              <TagPill tone="warning">保存待接入</TagPill>
-            </div>
-          </article>
-        ))}
+              <p>配置路径：{tool.configPath || "未配置"}</p>
+              <small>自动检测路径：{tool.detectedPath ?? "未命中"}</small>
+              <small>手动覆盖路径：{tool.configuredPath ?? "未覆盖"}</small>
+              <small>skills 路径：{tool.skillsPath}</small>
+              <small>已启用 Skill：{tool.enabledSkillCount} · {tool.enabled ? "配置已启用" : "配置已停用"} · 最近扫描：{formatDate(tool.lastScannedAt ?? null)}</small>
+              {tool.adapterStatus === "missing" || tool.adapterStatus === "invalid" ? (
+                <div className="callout warning">
+                  <AlertTriangle size={16} />
+                  <span>
+                    <strong>{tool.adapterStatus === "missing" ? "工具未检测到" : "工具路径不可用"}</strong>
+                    <small>请修改当前项路径后重新检测。</small>
+                  </span>
+                </div>
+              ) : null}
+              {scanSummary && abnormalCount > 0 ? (
+                <div className="callout warning">
+                  <AlertTriangle size={16} />
+                  <span>
+                    <strong>扫描摘要</strong>
+                    <small>{scanSummary.findings.filter((finding) => finding.kind !== "managed").slice(0, 2).map((finding) => finding.message).join("；")}</small>
+                  </span>
+                </div>
+              ) : null}
+              <div className="inline-actions wrap">
+                <button className="btn" onClick={() => ui.openToolEditor(tool)}>修改路径</button>
+                <button className="btn btn-small" onClick={() => void workspace.scanLocalTargets()}>重新扫描</button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );
@@ -988,31 +1016,50 @@ function ProjectsPage({ workspace, ui }: PageProps) {
         <div>
           <div className="eyebrow">项目级启用</div>
           <h1>项目</h1>
-          <p>项目级路径优先于工具级路径；项目列表和目标路径来自本地 SQLite 真源。</p>
+          <p>项目级路径优先于工具级路径；项目列表、最终启用结果和扫描摘要都来自本地 SQLite 真源。</p>
         </div>
-        <button className="btn btn-primary" onClick={() => ui.openProjectEditor()}><FolderPlus size={15} />添加项目</button>
+        <div className="inline-actions">
+          <button className="btn" onClick={() => void workspace.scanLocalTargets()}><RefreshCw size={15} />重新扫描</button>
+          <button className="btn btn-primary" onClick={() => ui.openProjectEditor()}><FolderPlus size={15} />添加项目</button>
+        </div>
       </section>
 
       {workspace.projects.length === 0 ? <SectionEmpty title="项目为空" body="添加项目后可配置项目级 skills 目录。" /> : null}
       <div className="card-grid">
-        {workspace.projects.map((project) => (
-          <article className="panel project-card" key={project.projectID}>
-            <div className="inline-heading">
-              <div className="tool-mark"><Link2 size={18} /></div>
-              <div>
-                <h3>{project.name}</h3>
-                <small>{project.enabled ? "已启用" : "已停用"}</small>
+        {workspace.projects.map((project) => {
+          const scanSummary = workspace.scanTargets.find((summary) => summary.targetType === "project" && summary.targetID === project.projectID) ?? null;
+          const effectiveSkills = workspace.installedSkills.filter((skill) =>
+            skill.enabledTargets.some((target) => target.targetType === "project" && target.targetID === project.projectID)
+          );
+          return (
+            <article className="panel project-card" key={project.projectID}>
+              <div className="inline-heading">
+                <div className="tool-mark"><Link2 size={18} /></div>
+                <div>
+                  <h3>{project.name}</h3>
+                  <small>{project.enabled ? "已启用" : "已停用"}</small>
+                </div>
               </div>
-            </div>
-            <p>项目路径：{project.projectPath}</p>
-            <small>skills 路径：{project.skillsPath}</small>
-            <small>已启用 Skill：{project.enabledSkillCount} · {project.enabled ? "项目级配置已启用" : "项目级配置已停用"}</small>
-            <div className="inline-actions wrap">
-              <button className="btn" onClick={() => ui.openProjectEditor(project)}>修改路径</button>
-              {project.enabled ? <TagPill tone="info">项目级优先</TagPill> : <TagPill tone="warning">当前停用</TagPill>}
-            </div>
-          </article>
-        ))}
+              <p>项目路径：{project.projectPath}</p>
+              <small>skills 路径：{project.skillsPath}</small>
+              <small>已启用 Skill：{project.enabledSkillCount} · 创建于 {formatDate(project.createdAt)} · 更新于 {formatDate(project.updatedAt)}</small>
+              {scanSummary ? (
+                <small>扫描结果：托管 {scanSummary.counts.managed} / 异常 {scanSummary.counts.unmanaged + scanSummary.counts.conflict + scanSummary.counts.orphan} · 最近扫描 {formatDate(scanSummary.scannedAt)}</small>
+              ) : null}
+              {effectiveSkills.length > 0 ? (
+                <div className="pill-row">
+                  {effectiveSkills.map((skill) => <TagPill key={skill.skillID} tone="info">{skill.displayName}</TagPill>)}
+                </div>
+              ) : (
+                <SectionEmpty title="暂无最终生效 Skill" body="启用到当前项目后，会在这里显示最终落地结果。" />
+              )}
+              <div className="inline-actions wrap">
+                <button className="btn" onClick={() => ui.openProjectEditor(project)}>修改路径</button>
+                {project.enabled ? <TagPill tone="info">项目级优先</TagPill> : <TagPill tone="warning">当前停用</TagPill>}
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );

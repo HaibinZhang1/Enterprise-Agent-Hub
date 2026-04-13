@@ -13,8 +13,6 @@ import type {
   TargetDraft,
   ToolDraft
 } from "../domain/p1.ts";
-import { PendingBackendError, PendingLocalCommandError } from "../domain/p1.ts";
-import { prototypeActionClient } from "../services/prototypeActionClient.ts";
 import type { P1WorkspaceState } from "./useP1Workspace.ts";
 
 const PREFERENCES_STORAGE_KEY = "enterprise-agent-hub:desktop-preferences";
@@ -28,7 +26,8 @@ const defaultPreferences: PreferenceState = {
 };
 
 const defaultToolDraft: ToolDraft = {
-  name: "",
+  toolID: "custom_directory",
+  name: "自定义目录",
   configPath: "",
   skillsPath: "",
   enabled: true
@@ -68,22 +67,33 @@ function buildPendingAvailability(kind: ActionAvailability["kind"], label: strin
   return { kind, label, reason };
 }
 
+function findScanSummary(workspace: P1WorkspaceState, targetType: "tool" | "project", targetID: string) {
+  return workspace.scanTargets.find((summary) => summary.targetType === targetType && summary.targetID === targetID) ?? null;
+}
+
+function findSkillScanFinding(workspace: P1WorkspaceState, skillID: string, targetType: "tool" | "project", targetID: string) {
+  const summary = findScanSummary(workspace, targetType, targetID);
+  return summary?.findings.find((finding) => finding.relativePath === skillID) ?? null;
+}
+
 function buildTargetDrafts(skill: SkillSummary, workspace: P1WorkspaceState): TargetDraft[] {
   const enabledKeys = new Set(skill.enabledTargets.map((target) => `${target.targetType}:${target.targetID}`));
   const toolDrafts = workspace.tools.map((tool) => {
-    const live = tool.toolID === "codex";
+    const live = tool.enabled && tool.adapterStatus !== "missing" && tool.adapterStatus !== "invalid" && tool.adapterStatus !== "disabled";
+    const scanSummary = findScanSummary(workspace, "tool", tool.toolID);
+    const conflictCount = (scanSummary?.counts.conflict ?? 0) + (scanSummary?.counts.unmanaged ?? 0) + (scanSummary?.counts.orphan ?? 0);
     return {
       key: `tool:${tool.toolID}`,
       targetType: "tool" as const,
       targetID: tool.toolID,
       targetName: tool.name,
       targetPath: tool.skillsPath,
-      disabled: !tool.enabled || tool.status === "missing" || tool.status === "invalid",
-      statusLabel: tool.enabled ? tool.status : "disabled",
+      disabled: !live,
+      statusLabel: tool.enabled ? `${tool.adapterStatus}${conflictCount > 0 ? ` · 异常 ${conflictCount}` : ""}` : "disabled",
       selected: enabledKeys.has(`tool:${tool.toolID}`),
       availability: live
         ? { kind: "live" as const, label: "已接入", reason: "当前可直接调用 Tauri 命令配置该目标。" }
-        : buildPendingAvailability("pending_local_command", "待接入", "该目标的本地配置命令尚未落地。")
+        : buildPendingAvailability("pending_local_command", "不可用", "请先修复工具检测状态、路径或启用状态。")
     };
   });
 
@@ -94,11 +104,11 @@ function buildTargetDrafts(skill: SkillSummary, workspace: P1WorkspaceState): Ta
     targetName: project.name,
     targetPath: project.skillsPath,
     disabled: !project.enabled,
-    statusLabel: project.enabled ? "项目级优先" : "已停用",
+    statusLabel: project.enabled ? `项目级优先${findScanSummary(workspace, "project", project.projectID)?.counts.conflict ? ` · 异常 ${findScanSummary(workspace, "project", project.projectID)?.counts.conflict}` : ""}` : "已停用",
     selected: enabledKeys.has(`project:${project.projectID}`),
     availability: project.enabled
       ? { kind: "live" as const, label: "已接入", reason: "项目级目标已接到 Tauri SQLite 真源与分发命令。" }
-      : buildPendingAvailability("pending_local_command", "待接入", "启用项目后才可作为目标使用。")
+      : buildPendingAvailability("pending_local_command", "不可用", "启用项目后才可作为目标使用。")
   }));
 
   return [...toolDrafts, ...projectDrafts];
@@ -108,7 +118,7 @@ function uniq(items: string[]): string[] {
   return [...new Set(items.filter((item) => item.trim().length > 0))];
 }
 
-export function collectInstalledSkillIssues(skill: SkillSummary, workspace: Pick<P1WorkspaceState, "tools" | "projects">): string[] {
+export function collectInstalledSkillIssues(skill: SkillSummary, workspace: Pick<P1WorkspaceState, "tools" | "projects" | "scanTargets">): string[] {
   const issues: string[] = [];
 
   if (skill.hasLocalHashDrift) {
@@ -133,6 +143,13 @@ export function collectInstalledSkillIssues(skill: SkillSummary, workspace: Pick
       } else if (tool.status === "invalid") {
         issues.push(`${target.targetName} 路径不可用，请修改路径。`);
       }
+      const finding = findSkillScanFinding(workspace as P1WorkspaceState, skill.skillID, "tool", target.targetID);
+      if (finding?.kind === "conflict") {
+        issues.push(`${target.targetName} 目标内容与登记产物不一致，请确认是否需要覆盖。`);
+      }
+      if (finding?.kind === "orphan") {
+        issues.push(`${target.targetName} 的托管目标缺失，请重新启用。`);
+      }
     }
 
     if (target.targetType === "project") {
@@ -143,6 +160,13 @@ export function collectInstalledSkillIssues(skill: SkillSummary, workspace: Pick
       }
       if (!project.enabled) {
         issues.push(`${target.targetName} 已停用，项目级启用不再生效。`);
+      }
+      const finding = findSkillScanFinding(workspace as P1WorkspaceState, skill.skillID, "project", target.targetID);
+      if (finding?.kind === "conflict") {
+        issues.push(`${target.targetName} 项目目标内容与登记产物不一致，请确认是否需要覆盖。`);
+      }
+      if (finding?.kind === "orphan") {
+        issues.push(`${target.targetName} 项目目标缺失，请重新启用。`);
       }
     }
   }
@@ -222,14 +246,6 @@ export function buildPublishPrecheck(draft: PublishDraft): PublishPrecheckResult
     fileCountUnderLimit;
 
   return { items, canSubmit };
-}
-
-function mapPendingError(error: PendingBackendError | PendingLocalCommandError): FlashMessage {
-  return {
-    tone: "warning",
-    title: error.code === "pending_backend" ? "后端待接入" : "本地命令待接入",
-    body: error.message
-  };
 }
 
 function isShellPage(page: NavigationPageID | "detail"): page is NavigationPageID {
@@ -416,30 +432,62 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
       return;
     }
 
-    const hasPending = changedDrafts.some((draft) => draft.availability.kind !== "live");
-    if (hasPending) {
-      try {
-        await prototypeActionClient.applyTargetDrafts(skill.skillID, changedDrafts);
-      } catch (error) {
-        if (error instanceof PendingBackendError || error instanceof PendingLocalCommandError) {
-          setFlash(mapPendingError(error));
-          closeModal();
-          return;
+    const blockedDrafts = changedDrafts.filter((draft) => draft.availability.kind !== "live");
+    if (blockedDrafts.length > 0) {
+      setFlash({
+        tone: "warning",
+        title: "存在不可用目标",
+        body: `请先修复这些目标后再启用：${blockedDrafts.map((draft) => draft.targetName).join("、")}。`
+      });
+      closeModal();
+      return;
+    }
+
+    const applyChanges = async (overwriteKeys = new Set<string>()) => {
+      for (const draft of changedDrafts) {
+        if (!draft.selected) {
+          await workspace.disableSkill(skill.skillID, draft.targetID, draft.targetType);
+          continue;
         }
-        throw error;
+        await workspace.enableSkill(
+          skill.skillID,
+          draft.targetType,
+          draft.targetID,
+          "symlink",
+          overwriteKeys.has(draft.key)
+        );
       }
+      closeModal();
+    };
+
+    const conflictingDrafts = changedDrafts.filter((draft) => {
+      if (!draft.selected) return false;
+      const finding = findSkillScanFinding(workspace, skill.skillID, draft.targetType, draft.targetID);
+      return finding !== null && finding.kind !== "managed";
+    });
+
+    if (conflictingDrafts.length > 0) {
+      const overwriteKeys = new Set(conflictingDrafts.map((draft) => draft.key));
+      setModal({ type: "none" });
+      setConfirmModal({
+        type: "confirm",
+        title: `覆盖目标内容：${skill.displayName}`,
+        body: "检测到目标目录中已有未托管或异常内容。确认后会直接覆盖这些位置。",
+        confirmLabel: "确认覆盖并启用",
+        tone: "danger",
+        detailLines: conflictingDrafts.map((draft) => {
+          const finding = findSkillScanFinding(workspace, skill.skillID, draft.targetType, draft.targetID);
+          return `${draft.targetName} · ${finding?.message ?? draft.targetPath}`;
+        }),
+        onConfirm: async () => {
+          closeModal();
+          await applyChanges(overwriteKeys);
+        }
+      });
+      return;
     }
 
-    for (const draft of changedDrafts) {
-      if (draft.availability.kind !== "live") continue;
-      if (draft.selected) {
-        await workspace.enableSkill(skill.skillID, draft.targetType, draft.targetID);
-      } else {
-        await workspace.disableSkill(skill.skillID, draft.targetID, draft.targetType);
-      }
-    }
-
-    closeModal();
+    await applyChanges();
   }, [closeModal, targetDrafts, workspace]);
 
   const openConnectionStatus = useCallback(() => {
@@ -477,19 +525,41 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
   }, []);
 
   const submitToolDraft = useCallback(async () => {
-    try {
-      await prototypeActionClient.createToolDraft(toolDraft);
-    } catch (error) {
-      if (error instanceof PendingBackendError || error instanceof PendingLocalCommandError) {
-        setFlash(mapPendingError(error));
-        closeModal();
-        return;
-      }
-      throw error;
+    const validation = await workspace.validateTargetPath(toolDraft.skillsPath);
+    if (!validation.valid && !validation.canCreate) {
+      setFlash({
+        tone: "warning",
+        title: "工具路径不可用",
+        body: validation.reason ?? "请修复 skills 安装路径后再保存。"
+      });
+      return;
     }
-  }, [closeModal, toolDraft]);
+    await workspace.saveToolConfig({
+      toolID: toolDraft.toolID ?? "custom_directory",
+      name: toolDraft.name,
+      configPath: toolDraft.configPath,
+      skillsPath: toolDraft.skillsPath,
+      enabled: toolDraft.enabled
+    });
+    closeModal();
+    setFlash({
+      tone: "success",
+      title: toolDraft.toolID === "custom_directory" ? "自定义目录已保存" : "工具配置已保存",
+      body: "工具路径、启用状态和检测结果已写入本地 SQLite 真源。"
+    });
+  }, [closeModal, toolDraft, workspace]);
 
   const submitProjectDraft = useCallback(async () => {
+    const skillsPath = projectDraft.skillsPath || `${projectDraft.projectPath}\\.codex\\skills`;
+    const validation = await workspace.validateTargetPath(skillsPath);
+    if (!validation.valid && !validation.canCreate) {
+      setFlash({
+        tone: "warning",
+        title: "项目路径不可用",
+        body: validation.reason ?? "请修复项目 skills 目录后再保存。"
+      });
+      return;
+    }
     await workspace.saveProjectConfig(projectDraft);
     closeModal();
     setFlash({

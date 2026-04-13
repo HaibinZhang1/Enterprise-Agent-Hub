@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PendingBackendError, PendingLocalCommandError, type ProjectConfig, type PublishDraft, type SkillSummary, type ToolConfig } from "../src/domain/p1.ts";
+import { PendingBackendError, type ProjectConfig, type PublishDraft, type ScanTargetSummary, type SkillSummary, type ToolConfig } from "../src/domain/p1.ts";
 import { prototypeActionClient } from "../src/services/prototypeActionClient.ts";
 import { buildPublishPrecheck, collectInstalledSkillIssues } from "../src/state/useDesktopUIState.ts";
 
@@ -49,32 +49,6 @@ test("prototype backend actions reject with explicit pending backend errors", as
   await assert.rejects(
     () => prototypeActionClient.submitReviewDecision({ reviewID: "rv_001", decision: "approve", comment: "looks good" }),
     (error: unknown) => error instanceof PendingBackendError && error.action === "review.decision"
-  );
-});
-
-test("prototype local actions reject with explicit pending local command errors", async () => {
-  await assert.rejects(
-    () => prototypeActionClient.createToolDraft({ name: "团队共享目录", configPath: "D:\\ai-tools\\shared\\config.json", skillsPath: "D:\\ai-skills\\team-shared", enabled: true }),
-    (error: unknown) => error instanceof PendingLocalCommandError && error.code === "pending_local_command" && error.action === "tool.create"
-  );
-
-  await assert.rejects(
-    () => prototypeActionClient.applyTargetDrafts("context-router", [{
-      key: "tool:cursor",
-      targetType: "tool",
-      targetID: "cursor",
-      targetName: "Cursor",
-      targetPath: "D:\\cursor\\rules",
-      disabled: false,
-      statusLabel: "manual",
-      selected: true,
-      availability: {
-        kind: "pending_local_command",
-        label: "待接入",
-        reason: "cursor 目标命令待接入"
-      }
-    }]),
-    (error: unknown) => error instanceof PendingLocalCommandError && error.action === "targets.apply"
   );
 });
 
@@ -134,19 +108,54 @@ test("installed skill issues cover local hash drift and unavailable targets", ()
     {
       toolID: "cursor",
       name: "Cursor",
+      displayName: "Cursor",
       configPath: "D:\\cursor\\settings.json",
+      detectedPath: null,
+      configuredPath: "D:\\cursor\\rules",
       skillsPath: "D:\\cursor\\rules",
       enabled: true,
       status: "invalid",
+      adapterStatus: "invalid",
+      detectionMethod: "manual",
       transform: "cursor_rule",
-      enabledSkillCount: 0
+      transformStrategy: "cursor_rule",
+      enabledSkillCount: 0,
+      lastScannedAt: "2026-04-10T08:40:00Z"
     }
   ];
   const projects: ProjectConfig[] = [];
+  const scanTargets: ScanTargetSummary[] = [
+    {
+      id: "tool:cursor",
+      targetType: "tool",
+      targetID: "cursor",
+      targetName: "Cursor",
+      targetPath: "D:\\cursor\\rules",
+      transformStrategy: "cursor_rule",
+      scannedAt: "2026-04-10T08:40:00Z",
+      counts: { managed: 0, unmanaged: 0, conflict: 1, orphan: 0 },
+      findings: [
+        {
+          id: "tool:cursor:context-router",
+          kind: "conflict",
+          skillID: "context-router",
+          targetType: "tool",
+          targetID: "cursor",
+          targetName: "Cursor",
+          targetPath: "D:\\cursor\\rules\\context-router",
+          relativePath: "context-router",
+          checksum: "drifted",
+          message: "目标内容与登记产物不一致，可能被手动修改或被其他流程覆盖。"
+        }
+      ],
+      lastError: null
+    }
+  ];
 
-  const issues = collectInstalledSkillIssues(skill, { tools, projects });
+  const issues = collectInstalledSkillIssues(skill, { tools, projects, scanTargets });
 
   assert.match(issues.join(" | "), /本地内容已变更/);
   assert.match(issues.join(" | "), /路径不可用/);
   assert.match(issues.join(" | "), /项目已移除/);
+  assert.match(issues.join(" | "), /登记产物不一致/);
 });

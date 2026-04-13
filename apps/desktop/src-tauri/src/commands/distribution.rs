@@ -4,13 +4,13 @@ pub(crate) mod adapters;
 
 #[cfg(test)]
 use self::adapters::{
-    builtin_adapters, enable_artifact, transform_skill, AdapterError, AdapterID, AdapterResult,
-    DistributionOutcome, InstallMode,
+    builtin_adapters, enable_artifact_with_options, transform_skill, AdapterError, AdapterID,
+    AdapterResult, DistributionOptions, DistributionOutcome, InstallMode,
 };
 #[cfg(not(test))]
 use crate::adapters::{
-    builtin_adapters, enable_artifact, transform_skill, AdapterError, AdapterID, AdapterResult,
-    DistributionOutcome, InstallMode,
+    builtin_adapters, enable_artifact_with_options, transform_skill, AdapterError, AdapterID,
+    AdapterResult, DistributionOptions, DistributionOutcome, InstallMode,
 };
 
 use std::path::{Path, PathBuf};
@@ -24,6 +24,7 @@ pub struct EnableDistributionRequest {
     pub derived_root: PathBuf,
     pub target_root: PathBuf,
     pub requested_mode: InstallMode,
+    pub allow_overwrite: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +32,7 @@ pub struct EnableDistributionResponse {
     pub skill_id: String,
     pub version: String,
     pub target_path: PathBuf,
+    pub artifact_path: PathBuf,
     pub requested_mode: InstallMode,
     pub resolved_mode: InstallMode,
     pub fallback_reason: Option<String>,
@@ -71,14 +73,24 @@ pub fn enable_distribution(
         adapter.transform_strategy,
     )?;
     let target_name = adapter.target_name_for_skill(&request.skill_id);
-    let outcome = enable_artifact(
-        artifact.artifact_path,
+    let artifact_path = artifact.artifact_path;
+    let outcome = enable_artifact_with_options(
+        &artifact_path,
         request.target_root,
         &target_name,
         request.requested_mode,
+        DistributionOptions {
+            allow_overwrite_target: request.allow_overwrite,
+            simulated_symlink_failure: None,
+        },
     )?;
 
-    Ok(response(request.skill_id, request.version, outcome))
+    Ok(response(
+        request.skill_id,
+        request.version,
+        artifact_path,
+        outcome,
+    ))
 }
 
 pub fn disable_distribution(request: DisableDistributionRequest) -> AdapterResult<()> {
@@ -97,12 +109,14 @@ pub fn managed_target_path(target_root: impl AsRef<Path>, skill_id: &str) -> Pat
 fn response(
     skill_id: String,
     version: String,
+    artifact_path: PathBuf,
     outcome: DistributionOutcome,
 ) -> EnableDistributionResponse {
     EnableDistributionResponse {
         skill_id,
         version,
         target_path: outcome.target_path,
+        artifact_path,
         requested_mode: outcome.requested_mode,
         resolved_mode: outcome.resolved_mode,
         fallback_reason: outcome.fallback_reason,

@@ -8,6 +8,8 @@ export type TargetType = "tool" | "project";
 export type AdapterStatus = "detected" | "manual" | "missing" | "invalid" | "disabled";
 export type RequestedMode = "symlink" | "copy";
 export type ResolvedMode = "symlink" | "copy";
+export type DetectionMethod = "registry" | "default_path" | "manual";
+export type ScanFindingKind = "managed" | "unmanaged" | "conflict" | "orphan";
 export type MenuPermission =
   | "home"
   | "market"
@@ -167,21 +169,70 @@ export interface SkillSummary {
 export interface ToolConfig {
   toolID: string;
   name: string;
+  displayName: string;
   configPath: string;
+  detectedPath?: string | null;
+  configuredPath?: string | null;
   skillsPath: string;
   enabled: boolean;
   status: AdapterStatus;
+  adapterStatus: AdapterStatus;
+  detectionMethod: DetectionMethod;
   transform: "codex_skill" | "claude_skill" | "cursor_rule" | "windsurf_rule" | "opencode_skill" | "generic_directory";
+  transformStrategy: "codex_skill" | "claude_skill" | "cursor_rule" | "windsurf_rule" | "opencode_skill" | "generic_directory";
   enabledSkillCount: number;
+  lastScannedAt?: string | null;
 }
 
 export interface ProjectConfig {
   projectID: string;
   name: string;
+  displayName: string;
   projectPath: string;
   skillsPath: string;
   enabled: boolean;
   enabledSkillCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScanFinding {
+  id: string;
+  kind: ScanFindingKind;
+  skillID: string | null;
+  targetType: TargetType;
+  targetID: string;
+  targetName: string;
+  targetPath: string;
+  relativePath: string;
+  checksum?: string | null;
+  message: string;
+}
+
+export interface ScanTargetSummary {
+  id: string;
+  targetType: TargetType;
+  targetID: string;
+  targetName: string;
+  targetPath: string;
+  transformStrategy: ToolConfig["transformStrategy"] | "generic_directory";
+  scannedAt: string;
+  counts: {
+    managed: number;
+    unmanaged: number;
+    conflict: number;
+    orphan: number;
+  };
+  findings: ScanFinding[];
+  lastError?: string | null;
+}
+
+export interface ValidateTargetPathResult {
+  valid: boolean;
+  writable: boolean;
+  exists: boolean;
+  canCreate: boolean;
+  reason?: string | null;
 }
 
 export interface LocalNotification {

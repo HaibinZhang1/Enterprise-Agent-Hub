@@ -109,6 +109,15 @@ function TargetsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Desk
           </label>
         ))}
       </div>
+      <div className="stack-list compact">
+        {workspace.scanTargets
+          .filter((summary) => summary.findings.some((finding) => finding.relativePath === skill.skillID))
+          .map((summary) => (
+            <small key={summary.id}>
+              {summary.targetName}：{summary.findings.find((finding) => finding.relativePath === skill.skillID)?.message ?? "已扫描"}
+            </small>
+          ))}
+      </div>
       <div className="inline-actions wrap modal-actions">
         <button className="btn btn-primary" onClick={() => void ui.applyTargetDrafts(skill)} disabled={skill.isScopeRestricted}>应用目标</button>
         <button className="btn" onClick={() => ui.openToolEditor()}><Plus size={15} />添加自定义工具</button>
@@ -126,15 +135,21 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
     void ui.submitToolDraft();
   }
 
-  const editing = Boolean(ui.toolDraft.toolID);
+  const editing =
+    ui.toolDraft.toolID !== "custom_directory" ||
+    ui.toolDraft.configPath.trim().length > 0 ||
+    ui.toolDraft.skillsPath.trim().length > 0;
+  const customDirectory = ui.toolDraft.toolID === "custom_directory";
 
   return (
     <ModalFrame title={editing ? `编辑 ${ui.toolDraft.name}` : "添加自定义工具"} eyebrow="工具路径" onClose={ui.closeModal} narrow>
       <form className="form-stack" onSubmit={submit}>
-        <label className="field">
-          <span>工具名称</span>
-          <input value={ui.toolDraft.name} onChange={(event) => ui.setToolDraft((current) => ({ ...current, name: event.target.value }))} />
-        </label>
+        {customDirectory ? (
+          <label className="field">
+            <span>工具名称</span>
+            <input value={ui.toolDraft.name} onChange={(event) => ui.setToolDraft((current) => ({ ...current, name: event.target.value }))} />
+          </label>
+        ) : null}
         <label className="field">
           <span>配置路径</span>
           <input value={ui.toolDraft.configPath} onChange={(event) => ui.setToolDraft((current) => ({ ...current, configPath: event.target.value }))} placeholder="例如 %USERPROFILE%\\.cursor\\settings.json" />
@@ -147,12 +162,12 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
           <span>启用当前工具配置</span>
           <input type="checkbox" checked={ui.toolDraft.enabled} onChange={(event) => ui.setToolDraft((current) => ({ ...current, enabled: event.target.checked }))} />
         </label>
-        <div className="callout warning">
-          <AlertTriangle size={16} />
-          当前只完成真实编辑交互和字段校验；工具路径保存命令仍待接入，不会伪造已经生效。
+        <div className="callout info">
+          <CheckCircle2 size={16} />
+          保存后会写入本地 SQLite 真源，并参与后续检测、启用与目录扫描。
         </div>
         <div className="inline-actions wrap modal-actions">
-          <button className="btn btn-primary" type="submit">{editing ? "保存变更（待接入）" : "提交（待接入）"}</button>
+          <button className="btn btn-primary" type="submit">{editing ? "保存工具配置" : "保存自定义目录"}</button>
           <button className="btn" type="button" onClick={ui.closeModal}>取消</button>
         </div>
       </form>

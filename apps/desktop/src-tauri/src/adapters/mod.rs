@@ -108,7 +108,7 @@ mod tests {
             "example-skill",
             InstallMode::Symlink,
             DistributionOptions {
-                allow_overwrite_managed: true,
+                allow_overwrite_target: true,
                 simulated_symlink_failure: Some("symlink_permission_denied".to_string()),
             },
         )

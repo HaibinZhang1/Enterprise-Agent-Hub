@@ -343,17 +343,17 @@ export const seedSkills: SkillSummary[] = [
 ];
 
 export const seedTools: ToolConfig[] = [
-  { toolID: "codex", name: "Codex", configPath: "%USERPROFILE%\\.codex\\config.toml", skillsPath: "%USERPROFILE%\\.codex\\skills", enabled: true, status: "detected", transform: "codex_skill", enabledSkillCount: 1 },
-  { toolID: "claude", name: "Claude", configPath: "%USERPROFILE%\\.claude\\settings.json", skillsPath: "%USERPROFILE%\\.claude\\skills", enabled: true, status: "detected", transform: "claude_skill", enabledSkillCount: 1 },
-  { toolID: "cursor", name: "Cursor", configPath: "%USERPROFILE%\\.cursor\\settings.json", skillsPath: "%USERPROFILE%\\.cursor\\rules", enabled: true, status: "manual", transform: "cursor_rule", enabledSkillCount: 0 },
-  { toolID: "windsurf", name: "Windsurf", configPath: "未检测到", skillsPath: "%USERPROFILE%\\.windsurf\\skills", enabled: false, status: "missing", transform: "windsurf_rule", enabledSkillCount: 0 },
-  { toolID: "opencode", name: "opencode", configPath: "%USERPROFILE%\\.opencode\\config.json", skillsPath: "%USERPROFILE%\\.opencode\\skills", enabled: true, status: "invalid", transform: "opencode_skill", enabledSkillCount: 0 },
-  { toolID: "custom_directory", name: "自定义目录", configPath: "手动维护", skillsPath: "D:\\ai-skills\\shared", enabled: true, status: "manual", transform: "generic_directory", enabledSkillCount: 0 }
+  { toolID: "codex", name: "Codex", displayName: "Codex", configPath: "%USERPROFILE%\\.codex\\config.toml", detectedPath: "%USERPROFILE%\\.codex\\skills", configuredPath: null, skillsPath: "%USERPROFILE%\\.codex\\skills", enabled: true, status: "detected", adapterStatus: "detected", detectionMethod: "default_path", transform: "codex_skill", transformStrategy: "codex_skill", enabledSkillCount: 1, lastScannedAt: "2026-04-11T02:00:00Z" },
+  { toolID: "claude", name: "Claude", displayName: "Claude", configPath: "%USERPROFILE%\\.claude\\settings.json", detectedPath: "%USERPROFILE%\\.claude\\skills", configuredPath: null, skillsPath: "%USERPROFILE%\\.claude\\skills", enabled: true, status: "detected", adapterStatus: "detected", detectionMethod: "registry", transform: "claude_skill", transformStrategy: "claude_skill", enabledSkillCount: 1, lastScannedAt: "2026-04-11T02:00:00Z" },
+  { toolID: "cursor", name: "Cursor", displayName: "Cursor", configPath: "%USERPROFILE%\\.cursor\\settings.json", detectedPath: "%USERPROFILE%\\.cursor\\rules", configuredPath: "D:\\Cursor\\rules", skillsPath: "D:\\Cursor\\rules", enabled: true, status: "manual", adapterStatus: "manual", detectionMethod: "manual", transform: "cursor_rule", transformStrategy: "cursor_rule", enabledSkillCount: 0, lastScannedAt: "2026-04-11T02:00:00Z" },
+  { toolID: "windsurf", name: "Windsurf", displayName: "Windsurf", configPath: "%USERPROFILE%\\.windsurf\\settings.json", detectedPath: null, configuredPath: null, skillsPath: "%USERPROFILE%\\.windsurf\\skills", enabled: false, status: "missing", adapterStatus: "missing", detectionMethod: "default_path", transform: "windsurf_rule", transformStrategy: "windsurf_rule", enabledSkillCount: 0, lastScannedAt: null },
+  { toolID: "opencode", name: "opencode", displayName: "opencode", configPath: "%USERPROFILE%\\.opencode\\config.json", detectedPath: null, configuredPath: "D:\\OpenCode\\skills", skillsPath: "D:\\OpenCode\\skills", enabled: true, status: "invalid", adapterStatus: "invalid", detectionMethod: "manual", transform: "opencode_skill", transformStrategy: "opencode_skill", enabledSkillCount: 0, lastScannedAt: "2026-04-11T02:00:00Z" },
+  { toolID: "custom_directory", name: "自定义目录", displayName: "自定义目录", configPath: "手动维护", detectedPath: null, configuredPath: "D:\\ai-skills\\shared", skillsPath: "D:\\ai-skills\\shared", enabled: true, status: "manual", adapterStatus: "manual", detectionMethod: "manual", transform: "generic_directory", transformStrategy: "generic_directory", enabledSkillCount: 0, lastScannedAt: "2026-04-11T02:00:00Z" }
 ];
 
 export const seedProjects: ProjectConfig[] = [
-  { projectID: "enterprise-agent-hub", name: "Enterprise Agent Hub", projectPath: "D:\\workspace\\EnterpriseAgentHub", skillsPath: "D:\\workspace\\EnterpriseAgentHub\\.codex\\skills", enabled: true, enabledSkillCount: 1 },
-  { projectID: "desktop-client", name: "Desktop Client", projectPath: "D:\\workspace\\DesktopClient", skillsPath: "D:\\workspace\\DesktopClient\\.claude\\skills", enabled: true, enabledSkillCount: 0 }
+  { projectID: "enterprise-agent-hub", name: "Enterprise Agent Hub", displayName: "Enterprise Agent Hub", projectPath: "D:\\workspace\\EnterpriseAgentHub", skillsPath: "D:\\workspace\\EnterpriseAgentHub\\.codex\\skills", enabled: true, enabledSkillCount: 1, createdAt: "2026-04-09T10:00:00Z", updatedAt: "2026-04-11T02:00:00Z" },
+  { projectID: "desktop-client", name: "Desktop Client", displayName: "Desktop Client", projectPath: "D:\\workspace\\DesktopClient", skillsPath: "D:\\workspace\\DesktopClient\\.claude\\skills", enabled: true, enabledSkillCount: 0, createdAt: "2026-04-09T11:00:00Z", updatedAt: "2026-04-11T02:00:00Z" }
 ];
 
 export const seedNotifications: LocalNotification[] = [

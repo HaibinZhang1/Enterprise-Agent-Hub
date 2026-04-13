@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::io::{self, Cursor};
 use std::path::{Path, PathBuf};
@@ -11,12 +12,12 @@ use zip::ZipArchive;
 #[cfg(not(test))]
 use crate::adapters::{
     builtin_adapters, detect_adapter, expand_windows_user_profile, AdapterConfig, AdapterID,
-    InstallMode as AdapterInstallMode,
+    InstallMode as AdapterInstallMode, MANAGED_MARKER_FILE,
 };
 #[cfg(test)]
 use crate::commands::distribution::adapters::{
     builtin_adapters, detect_adapter, expand_windows_user_profile, AdapterConfig, AdapterID,
-    InstallMode as AdapterInstallMode,
+    InstallMode as AdapterInstallMode, MANAGED_MARKER_FILE,
 };
 use crate::commands::distribution::{enable_distribution, EnableDistributionRequest};
 use crate::commands::distribution::{disable_distribution, DisableDistributionRequest};
@@ -27,6 +28,7 @@ use crate::store::commands::{
     update_skill_package as store_update_skill_package, InstallSkillPackageRequest,
     UninstallSkillRequest, UpdateSkillPackageRequest,
 };
+use crate::store::hash::{hex_digest, Sha256};
 use crate::store::models::{EnabledTarget, EnabledTargetStatus, InstallMode, LocalSkillInstall, TargetType};
 use crate::store::sqlite::{ordered_migrations, statements};
 
@@ -72,13 +74,17 @@ pub struct ToolConfigPayload {
     pub name: String,
     pub display_name: String,
     pub config_path: String,
+    pub detected_path: Option<String>,
+    pub configured_path: Option<String>,
     pub skills_path: String,
     pub enabled: bool,
     pub status: String,
     pub adapter_status: String,
+    pub detection_method: String,
     pub transform: String,
     pub transform_strategy: String,
     pub enabled_skill_count: u32,
+    pub last_scanned_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -92,6 +98,8 @@ pub struct ProjectConfigPayload {
     pub skills_path: String,
     pub enabled: bool,
     pub enabled_skill_count: u32,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -101,6 +109,17 @@ pub struct ProjectConfigInputPayload {
     pub project_id: Option<String>,
     pub name: String,
     pub project_path: String,
+    pub skills_path: String,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolConfigInputPayload {
+    #[serde(rename = "toolID")]
+    pub tool_id: String,
+    pub name: Option<String>,
+    pub config_path: String,
     pub skills_path: String,
     pub enabled: Option<bool>,
 }
@@ -187,6 +206,55 @@ pub struct OfflineSyncAckPayload {
     pub synced_event_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateTargetPathPayload {
+    pub valid: bool,
+    pub writable: bool,
+    pub exists: bool,
+    pub can_create: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanFindingPayload {
+    pub id: String,
+    pub kind: String,
+    pub skill_id: Option<String>,
+    pub target_type: String,
+    pub target_id: String,
+    pub target_name: String,
+    pub target_path: String,
+    pub relative_path: String,
+    pub checksum: Option<String>,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanFindingCountsPayload {
+    pub managed: u32,
+    pub unmanaged: u32,
+    pub conflict: u32,
+    pub orphan: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanTargetSummaryPayload {
+    pub id: String,
+    pub target_type: String,
+    pub target_id: String,
+    pub target_name: String,
+    pub target_path: String,
+    pub transform_strategy: String,
+    pub scanned_at: String,
+    pub counts: ScanFindingCountsPayload,
+    pub findings: Vec<ScanFindingPayload>,
+    pub last_error: Option<String>,
+}
+
 impl P1LocalState {
     pub fn initialize(app_data_dir: impl AsRef<Path>) -> Result<Self, String> {
         let app_data_dir = app_data_dir.as_ref().to_path_buf();
@@ -217,6 +285,7 @@ impl P1LocalState {
 
     pub fn get_local_bootstrap(&self) -> Result<LocalBootstrapPayload, String> {
         let conn = self.open_connection().map_err(|error| error.to_string())?;
+        refresh_builtin_tool_configs(&conn)?;
         Ok(LocalBootstrapPayload {
             installs: self
                 .list_local_installs_from_conn(&conn)
@@ -236,8 +305,66 @@ impl P1LocalState {
 
     pub fn detect_tools(&self) -> Result<Vec<ToolConfigPayload>, String> {
         let conn = self.open_connection().map_err(|error| error.to_string())?;
+        refresh_builtin_tool_configs(&conn)?;
         self.detect_tools_from_conn(&conn)
             .map_err(|error| error.to_string())
+    }
+
+    pub fn save_tool_config(
+        &self,
+        input: ToolConfigInputPayload,
+    ) -> Result<ToolConfigPayload, String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        refresh_builtin_tool_configs(&conn)?;
+        let adapter = builtin_adapters()
+            .into_iter()
+            .find(|candidate| candidate.tool_id.as_str() == input.tool_id)
+            .ok_or_else(|| format!("unknown tool adapter: {}", input.tool_id))?;
+        let skills_path = normalize_tool_skills_path(&adapter, &input.skills_path)?;
+        let config_path = normalize_optional_path(&input.config_path);
+        let display_name = if adapter.tool_id == AdapterID::CustomDirectory {
+            input
+                .name
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or(adapter.display_name.as_str())
+                .to_string()
+        } else {
+            adapter.display_name.clone()
+        };
+        let now = now_iso();
+        conn.execute(
+            "
+            INSERT INTO tool_configs (
+              tool_id, display_name, adapter_status, detected_path, configured_path, skills_path,
+              enabled, detection_method, transform_strategy, last_scanned_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+            ON CONFLICT(tool_id) DO UPDATE SET
+              display_name = excluded.display_name,
+              configured_path = excluded.configured_path,
+              skills_path = excluded.skills_path,
+              enabled = excluded.enabled,
+              detection_method = excluded.detection_method,
+              transform_strategy = excluded.transform_strategy,
+              updated_at = excluded.updated_at
+            ",
+            params![
+                adapter.tool_id.as_str(),
+                &display_name,
+                "manual",
+                Option::<String>::None,
+                config_path,
+                skills_path.to_string_lossy().to_string(),
+                bool_to_int(input.enabled.unwrap_or(true)),
+                "manual",
+                adapter.transform_strategy.as_str(),
+                &now,
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+        refresh_builtin_tool_configs(&conn)?;
+        load_tool_config_payload(&conn, adapter.tool_id.as_str()).map_err(|error| error.to_string())
     }
 
     pub fn install_skill_package(
@@ -336,6 +463,32 @@ impl P1LocalState {
         load_project_config(&conn, &project_id).map_err(|error| error.to_string())
     }
 
+    pub fn validate_target_path(
+        &self,
+        path: String,
+    ) -> Result<ValidateTargetPathPayload, String> {
+        match crate::commands::path_validation::validate_distribution_target_path(
+            crate::commands::path_validation::ValidateTargetPathRequest {
+                path: PathBuf::from(path),
+            },
+        ) {
+            Ok(result) => Ok(ValidateTargetPathPayload {
+                valid: true,
+                writable: result.writable,
+                exists: result.exists,
+                can_create: result.can_create,
+                reason: None,
+            }),
+            Err(error) => Ok(ValidateTargetPathPayload {
+                valid: false,
+                writable: false,
+                exists: false,
+                can_create: false,
+                reason: Some(error.to_string()),
+            }),
+        }
+    }
+
     pub fn mark_offline_events_synced(
         &self,
         event_ids: Vec<String>,
@@ -361,8 +514,10 @@ impl P1LocalState {
         target_type: String,
         target_id: String,
         preferred_mode: Option<String>,
+        allow_overwrite: Option<bool>,
     ) -> Result<EnabledTargetPayload, String> {
         let conn = self.open_connection().map_err(|error| error.to_string())?;
+        refresh_builtin_tool_configs(&conn)?;
         let install = load_install_row(&conn, &skill_id).map_err(|error| error.to_string())?;
         let installed_version = if version.trim().is_empty() {
             install.local_version.clone()
@@ -378,12 +533,6 @@ impl P1LocalState {
         let (adapter, target_name, target_root) =
             resolve_enable_target(&conn, &target_type, &target_id)?;
         let requested_mode = parse_adapter_mode(preferred_mode.as_deref().unwrap_or("symlink"))?;
-        let artifact_path = self
-            .central_store_root
-            .join("derived")
-            .join(&skill_id)
-            .join(&installed_version)
-            .join(adapter.transform_strategy.as_str());
         let response = enable_distribution(EnableDistributionRequest {
             skill_id: skill_id.clone(),
             version: installed_version.clone(),
@@ -392,6 +541,7 @@ impl P1LocalState {
             derived_root: self.central_store_root.join("derived"),
             target_root,
             requested_mode,
+            allow_overwrite: allow_overwrite.unwrap_or(false),
         })
         .map_err(|error| error.to_string())?;
 
@@ -403,12 +553,13 @@ impl P1LocalState {
             target_id: target_id.clone(),
             target_name,
             target_path: response.target_path.to_string_lossy().to_string(),
-            artifact_path: artifact_path.to_string_lossy().to_string(),
+            artifact_path: response.artifact_path.to_string_lossy().to_string(),
             install_mode: response.resolved_mode.as_str().to_string(),
             requested_mode: response.requested_mode.as_str().to_string(),
             resolved_mode: response.resolved_mode.as_str().to_string(),
             fallback_reason: response.fallback_reason.clone(),
-            artifact_hash: install.local_hash.clone(),
+            artifact_hash: hash_path(&response.artifact_path)
+                .map_err(|error| error.to_string())?,
             enabled_at: timestamp.clone(),
             updated_at: timestamp.clone(),
             status: "enabled".to_string(),
@@ -439,6 +590,12 @@ impl P1LocalState {
             .map_err(|error| error.to_string())?;
 
         Ok(target)
+    }
+
+    pub fn scan_local_targets(&self) -> Result<Vec<ScanTargetSummaryPayload>, String> {
+        let conn = self.open_connection().map_err(|error| error.to_string())?;
+        refresh_builtin_tool_configs(&conn)?;
+        scan_local_targets_from_conn(&conn)
     }
 
     pub fn disable_skill(
@@ -618,31 +775,10 @@ impl P1LocalState {
     }
 
     fn detect_tools_from_conn(&self, conn: &Connection) -> rusqlite::Result<Vec<ToolConfigPayload>> {
-        let mut tools = Vec::new();
-        for adapter in builtin_adapters() {
-            let skills_path = adapter
-                .target
-                .global_paths
-                .first()
-                .map(|path| expand_windows_user_profile(path).to_string_lossy().to_string())
-                .unwrap_or_default();
-            let detection = detect_adapter(&adapter, None);
-            let enabled_skill_count = count_enabled_targets_for_tool(conn, adapter.tool_id.as_str())?;
-            tools.push(ToolConfigPayload {
-                tool_id: adapter.tool_id.as_str().to_string(),
-                name: adapter.display_name.clone(),
-                display_name: adapter.display_name,
-                config_path: skills_path.clone(),
-                skills_path,
-                enabled: adapter.enabled,
-                status: detection.status.as_str().to_string(),
-                adapter_status: detection.status.as_str().to_string(),
-                transform: adapter.transform_strategy.as_str().to_string(),
-                transform_strategy: adapter.transform_strategy.as_str().to_string(),
-                enabled_skill_count,
-            });
-        }
-        Ok(tools)
+        builtin_adapters()
+            .into_iter()
+            .map(|adapter| load_tool_config_payload(conn, adapter.tool_id.as_str()))
+            .collect()
     }
 
     fn list_project_configs_from_conn(
@@ -651,7 +787,7 @@ impl P1LocalState {
     ) -> rusqlite::Result<Vec<ProjectConfigPayload>> {
         let mut statement = conn.prepare(
             "
-            SELECT project_id, display_name, project_path, skills_path, enabled
+            SELECT project_id, display_name, project_path, skills_path, enabled, created_at, updated_at
             FROM project_configs
             ORDER BY updated_at DESC
             ",
@@ -666,6 +802,8 @@ impl P1LocalState {
                 skills_path: row.get(3)?,
                 enabled: int_to_bool(row.get(4)?),
                 enabled_skill_count: count_enabled_targets_for_project(conn, &project_id)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
             })
         })?;
         rows.collect()
@@ -825,7 +963,7 @@ fn insert_offline_event(
 fn load_project_config(conn: &Connection, project_id: &str) -> rusqlite::Result<ProjectConfigPayload> {
     conn.query_row(
         "
-        SELECT project_id, display_name, project_path, skills_path, enabled
+        SELECT project_id, display_name, project_path, skills_path, enabled, created_at, updated_at
         FROM project_configs
         WHERE project_id = ?
         ",
@@ -840,6 +978,178 @@ fn load_project_config(conn: &Connection, project_id: &str) -> rusqlite::Result<
                 skills_path: row.get(3)?,
                 enabled: int_to_bool(row.get(4)?),
                 enabled_skill_count: count_enabled_targets_for_project(conn, &project_id)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        },
+    )
+}
+
+#[derive(Debug, Clone)]
+struct StoredToolConfigRow {
+    tool_id: String,
+    display_name: String,
+    adapter_status: String,
+    detected_path: Option<String>,
+    configured_path: Option<String>,
+    skills_path: Option<String>,
+    enabled: bool,
+    detection_method: Option<String>,
+    transform_strategy: String,
+    last_scanned_at: Option<String>,
+    updated_at: String,
+}
+
+fn load_saved_tool_configs(
+    conn: &Connection,
+) -> rusqlite::Result<HashMap<String, StoredToolConfigRow>> {
+    let mut statement = conn.prepare(
+        "
+        SELECT tool_id, display_name, adapter_status, detected_path, configured_path, skills_path,
+               enabled, detection_method, transform_strategy, last_scanned_at, updated_at
+        FROM tool_configs
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        Ok(StoredToolConfigRow {
+            tool_id: row.get(0)?,
+            display_name: row.get(1)?,
+            adapter_status: row.get(2)?,
+            detected_path: row.get(3)?,
+            configured_path: row.get(4)?,
+            skills_path: row.get(5)?,
+            enabled: int_to_bool(row.get(6)?),
+            detection_method: row.get(7)?,
+            transform_strategy: row.get(8)?,
+            last_scanned_at: row.get(9)?,
+            updated_at: row.get(10)?,
+        })
+    })?;
+    let mut configs = HashMap::new();
+    for row in rows {
+        let row = row?;
+        configs.insert(row.tool_id.clone(), row);
+    }
+    Ok(configs)
+}
+
+fn refresh_builtin_tool_configs(conn: &Connection) -> Result<(), String> {
+    let existing = load_saved_tool_configs(conn).map_err(|error| error.to_string())?;
+    let now = now_iso();
+    for adapter in builtin_adapters() {
+        let saved = existing.get(adapter.tool_id.as_str());
+        let manual_skills_path = saved
+            .and_then(|row| row.skills_path.clone())
+            .filter(|_| saved.and_then(|row| row.detection_method.as_deref()) == Some("manual"));
+        let auto_detection = detect_adapter(&adapter, None);
+        let current_detection = detect_adapter(
+            &adapter,
+            manual_skills_path.as_ref().map(PathBuf::from),
+        );
+        let enabled = saved.map(|row| row.enabled).unwrap_or(adapter.enabled);
+        let adapter_status = if enabled {
+            current_detection.status.as_str().to_string()
+        } else {
+            "disabled".to_string()
+        };
+        let display_name = if adapter.tool_id == AdapterID::CustomDirectory {
+            saved
+                .map(|row| row.display_name.clone())
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| adapter.display_name.clone())
+        } else {
+            adapter.display_name.clone()
+        };
+        let resolved_skills_path = manual_skills_path
+            .clone()
+            .or_else(|| current_detection.detected_path.as_ref().map(|path| path.to_string_lossy().to_string()))
+            .or_else(|| default_tool_skills_path(&adapter))
+            .unwrap_or_default();
+        conn.execute(
+            "
+            INSERT INTO tool_configs (
+              tool_id, display_name, adapter_status, detected_path, configured_path, skills_path,
+              enabled, detection_method, transform_strategy, last_scanned_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(tool_id) DO UPDATE SET
+              display_name = excluded.display_name,
+              adapter_status = excluded.adapter_status,
+              detected_path = excluded.detected_path,
+              configured_path = COALESCE(tool_configs.configured_path, excluded.configured_path),
+              skills_path = excluded.skills_path,
+              enabled = excluded.enabled,
+              detection_method = excluded.detection_method,
+              transform_strategy = excluded.transform_strategy,
+              last_scanned_at = COALESCE(tool_configs.last_scanned_at, excluded.last_scanned_at),
+              updated_at = excluded.updated_at
+            ",
+            params![
+                adapter.tool_id.as_str(),
+                &display_name,
+                adapter_status,
+                auto_detection
+                    .detected_path
+                    .as_ref()
+                    .map(|path| path.to_string_lossy().to_string()),
+                saved.and_then(|row| row.configured_path.clone()),
+                resolved_skills_path,
+                bool_to_int(enabled),
+                if manual_skills_path.is_some() {
+                    "manual".to_string()
+                } else {
+                    current_detection.detection_method.as_str().to_string()
+                },
+                adapter.transform_strategy.as_str(),
+                saved.and_then(|row| row.last_scanned_at.clone()),
+                &now,
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn load_tool_config_payload(
+    conn: &Connection,
+    tool_id: &str,
+) -> rusqlite::Result<ToolConfigPayload> {
+    let adapter = builtin_adapters()
+        .into_iter()
+        .find(|candidate| candidate.tool_id.as_str() == tool_id)
+        .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)?;
+    conn.query_row(
+        "
+        SELECT tool_id, display_name, adapter_status, detected_path, configured_path, skills_path,
+               enabled, detection_method, transform_strategy, last_scanned_at
+        FROM tool_configs
+        WHERE tool_id = ?
+        ",
+        [tool_id],
+        |row| {
+            let tool_id: String = row.get(0)?;
+            let display_name: String = row.get(1)?;
+            let detected_path: Option<String> = row.get(3)?;
+            let configured_path: Option<String> = row.get(4)?;
+            let transform_strategy: String = row.get(8)?;
+            Ok(ToolConfigPayload {
+                tool_id: tool_id.clone(),
+                name: display_name.clone(),
+                display_name,
+                config_path: configured_path
+                    .clone()
+                    .or_else(|| default_tool_config_path(&adapter))
+                    .unwrap_or_default(),
+                detected_path,
+                configured_path,
+                skills_path: row.get(5)?,
+                enabled: int_to_bool(row.get(6)?),
+                status: row.get(2)?,
+                adapter_status: row.get(2)?,
+                detection_method: row.get::<_, Option<String>>(7)?.unwrap_or_else(|| "manual".to_string()),
+                transform: transform_strategy.clone(),
+                transform_strategy,
+                enabled_skill_count: count_enabled_targets_for_tool(conn, &tool_id)?,
+                last_scanned_at: row.get(9)?,
             })
         },
     )
@@ -1004,6 +1314,341 @@ fn load_all_enabled_targets(
     rows.collect()
 }
 
+fn load_enabled_targets_for_target(
+    conn: &Connection,
+    target_type: &str,
+    target_id: &str,
+) -> rusqlite::Result<Vec<EnabledTargetPayload>> {
+    let mut statement = conn.prepare(
+        "
+        SELECT id, skill_id, target_type, target_id, target_name, target_path, artifact_path,
+               install_mode, requested_mode, resolved_mode, fallback_reason, artifact_hash,
+               enabled_at, updated_at, status, last_error
+        FROM enabled_targets
+        WHERE target_type = ? AND target_id = ? AND status = 'enabled'
+        ORDER BY updated_at DESC
+        ",
+    )?;
+    let rows = statement.query_map(params![target_type, target_id], |row| {
+        Ok(EnabledTargetPayload {
+            id: row.get(0)?,
+            skill_id: row.get(1)?,
+            target_type: row.get(2)?,
+            target_id: row.get(3)?,
+            target_name: row.get(4)?,
+            target_path: row.get(5)?,
+            artifact_path: row.get(6)?,
+            install_mode: row.get(7)?,
+            requested_mode: row.get(8)?,
+            resolved_mode: row.get(9)?,
+            fallback_reason: row.get(10)?,
+            artifact_hash: row.get(11)?,
+            enabled_at: row.get(12)?,
+            updated_at: row.get(13)?,
+            status: row.get(14)?,
+            last_error: row.get(15)?,
+        })
+    })?;
+    rows.collect()
+}
+
+fn scan_local_targets_from_conn(
+    conn: &Connection,
+) -> Result<Vec<ScanTargetSummaryPayload>, String> {
+    let scanned_at = now_iso();
+    let mut targets = Vec::new();
+
+    for tool in builtin_adapters() {
+        let tool_config = load_tool_config_payload(conn, tool.tool_id.as_str())
+            .map_err(|error| error.to_string())?;
+        if !tool_config.enabled || tool_config.skills_path.trim().is_empty() {
+            continue;
+        }
+        let findings = scan_target_root(
+            conn,
+            "tool",
+            &tool_config.tool_id,
+            &tool_config.display_name,
+            &tool_config.skills_path,
+        )?;
+        conn.execute(
+            "UPDATE tool_configs SET last_scanned_at = ?, updated_at = ? WHERE tool_id = ?",
+            params![&scanned_at, &scanned_at, &tool_config.tool_id],
+        )
+        .map_err(|error| error.to_string())?;
+        targets.push(ScanTargetSummaryPayload {
+            id: format!("tool:{}", tool_config.tool_id),
+            target_type: "tool".to_string(),
+            target_id: tool_config.tool_id.clone(),
+            target_name: tool_config.display_name,
+            target_path: tool_config.skills_path,
+            transform_strategy: tool_config.transform_strategy,
+            scanned_at: scanned_at.clone(),
+            counts: build_scan_counts(&findings),
+            findings,
+            last_error: None,
+        });
+    }
+
+    for project in list_enabled_project_scan_targets(conn).map_err(|error| error.to_string())? {
+        let transform_strategy = resolve_project_adapter(&project.skills_path)
+            .map(|adapter| adapter.transform_strategy.as_str().to_string())
+            .unwrap_or_else(|_| "generic_directory".to_string());
+        let project_path = project.skills_path.clone();
+        let findings = scan_target_root(
+            conn,
+            "project",
+            &project.project_id,
+            &project.display_name,
+            &project_path,
+        )?;
+        targets.push(ScanTargetSummaryPayload {
+            id: format!("project:{}", project.project_id),
+            target_type: "project".to_string(),
+            target_id: project.project_id,
+            target_name: project.display_name,
+            target_path: project_path,
+            transform_strategy,
+            scanned_at: scanned_at.clone(),
+            counts: build_scan_counts(&findings),
+            findings,
+            last_error: None,
+        });
+    }
+
+    Ok(targets)
+}
+
+fn scan_target_root(
+    conn: &Connection,
+    target_type: &str,
+    target_id: &str,
+    target_name: &str,
+    target_root: &str,
+) -> Result<Vec<ScanFindingPayload>, String> {
+    let root = PathBuf::from(target_root);
+    let expected_targets = load_enabled_targets_for_target(conn, target_type, target_id)
+        .map_err(|error| error.to_string())?;
+    let mut expected_by_path = HashMap::new();
+    for expected in expected_targets {
+        expected_by_path.insert(normalize_path_text(&expected.target_path), expected);
+    }
+
+    let mut findings = Vec::new();
+    if !root.exists() {
+        for expected in expected_by_path.into_values() {
+            findings.push(build_scan_finding(
+                "orphan",
+                Some(expected.skill_id),
+                target_type,
+                target_id,
+                target_name,
+                &expected.target_path,
+                &relative_entry_name(&PathBuf::from(&expected.target_path), &root),
+                None,
+                "登记的启用目标不存在，需要重新启用或清理。",
+            ));
+        }
+        return Ok(findings);
+    }
+
+    let entries = fs::read_dir(&root).map_err(|error| format!("scan {}: {error}", root.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("scan {}: {error}", root.display()))?;
+        let entry_path = entry.path();
+        let normalized_entry_path = normalize_path_text(entry_path.to_string_lossy().as_ref());
+        let checksum = hash_path(&entry_path).ok();
+        let relative_path = relative_entry_name(&entry_path, &root);
+        let expected = expected_by_path.remove(&normalized_entry_path);
+        let has_managed_marker = entry_path.join(MANAGED_MARKER_FILE).is_file();
+        let (kind, skill_id, message) = match expected {
+            Some(expected) => {
+                if checksum.as_deref() == Some(expected.artifact_hash.as_str()) {
+                    (
+                        "managed",
+                        Some(expected.skill_id),
+                        "目标内容与本地登记一致，处于托管状态。".to_string(),
+                    )
+                } else {
+                    (
+                        "conflict",
+                        Some(expected.skill_id),
+                        "目标内容与登记产物不一致，可能被手动修改或被其他流程覆盖。".to_string(),
+                    )
+                }
+            }
+            None if has_managed_marker => (
+                "orphan",
+                None,
+                "发现带托管标记的目录，但本地启用登记不存在。".to_string(),
+            ),
+            None => (
+                "unmanaged",
+                None,
+                "发现未托管目录，启用时不会在未确认前覆盖。".to_string(),
+            ),
+        };
+        findings.push(build_scan_finding(
+            kind,
+            skill_id,
+            target_type,
+            target_id,
+            target_name,
+            entry_path.to_string_lossy().as_ref(),
+            &relative_path,
+            checksum,
+            &message,
+        ));
+    }
+
+    for expected in expected_by_path.into_values() {
+        findings.push(build_scan_finding(
+            "orphan",
+            Some(expected.skill_id),
+            target_type,
+            target_id,
+            target_name,
+            &expected.target_path,
+            &relative_entry_name(&PathBuf::from(&expected.target_path), &root),
+            None,
+            "登记的启用目标不存在，需要重新启用或清理。",
+        ));
+    }
+
+    findings.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    Ok(findings)
+}
+
+fn list_enabled_project_scan_targets(
+    conn: &Connection,
+) -> rusqlite::Result<Vec<ProjectConfigPayload>> {
+    let mut statement = conn.prepare(
+        "
+        SELECT project_id, display_name, project_path, skills_path, enabled, created_at, updated_at
+        FROM project_configs
+        WHERE enabled = 1
+        ORDER BY updated_at DESC
+        ",
+    )?;
+    let rows = statement.query_map([], |row| {
+        let project_id: String = row.get(0)?;
+        Ok(ProjectConfigPayload {
+            project_id: project_id.clone(),
+            name: row.get(1)?,
+            display_name: row.get(1)?,
+            project_path: row.get(2)?,
+            skills_path: row.get(3)?,
+            enabled: int_to_bool(row.get(4)?),
+            enabled_skill_count: count_enabled_targets_for_project(conn, &project_id)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+        })
+    })?;
+    rows.collect()
+}
+
+fn build_scan_counts(findings: &[ScanFindingPayload]) -> ScanFindingCountsPayload {
+    let mut counts = ScanFindingCountsPayload {
+        managed: 0,
+        unmanaged: 0,
+        conflict: 0,
+        orphan: 0,
+    };
+    for finding in findings {
+        match finding.kind.as_str() {
+            "managed" => counts.managed += 1,
+            "unmanaged" => counts.unmanaged += 1,
+            "conflict" => counts.conflict += 1,
+            "orphan" => counts.orphan += 1,
+            _ => {}
+        }
+    }
+    counts
+}
+
+fn build_scan_finding(
+    kind: &str,
+    skill_id: Option<String>,
+    target_type: &str,
+    target_id: &str,
+    target_name: &str,
+    target_path: &str,
+    relative_path: &str,
+    checksum: Option<String>,
+    message: &str,
+) -> ScanFindingPayload {
+    ScanFindingPayload {
+        id: format!("{target_type}:{target_id}:{relative_path}"),
+        kind: kind.to_string(),
+        skill_id,
+        target_type: target_type.to_string(),
+        target_id: target_id.to_string(),
+        target_name: target_name.to_string(),
+        target_path: target_path.to_string(),
+        relative_path: relative_path.to_string(),
+        checksum,
+        message: message.to_string(),
+    }
+}
+
+fn relative_entry_name(entry_path: &Path, target_root: &Path) -> String {
+    entry_path
+        .strip_prefix(target_root)
+        .ok()
+        .and_then(|path| path.to_str())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| entry_path.file_name().and_then(|value| value.to_str()).unwrap_or(""))
+        .to_string()
+}
+
+fn hash_path(path: &Path) -> Result<String, String> {
+    let metadata = fs::symlink_metadata(path)
+        .map_err(|error| format!("stat {}: {error}", path.display()))?;
+    let mut hasher = Sha256::new();
+    hash_path_into(path, path, &metadata, &mut hasher)?;
+    Ok(hex_digest(&hasher.finalize()))
+}
+
+fn hash_path_into(
+    root: &Path,
+    path: &Path,
+    metadata: &fs::Metadata,
+    hasher: &mut Sha256,
+) -> Result<(), String> {
+    let relative = path
+        .strip_prefix(root)
+        .ok()
+        .and_then(|value| value.to_str())
+        .unwrap_or(".");
+    hasher.update(relative.as_bytes());
+    if metadata.file_type().is_symlink() {
+        let target = fs::read_link(path)
+            .map_err(|error| format!("read link {}: {error}", path.display()))?;
+        hasher.update(target.to_string_lossy().as_bytes());
+        return Ok(());
+    }
+    if metadata.is_file() {
+        let bytes = fs::read(path)
+            .map_err(|error| format!("read file {}: {error}", path.display()))?;
+        hasher.update(&bytes);
+        return Ok(());
+    }
+    if metadata.is_dir() {
+        let mut children = fs::read_dir(path)
+            .map_err(|error| format!("read dir {}: {error}", path.display()))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("read dir {}: {error}", path.display()))?;
+        children.sort_by(|left, right| left.path().cmp(&right.path()));
+        for child in children {
+            let child_path = child.path();
+            let child_metadata = fs::symlink_metadata(&child_path)
+                .map_err(|error| format!("stat {}: {error}", child_path.display()))?;
+            hash_path_into(root, &child_path, &child_metadata, hasher)?;
+        }
+    }
+    Ok(())
+}
+
 fn count_enabled_targets_for_tool(conn: &Connection, tool_id: &str) -> rusqlite::Result<u32> {
     let count = conn.query_row(
         "SELECT count(*) FROM enabled_targets WHERE target_type = 'tool' AND target_id = ? AND status = 'enabled'",
@@ -1083,17 +1728,26 @@ fn resolve_enable_target(
     target_type: &str,
     target_id: &str,
 ) -> Result<(AdapterConfig, String, PathBuf), String> {
-    match (target_type, target_id) {
-        ("tool", "codex") => {
+    match target_type {
+        "tool" => {
+            let tool = load_tool_config_payload(conn, target_id).map_err(|error| error.to_string())?;
+            if !tool.enabled {
+                return Err(format!("tool target {} is disabled", tool.display_name));
+            }
+            if matches!(tool.adapter_status.as_str(), "missing" | "invalid" | "disabled") {
+                return Err(format!(
+                    "tool target {} is not ready: {}",
+                    tool.display_name, tool.adapter_status
+                ));
+            }
             let adapter = builtin_adapters()
                 .into_iter()
-                .find(|adapter| adapter.tool_id == AdapterID::Codex)
-                .ok_or_else(|| "Codex adapter is not registered".to_string())?;
-            let target_root = codex_target_root(&adapter)?;
-            Ok((adapter, "Codex".to_string(), target_root))
+                .find(|candidate| candidate.tool_id.as_str() == target_id)
+                .ok_or_else(|| format!("tool adapter is not registered: {target_id}"))?;
+            Ok((adapter, tool.display_name, PathBuf::from(tool.skills_path)))
         }
-        ("project", project_id) => {
-            let project = load_project_config(conn, project_id).map_err(|error| error.to_string())?;
+        "project" => {
+            let project = load_project_config(conn, target_id).map_err(|error| error.to_string())?;
             let adapter = resolve_project_adapter(&project.skills_path)?;
             Ok((
                 adapter,
@@ -1101,8 +1755,7 @@ fn resolve_enable_target(
                 PathBuf::from(project.skills_path),
             ))
         }
-        ("tool", other) => Err(format!("P1 vertical slice only supports enabling tool:codex; got tool:{other}")),
-        (other_type, _) => Err(format!("unsupported target type: {other_type}")),
+        other_type => Err(format!("unsupported target type: {other_type}")),
     }
 }
 
@@ -1121,20 +1774,6 @@ fn resolve_project_adapter(skills_path: &str) -> Result<AdapterConfig, String> {
                     && normalized_skills_path.ends_with(&normalize_relative_path(default_project_skills_suffix())))
         })
         .ok_or_else(|| format!("unable to infer project adapter from skills path: {skills_path}"))
-}
-
-fn codex_target_root(adapter: &AdapterConfig) -> Result<PathBuf, String> {
-    if let Ok(path) = std::env::var("EAH_P1_CODEX_SKILLS_PATH") {
-        if !path.trim().is_empty() {
-            return Ok(PathBuf::from(path));
-        }
-    }
-    adapter
-        .target
-        .global_paths
-        .first()
-        .map(|path| expand_windows_user_profile(path))
-        .ok_or_else(|| "Codex adapter has no global target path".to_string())
 }
 
 fn enabled_target_model(
@@ -1198,6 +1837,28 @@ fn normalize_project_path(value: &str) -> Result<PathBuf, String> {
     Ok(PathBuf::from(trimmed))
 }
 
+fn normalize_tool_skills_path(
+    adapter: &AdapterConfig,
+    value: &str,
+) -> Result<PathBuf, String> {
+    let trimmed = value.trim();
+    if !trimmed.is_empty() {
+        return Ok(PathBuf::from(trimmed));
+    }
+    default_tool_skills_path(adapter)
+        .map(PathBuf::from)
+        .ok_or_else(|| format!("skills path cannot be empty for {}", adapter.display_name))
+}
+
+fn normalize_optional_path(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 fn derive_project_id(name: &str, project_path: &Path) -> String {
     let candidate = project_path
         .file_name()
@@ -1214,6 +1875,37 @@ fn derive_project_id(name: &str, project_path: &Path) -> String {
 
 fn default_project_skills_suffix() -> &'static str {
     ".codex/skills"
+}
+
+fn default_tool_skills_path(adapter: &AdapterConfig) -> Option<String> {
+    if adapter.tool_id == AdapterID::Codex {
+        if let Ok(path) = std::env::var("EAH_P1_CODEX_SKILLS_PATH") {
+            if !path.trim().is_empty() {
+                return Some(path);
+            }
+        }
+    }
+    adapter
+        .target
+        .global_paths
+        .first()
+        .map(|path| expand_windows_user_profile(path).to_string_lossy().to_string())
+}
+
+fn default_tool_config_path(adapter: &AdapterConfig) -> Option<String> {
+    let path = match adapter.tool_id {
+        AdapterID::Codex => "%USERPROFILE%\\.codex\\config.toml",
+        AdapterID::Claude => "%USERPROFILE%\\.claude\\settings.json",
+        AdapterID::Cursor => "%USERPROFILE%\\.cursor\\settings.json",
+        AdapterID::Windsurf => "%USERPROFILE%\\.windsurf\\settings.json",
+        AdapterID::Opencode => "%USERPROFILE%\\.opencode\\config.json",
+        AdapterID::CustomDirectory => return Some("手动维护".to_string()),
+    };
+    Some(
+        expand_windows_user_profile(path)
+            .to_string_lossy()
+            .to_string(),
+    )
 }
 
 fn normalize_path_text(value: &str) -> String {
@@ -1290,6 +1982,15 @@ mod tests {
             "EAH_P1_CODEX_SKILLS_PATH",
             temp.path.join("codex-skills").to_string_lossy().to_string(),
         );
+        state
+            .save_tool_config(ToolConfigInputPayload {
+                tool_id: "codex".to_string(),
+                name: None,
+                config_path: "".to_string(),
+                skills_path: temp.path.join("codex-skills").to_string_lossy().to_string(),
+                enabled: Some(true),
+            })
+            .expect("save codex tool config");
 
         let installed = state
             .install_skill_package(DownloadTicketPayload {
@@ -1313,6 +2014,7 @@ mod tests {
                 "tool".to_string(),
                 "codex".to_string(),
                 Some("copy".to_string()),
+                None,
             )
             .expect("enable skill");
         assert_eq!(target.target_id, "codex");
@@ -1353,6 +2055,15 @@ mod tests {
             "EAH_P1_CODEX_SKILLS_PATH",
             temp.path.join("codex-skills").to_string_lossy().to_string(),
         );
+        state
+            .save_tool_config(ToolConfigInputPayload {
+                tool_id: "codex".to_string(),
+                name: None,
+                config_path: "".to_string(),
+                skills_path: temp.path.join("codex-skills").to_string_lossy().to_string(),
+                enabled: Some(true),
+            })
+            .expect("save codex tool config");
 
         let project_root = temp.path.join("EnterpriseAgentHub");
         let project = state
@@ -1389,6 +2100,7 @@ mod tests {
                 "tool".to_string(),
                 "codex".to_string(),
                 Some("copy".to_string()),
+                None,
             )
             .expect("enable tool target");
         let project_target = state
@@ -1398,6 +2110,7 @@ mod tests {
                 "project".to_string(),
                 "enterprise-agent-hub".to_string(),
                 Some("copy".to_string()),
+                None,
             )
             .expect("enable project target");
 
@@ -1462,6 +2175,15 @@ mod tests {
             "EAH_P1_CODEX_SKILLS_PATH",
             temp.path.join("codex-skills").to_string_lossy().to_string(),
         );
+        state
+            .save_tool_config(ToolConfigInputPayload {
+                tool_id: "codex".to_string(),
+                name: None,
+                config_path: "".to_string(),
+                skills_path: temp.path.join("codex-skills").to_string_lossy().to_string(),
+                enabled: Some(true),
+            })
+            .expect("save codex tool config");
 
         state
             .install_skill_package(DownloadTicketPayload {
@@ -1482,6 +2204,7 @@ mod tests {
                 "tool".to_string(),
                 "codex".to_string(),
                 Some("copy".to_string()),
+                None,
             )
             .expect("enable target");
 
@@ -1503,6 +2226,122 @@ mod tests {
         assert_eq!(restored.pending_offline_event_count, 0);
 
         std::env::remove_var("EAH_P1_CODEX_SKILLS_PATH");
+    }
+
+    #[test]
+    fn saves_manual_tool_config_and_restores_it_from_bootstrap() {
+        let _lock = ENV_LOCK.lock().expect("lock env");
+        let temp = TestTemp::new("local-state-tool-config");
+        let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+
+        let saved = state
+            .save_tool_config(ToolConfigInputPayload {
+                tool_id: "custom_directory".to_string(),
+                name: Some("团队共享目录".to_string()),
+                config_path: "手动维护".to_string(),
+                skills_path: temp.path.join("shared-skills").to_string_lossy().to_string(),
+                enabled: Some(true),
+            })
+            .expect("save tool config");
+
+        assert_eq!(saved.tool_id, "custom_directory");
+        assert_eq!(saved.display_name, "团队共享目录");
+        assert_eq!(saved.adapter_status, "manual");
+        assert_eq!(saved.detection_method, "manual");
+
+        let restored = state.get_local_bootstrap().expect("bootstrap");
+        let restored_tool = restored
+            .tools
+            .iter()
+            .find(|tool| tool.tool_id == "custom_directory")
+            .expect("restored tool");
+        assert_eq!(restored_tool.display_name, "团队共享目录");
+        assert_eq!(
+            restored_tool.skills_path,
+            temp.path.join("shared-skills").to_string_lossy().to_string()
+        );
+    }
+
+    #[test]
+    fn scans_local_targets_and_requires_explicit_overwrite() {
+        let _lock = ENV_LOCK.lock().expect("lock env");
+        let temp = TestTemp::new("local-state-scan");
+        let package_bytes = fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                "../../api/src/database/seeds/packages/codex-review-helper/1.2.0/package.zip",
+            ),
+        )
+        .expect("read seed package zip");
+        let package_url = serve_once(package_bytes.clone());
+        let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+
+        state
+            .save_tool_config(ToolConfigInputPayload {
+                tool_id: "codex".to_string(),
+                name: None,
+                config_path: "".to_string(),
+                skills_path: temp.path.join("codex-skills").to_string_lossy().to_string(),
+                enabled: Some(true),
+            })
+            .expect("save codex tool config");
+
+        state
+            .install_skill_package(DownloadTicketPayload {
+                skill_id: "codex-review-helper".to_string(),
+                version: "1.2.0".to_string(),
+                package_url,
+                package_hash:
+                    "sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5"
+                        .to_string(),
+                package_size: package_bytes.len() as u64,
+                package_file_count: 2,
+            })
+            .expect("install skill");
+
+        let target = state
+            .enable_skill(
+                "codex-review-helper".to_string(),
+                "1.2.0".to_string(),
+                "tool".to_string(),
+                "codex".to_string(),
+                Some("copy".to_string()),
+                None,
+            )
+            .expect("enable target");
+        assert!(Path::new(&target.target_path).join("SKILL.md").is_file());
+
+        fs::create_dir_all(temp.path.join("codex-skills/manual-skill"))
+            .expect("create unmanaged directory");
+
+        let scan = state.scan_local_targets().expect("scan local targets");
+        let codex_scan = scan
+            .iter()
+            .find(|summary| summary.target_type == "tool" && summary.target_id == "codex")
+            .expect("codex scan");
+        assert_eq!(codex_scan.counts.managed, 1);
+        assert_eq!(codex_scan.counts.unmanaged, 1);
+
+        let conflict = state.enable_skill(
+            "codex-review-helper".to_string(),
+            "1.2.0".to_string(),
+            "tool".to_string(),
+            "codex".to_string(),
+            Some("copy".to_string()),
+            None,
+        );
+        assert!(conflict.is_err());
+
+        let overwrite = state
+            .enable_skill(
+                "codex-review-helper".to_string(),
+                "1.2.0".to_string(),
+                "tool".to_string(),
+                "codex".to_string(),
+                Some("copy".to_string()),
+                Some(true),
+            )
+            .expect("overwrite target");
+        assert_eq!(overwrite.target_id, "codex");
     }
 
     fn serve_once(body: Vec<u8>) -> String {

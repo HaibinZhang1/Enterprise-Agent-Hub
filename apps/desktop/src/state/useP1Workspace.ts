@@ -15,6 +15,7 @@ import type {
   RequestedMode,
   ReviewDetail,
   ReviewItem,
+  ScanTargetSummary,
   SkillSummary,
   TargetType
 } from "../domain/p1";
@@ -183,6 +184,7 @@ export function useP1Workspace() {
   const [selectedReviewID, setSelectedReviewID] = useState<string | null>(null);
   const [selectedReview, setSelectedReview] = useState<ReviewDetail | null>(null);
   const [manageSection, setManageSection] = useState<"departments" | "users" | "skills">("departments");
+  const [scanTargets, setScanTargets] = useState<ScanTargetSummary[]>([]);
 
   const localBootstrapRef = useRef<LocalBootstrap | null>(null);
   const pendingPageRef = useRef<PageID | null>(null);
@@ -200,6 +202,12 @@ export function useP1Workspace() {
     setProjects(localBootstrap.projects);
     setOfflineEvents(localBootstrap.offlineEvents);
     return localBootstrap;
+  }, []);
+
+  const refreshLocalScans = useCallback(async () => {
+    const summaries = await desktopBridge.scanLocalTargets();
+    setScanTargets(summaries);
+    return summaries;
   }, []);
 
   useEffect(() => {
@@ -291,11 +299,13 @@ export function useP1Workspace() {
 
   const moveToGuest = useCallback(async (message?: string) => {
     const localBootstrap = localBootstrapRef.current ?? (await refreshLocalBootstrap());
+    const localScanTargets = await desktopBridge.scanLocalTargets().catch(() => []);
     const localSkills = localBootstrap.installs.map(localSummaryFromInstall);
     setAuthState("guest");
     setBootstrap(buildGuestBootstrap(localBootstrap, message));
     setSkills(localSkills);
     setOfflineEvents(localBootstrap.offlineEvents);
+    setScanTargets(localScanTargets);
     setNotifications(localNotificationsRef.current);
     setDepartments([]);
     setAdminUsers([]);
@@ -348,6 +358,7 @@ export function useP1Workspace() {
   const hydrateAuthenticatedState = useCallback(
     async (localBootstrap?: LocalBootstrap) => {
       const currentLocalBootstrap = localBootstrap ?? localBootstrapRef.current ?? (await refreshLocalBootstrap());
+      const localScanTargets = await desktopBridge.scanLocalTargets().catch(() => []);
       localBootstrapRef.current = currentLocalBootstrap;
       const [remoteBootstrap, remoteSkills, remoteNotifications] = await Promise.all([
         p1Client.bootstrap(),
@@ -361,6 +372,7 @@ export function useP1Workspace() {
       setTools(currentLocalBootstrap.tools);
       setProjects(currentLocalBootstrap.projects);
       setOfflineEvents(currentLocalBootstrap.offlineEvents);
+      setScanTargets(localScanTargets);
       setNotifications(mergeNotifications(remoteNotifications, localNotificationsRef.current));
       setSelectedSkillID((current) => (mergedSkills.some((skill) => skill.skillID === current) ? current : mergedSkills[0]?.skillID ?? ""));
       return remoteBootstrap;
@@ -373,12 +385,14 @@ export function useP1Workspace() {
 
     async function initializeWorkspace() {
       const localBootstrap = await refreshLocalBootstrap();
+      const localScanTargets = await desktopBridge.scanLocalTargets().catch(() => []);
       if (cancelled) return;
       const localSkills = localBootstrap.installs.map(localSummaryFromInstall);
       setBootstrap(buildGuestBootstrap(localBootstrap));
       setSkills(localSkills);
       setNotifications(localNotificationsRef.current);
       setOfflineEvents(localBootstrap.offlineEvents);
+      setScanTargets(localScanTargets);
       setSelectedSkillID(localSkills[0]?.skillID ?? "");
 
       if (p1Client.hasStoredSession()) {
@@ -579,6 +593,7 @@ export function useP1Workspace() {
       const downloadTicket = await p1Client.downloadTicket(skill, operation);
       const result = operation === "install" ? await desktopBridge.installSkillPackage(downloadTicket) : await desktopBridge.updateSkillPackage(downloadTicket);
       const localBootstrap = await refreshLocalBootstrap();
+      await refreshLocalScans();
       setSkills((current) => applySkill(current, skillID, (item) => applyLocalInstallToSkill(item, result)));
       setOfflineEvents(localBootstrap.offlineEvents);
       const nextProgress: OperationProgress = {
@@ -591,7 +606,7 @@ export function useP1Workspace() {
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
     },
-    [bootstrap.connection.status, refreshLocalBootstrap, skills, updateSkillProgress]
+    [bootstrap.connection.status, refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const installOrUpdate = useCallback(
@@ -604,12 +619,19 @@ export function useP1Workspace() {
   );
 
   const enableSkill = useCallback(
-    async (skillID: string, targetType: TargetType, targetID: string, requestedMode: RequestedMode = "symlink") => {
+    async (
+      skillID: string,
+      targetType: TargetType,
+      targetID: string,
+      requestedMode: RequestedMode = "symlink",
+      allowOverwrite = false
+    ) => {
       const skill = skills.find((item) => item.skillID === skillID);
       if (!skill || !skill.localVersion || skill.isScopeRestricted) return;
       updateSkillProgress({ operation: "enable", skillID, stage: "目标转换与写入", result: "running", message: "正在调用 Tauri Adapter 启用 Skill。" });
-      const result = await desktopBridge.enableSkill({ skill, targetType, targetID, requestedMode });
+      const result = await desktopBridge.enableSkill({ skill, targetType, targetID, requestedMode, allowOverwrite });
       const localBootstrap = await refreshLocalBootstrap();
+      await refreshLocalScans();
       setSkills((current) =>
         applySkill(current, skillID, (item) => ({
           ...item,
@@ -632,7 +654,7 @@ export function useP1Workspace() {
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress, result.target.fallbackReason), ...current]);
     },
-    [refreshLocalBootstrap, skills, updateSkillProgress]
+    [refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const disableSkill = useCallback(
@@ -642,6 +664,7 @@ export function useP1Workspace() {
       updateSkillProgress({ operation: "disable", skillID, stage: "移除托管目标", result: "running", message: "正在停用目标；不会删除 Central Store。" });
       const result = await desktopBridge.disableSkill({ skill, targetID, targetType });
       const localBootstrap = await refreshLocalBootstrap();
+      await refreshLocalScans();
       setSkills((current) =>
         applySkill(current, skillID, (item) => {
           const enabledTargets = item.enabledTargets.filter(
@@ -655,7 +678,7 @@ export function useP1Workspace() {
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
     },
-    [refreshLocalBootstrap, skills, updateSkillProgress]
+    [refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const uninstallSkill = useCallback(
@@ -665,6 +688,7 @@ export function useP1Workspace() {
       updateSkillProgress({ operation: "uninstall", skillID, stage: "确认引用并删除", result: "running", message: "正在通过 Store 命令删除 Central Store 与托管目标。" });
       const result = await desktopBridge.uninstallSkill(skillID);
       const localBootstrap = await refreshLocalBootstrap();
+      await refreshLocalScans();
       setSkills((current) =>
         applySkill(current, skillID, (item) => ({ ...item, localVersion: null, installState: "not_installed", enabledTargets: [], lastEnabledAt: null }))
       );
@@ -681,7 +705,7 @@ export function useP1Workspace() {
       updateSkillProgress(nextProgress);
       setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
     },
-    [refreshLocalBootstrap, skills, updateSkillProgress]
+    [refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const toggleStar = useCallback(
@@ -740,17 +764,39 @@ export function useP1Workspace() {
   }, [bootstrap.connection.status, offlineEvents, refreshLocalBootstrap, requireAuthenticatedAction]);
 
   const refreshTools = useCallback(async () => {
-    setTools(await desktopBridge.refreshToolDetection());
+    const detectedTools = await desktopBridge.refreshToolDetection();
+    setTools(detectedTools);
+    await refreshLocalScans();
+  }, [refreshLocalScans]);
+
+  const saveToolConfig = useCallback(
+    async (tool: { toolID: string; name?: string; configPath: string; skillsPath: string; enabled?: boolean }) => {
+      const saved = await desktopBridge.saveToolConfig(tool);
+      const localBootstrap = await refreshLocalBootstrap();
+      setTools(localBootstrap.tools);
+      await refreshLocalScans();
+      return saved;
+    },
+    [refreshLocalBootstrap, refreshLocalScans]
+  );
+
+  const scanLocalTargets = useCallback(async () => {
+    return refreshLocalScans();
+  }, [refreshLocalScans]);
+
+  const validateTargetPath = useCallback(async (targetPath: string) => {
+    return desktopBridge.validateTargetPath(targetPath);
   }, []);
 
   const saveProjectConfig = useCallback(
     async (project: { projectID?: string; name: string; projectPath: string; skillsPath: string; enabled?: boolean }) => {
       const saved = await desktopBridge.saveProjectConfig(project);
       const localBootstrap = await refreshLocalBootstrap();
+      await refreshLocalScans();
       setProjects(localBootstrap.projects);
       return saved;
     },
-    [refreshLocalBootstrap]
+    [refreshLocalBootstrap, refreshLocalScans]
   );
 
   const createDepartment = useCallback(
@@ -877,6 +923,7 @@ export function useP1Workspace() {
     openSkill,
     tools,
     projects,
+    scanTargets,
     notifications,
     offlineEvents,
     filters,
@@ -893,11 +940,14 @@ export function useP1Workspace() {
     enableSkill,
     disableSkill,
     uninstallSkill,
+    saveToolConfig,
     saveProjectConfig,
     toggleStar,
     markNotificationsRead,
     syncOfflineEvents,
     refreshTools,
+    scanLocalTargets,
+    validateTargetPath,
     requireAuth: queueLogin,
     apiBaseURL: p1Client.currentAPIBase(),
     currentUser: bootstrap.user,

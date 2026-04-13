@@ -1,7 +1,8 @@
 use enterprise_agent_hub_desktop::commands::local_state::{
     DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, LocalBootstrapPayload,
     LocalSkillInstallPayload, OfflineSyncAckPayload, P1LocalState, ProjectConfigInputPayload,
-    ProjectConfigPayload, ToolConfigPayload, UninstallSkillPayload,
+    ProjectConfigPayload, ScanTargetSummaryPayload, ToolConfigInputPayload, ToolConfigPayload,
+    UninstallSkillPayload, ValidateTargetPathPayload,
 };
 use serde_json::json;
 use tauri::{Manager, State};
@@ -16,6 +17,15 @@ fn get_local_bootstrap(
 #[tauri::command]
 fn detect_tools(state: State<'_, P1LocalState>) -> Result<Vec<ToolConfigPayload>, String> {
     state.detect_tools()
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn save_tool_config(
+    state: State<'_, P1LocalState>,
+    tool: ToolConfigInputPayload,
+) -> Result<ToolConfigPayload, String> {
+    state.save_tool_config(tool)
 }
 
 #[allow(non_snake_case)]
@@ -46,6 +56,7 @@ fn enable_skill(
     targetID: String,
     preferredMode: Option<String>,
     requestedMode: Option<String>,
+    allowOverwrite: Option<bool>,
 ) -> Result<EnabledTargetPayload, String> {
     state.enable_skill(
         skillID,
@@ -53,6 +64,7 @@ fn enable_skill(
         targetType,
         targetID,
         preferredMode.or(requestedMode),
+        allowOverwrite,
     )
 }
 
@@ -94,6 +106,22 @@ fn mark_offline_events_synced(
     state.mark_offline_events_synced(eventIDs)
 }
 
+#[allow(non_snake_case)]
+#[tauri::command]
+fn validate_target_path(
+    state: State<'_, P1LocalState>,
+    targetPath: String,
+) -> Result<ValidateTargetPathPayload, String> {
+    state.validate_target_path(targetPath)
+}
+
+#[tauri::command]
+fn scan_local_targets(
+    state: State<'_, P1LocalState>,
+) -> Result<Vec<ScanTargetSummaryPayload>, String> {
+    state.scan_local_targets()
+}
+
 #[tauri::command]
 fn list_local_installs(
     state: State<'_, P1LocalState>,
@@ -114,6 +142,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_local_bootstrap,
             detect_tools,
+            save_tool_config,
             install_skill_package,
             update_skill_package,
             save_project_config,
@@ -121,6 +150,8 @@ fn main() {
             enable_skill,
             disable_skill,
             mark_offline_events_synced,
+            validate_target_path,
+            scan_local_targets,
             list_local_installs
         ])
         .run(tauri::generate_context!())

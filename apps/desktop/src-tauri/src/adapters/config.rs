@@ -10,6 +10,16 @@ pub enum DetectionMethod {
     Manual,
 }
 
+impl DetectionMethod {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Registry => "registry",
+            Self::DefaultPath => "default_path",
+            Self::Manual => "manual",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InstallMode {
     Symlink,

@@ -150,6 +150,14 @@ export const DetectionMethod = {
 } as const;
 export type DetectionMethod = (typeof DetectionMethod)[keyof typeof DetectionMethod];
 
+export const ScanFindingKind = {
+  Managed: "managed",
+  Unmanaged: "unmanaged",
+  Conflict: "conflict",
+  Orphan: "orphan"
+} as const;
+export type ScanFindingKind = (typeof ScanFindingKind)[keyof typeof ScanFindingKind];
+
 export const LocalEventResult = {
   Success: "success",
   Failed: "failed"
@@ -490,6 +498,7 @@ export interface ToolConfig {
   readonly adapterStatus: AdapterStatus;
   readonly detectedPath?: string;
   readonly configuredPath?: string;
+  readonly configPath?: string;
   readonly skillsPath: string;
   readonly enabled: boolean;
   readonly detectionMethod: DetectionMethod;
@@ -505,6 +514,39 @@ export interface ProjectConfig {
   readonly enabled: boolean;
   readonly createdAt: ISODateTimeString;
   readonly updatedAt: ISODateTimeString;
+}
+
+export interface ScanFinding {
+  readonly id: string;
+  readonly kind: ScanFindingKind;
+  readonly skillID?: SkillID | null;
+  readonly targetType: TargetType;
+  readonly targetID: string;
+  readonly targetName: string;
+  readonly targetPath: string;
+  readonly relativePath: string;
+  readonly checksum?: string | null;
+  readonly message: string;
+}
+
+export interface ScanFindingCounts {
+  readonly managed: number;
+  readonly unmanaged: number;
+  readonly conflict: number;
+  readonly orphan: number;
+}
+
+export interface ScanTargetSummary {
+  readonly id: string;
+  readonly targetType: TargetType;
+  readonly targetID: string;
+  readonly targetName: string;
+  readonly targetPath: string;
+  readonly transformStrategy: string;
+  readonly scannedAt: ISODateTimeString;
+  readonly counts: ScanFindingCounts;
+  readonly findings: readonly ScanFinding[];
+  readonly lastError?: string | null;
 }
 
 export interface LocalBootstrapResponse {
@@ -527,6 +569,8 @@ export interface ValidateTargetPathRequest {
 export interface ValidateTargetPathResponse {
   readonly valid: boolean;
   readonly writable: boolean;
+  readonly exists?: boolean;
+  readonly canCreate?: boolean;
   readonly reason?: string;
 }
 
