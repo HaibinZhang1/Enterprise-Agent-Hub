@@ -1,4 +1,52 @@
-import type { BootstrapContext, LocalEvent, LocalNotification, ProjectConfig, SkillSummary, ToolConfig } from "../domain/p1";
+import type {
+  AdminSkill,
+  AdminUser,
+  BootstrapContext,
+  DepartmentNode,
+  LocalEvent,
+  LocalNotification,
+  ProjectConfig,
+  ReviewDetail,
+  ReviewItem,
+  SkillSummary,
+  ToolConfig
+} from "../domain/p1";
+
+const baseNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "tools", "projects", "notifications", "settings"];
+const adminNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "review", "manage", "tools", "projects", "notifications", "settings"];
+
+export const guestBootstrap: BootstrapContext = {
+  user: {
+    userID: "guest",
+    displayName: "本地模式",
+    role: "guest",
+    departmentID: "local",
+    departmentName: "离线工作台",
+    locale: "zh-CN"
+  },
+  connection: {
+    status: "offline",
+    serverTime: "",
+    apiVersion: "p1.0",
+    lastError: "登录后同步市场、通知和管理员能力。"
+  },
+  features: {
+    p1Desktop: true,
+    publishSkill: false,
+    reviewWorkbench: false,
+    adminManage: false,
+    mcpManage: false,
+    pluginManage: false
+  },
+  counts: {
+    installedCount: 0,
+    enabledCount: 0,
+    updateAvailableCount: 0,
+    unreadNotificationCount: 0
+  },
+  navigation: baseNavigation,
+  menuPermissions: []
+};
 
 export const seedBootstrap: BootstrapContext = {
   user: {
@@ -28,7 +76,41 @@ export const seedBootstrap: BootstrapContext = {
     updateAvailableCount: 1,
     unreadNotificationCount: 2
   },
-  navigation: ["home", "market", "my_installed", "tools", "projects", "notifications", "settings"]
+  navigation: baseNavigation,
+  menuPermissions: baseNavigation
+};
+
+export const seedAdminBootstrap: BootstrapContext = {
+  user: {
+    userID: "u_admin_l1",
+    displayName: "系统管理员",
+    role: "admin",
+    adminLevel: 1,
+    departmentID: "dept_company",
+    departmentName: "集团",
+    locale: "zh-CN"
+  },
+  connection: {
+    status: "connected",
+    serverTime: "2026-04-11T02:30:00Z",
+    apiVersion: "p1.0"
+  },
+  features: {
+    p1Desktop: true,
+    publishSkill: false,
+    reviewWorkbench: true,
+    adminManage: true,
+    mcpManage: false,
+    pluginManage: false
+  },
+  counts: {
+    installedCount: 4,
+    enabledCount: 2,
+    updateAvailableCount: 1,
+    unreadNotificationCount: 3
+  },
+  navigation: adminNavigation,
+  menuPermissions: adminNavigation
 };
 
 export const seedSkills: SkillSummary[] = [
@@ -281,3 +363,184 @@ export const seedNotifications: LocalNotification[] = [
 ];
 
 export const seedOfflineEvents: LocalEvent[] = [];
+
+export const seedDepartments: DepartmentNode[] = [
+  {
+    departmentID: "dept_company",
+    parentDepartmentID: null,
+    name: "集团",
+    path: "/集团",
+    level: 0,
+    status: "active",
+    userCount: 7,
+    skillCount: 3,
+    children: [
+      {
+        departmentID: "dept_engineering",
+        parentDepartmentID: "dept_company",
+        name: "技术部",
+        path: "/集团/技术部",
+        level: 1,
+        status: "active",
+        userCount: 4,
+        skillCount: 1,
+        children: [
+          {
+            departmentID: "dept_frontend",
+            parentDepartmentID: "dept_engineering",
+            name: "前端组",
+            path: "/集团/技术部/前端组",
+            level: 2,
+            status: "active",
+            userCount: 3,
+            skillCount: 1,
+            children: []
+          },
+          {
+            departmentID: "dept_backend",
+            parentDepartmentID: "dept_engineering",
+            name: "后端组",
+            path: "/集团/技术部/后端组",
+            level: 2,
+            status: "active",
+            userCount: 1,
+            skillCount: 0,
+            children: []
+          }
+        ]
+      },
+      {
+        departmentID: "dept_design",
+        parentDepartmentID: "dept_company",
+        name: "设计平台组",
+        path: "/集团/设计平台组",
+        level: 1,
+        status: "active",
+        userCount: 1,
+        skillCount: 1,
+        children: []
+      },
+      {
+        departmentID: "dept_ops",
+        parentDepartmentID: "dept_company",
+        name: "运维组",
+        path: "/集团/运维组",
+        level: 1,
+        status: "active",
+        userCount: 1,
+        skillCount: 1,
+        children: []
+      }
+    ]
+  }
+];
+
+export const seedAdminUsers: AdminUser[] = [
+  {
+    userID: "u_admin_l1",
+    username: "superadmin",
+    displayName: "系统管理员",
+    departmentID: "dept_company",
+    departmentName: "集团",
+    role: "admin",
+    adminLevel: 1,
+    status: "active",
+    publishedSkillCount: 0,
+    starCount: 4
+  },
+  {
+    userID: "u_admin_l2_eng",
+    username: "engadmin",
+    displayName: "技术部管理员",
+    departmentID: "dept_engineering",
+    departmentName: "技术部",
+    role: "admin",
+    adminLevel: 2,
+    status: "active",
+    publishedSkillCount: 0,
+    starCount: 1
+  },
+  {
+    userID: "u_001",
+    username: "demo",
+    displayName: "张三",
+    departmentID: "dept_frontend",
+    departmentName: "前端组",
+    role: "normal_user",
+    adminLevel: null,
+    status: "active",
+    publishedSkillCount: 0,
+    starCount: 2
+  }
+];
+
+export const seedAdminSkills: AdminSkill[] = [
+  {
+    skillID: "codex-review-helper",
+    displayName: "Codex Review Helper",
+    publisherName: "李四",
+    departmentID: "dept_frontend",
+    departmentName: "前端组",
+    version: "1.2.0",
+    status: "published",
+    visibilityLevel: "public_installable",
+    starCount: 12,
+    downloadCount: 33,
+    updatedAt: "2026-04-11T02:30:00Z"
+  },
+  {
+    skillID: "design-guideline-lite",
+    displayName: "Design Guideline Lite",
+    publisherName: "王五",
+    departmentID: "dept_design",
+    departmentName: "设计平台组",
+    version: "0.9.0",
+    status: "published",
+    visibilityLevel: "summary_visible",
+    starCount: 4,
+    downloadCount: 8,
+    updatedAt: "2026-04-10T09:30:00Z"
+  }
+];
+
+export const seedReviews: ReviewItem[] = [
+  {
+    reviewID: "rv_001",
+    skillID: "codex-review-helper",
+    skillDisplayName: "Codex Review Helper",
+    submitterName: "李四",
+    submitterDepartmentName: "前端组",
+    reviewType: "publish",
+    reviewStatus: "pending",
+    riskLevel: "low",
+    summary: "等待审核：代码审查辅助 Skill 首次发布。",
+    lockState: "unlocked",
+    submittedAt: "2026-04-09T09:00:00Z",
+    updatedAt: "2026-04-09T09:00:00Z"
+  },
+  {
+    reviewID: "rv_002",
+    skillID: "design-guideline-lite",
+    skillDisplayName: "Design Guideline Lite",
+    submitterName: "王五",
+    submitterDepartmentName: "设计平台组",
+    reviewType: "permission_change",
+    reviewStatus: "in_review",
+    riskLevel: "unknown",
+    summary: "正在复核：公开范围由摘要公开调整为详情公开。",
+    lockState: "locked",
+    currentReviewerName: "系统管理员",
+    submittedAt: "2026-04-10T09:00:00Z",
+    updatedAt: "2026-04-10T21:00:00Z"
+  }
+];
+
+export const seedReviewDetail: ReviewDetail = {
+  ...seedReviews[1],
+  description: "涉及设计规范细则的详情可见范围调整，需确认部门授权策略。",
+  reviewSummary: "当前由系统管理员查看授权范围变更影响。",
+  history: [
+    { historyID: "rvh_001", action: "submitted", actorName: "王五", comment: "提交权限变更申请。", createdAt: "2026-04-10T09:00:00Z" },
+    { historyID: "rvh_002", action: "claimed", actorName: "系统管理员", comment: "系统管理员已领取复核。", createdAt: "2026-04-10T21:00:00Z" }
+  ]
+};

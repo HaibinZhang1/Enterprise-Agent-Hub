@@ -203,7 +203,8 @@ pub fn validate_skill_package_dir(
 
     let package_hash = hex_digest(&tree_hasher.finalize());
     if let Some(expected) = expected_sha256 {
-        if !expected.eq_ignore_ascii_case(&package_hash) {
+        let normalized_expected = expected.strip_prefix("sha256:").unwrap_or(expected);
+        if !normalized_expected.eq_ignore_ascii_case(&package_hash) {
             return Err(StoreError::PackageHashMismatch {
                 expected: expected.to_owned(),
                 actual: package_hash,

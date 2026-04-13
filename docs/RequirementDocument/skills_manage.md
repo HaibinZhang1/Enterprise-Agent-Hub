@@ -12,8 +12,8 @@
    不同工具 skills 配置路径不同，支持默认路径、用户自定义路径、项目级路径。
 4. **多格式兼容**
    支持不同工具要求的 skill 目录结构或文件格式。
-5. **安装方式固定**
-   P1 仅支持 `copy`，不使用 `symlink`。
+5. **安装方式可回退**
+   P1 默认先尝试 `symlink`，失败时自动回退到 `copy`，并记录真实模式与失败原因。
 6. **扫描与去重**
    能扫描已存在的各工具目录，并基于目标路径与 Hash 识别“同一个 skill 被多个工具引用”的情况。
 7. **可扩展**
@@ -350,13 +350,48 @@ CREATE TABLE installations (
   scope TEXT NOT NULL,      -- global/project
   target_path TEXT NOT NULL,
   real_path TEXT,
-  mode TEXT NOT NULL,       -- P1 固定 copy
+  mode TEXT NOT NULL,       -- symlink/copy，P1 默认 symlink + copy fallback
   checksum TEXT,
   status TEXT NOT NULL,     -- installed/missing/drift/conflict
   created_at TEXT,
   updated_at TEXT
 );
 ```
+
+### 7.4 project_configs
+
+```sql
+CREATE TABLE project_configs (
+  project_id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  project_path TEXT NOT NULL,
+  skills_path TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+```
+
+### 7.5 offline_event_queue
+
+```sql
+CREATE TABLE offline_event_queue (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- pending/syncing/synced/failed
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  occurred_at TEXT NOT NULL,
+  synced_at TEXT
+);
+```
+
+当前 P1 Desktop 的本地真源以 SQLite 为准：
+
+- `local_skill_installs` / `enabled_targets` 记录安装、启用、停用、卸载闭环。
+- `project_configs` 持久化项目目标，并由 `get_local_bootstrap` 返回真实 `projects`。
+- `offline_event_queue` 在重启后恢复待同步事件，并继续提交到 `/desktop/local-events`。
 
 ### 7.4 scan_results
 
@@ -484,7 +519,7 @@ tools:
 
 ## 9.4 用目标路径与 Hash 去重
 
-P1 不使用 symlink；如果多个工具目录中的副本来自同一个 Central Store 版本，扫描时应通过安装记录、目标路径和 checksum 识别为同一个 skill 的多个启用目标，而不是多个独立 skill。
+P1 默认 symlink，失败会自动回退 copy；无论最终落到哪种模式，只要多个工具目录中的内容来自同一个 Central Store 版本，扫描时都应通过安装记录、目标路径和 checksum 识别为同一个 skill 的多个启用目标，而不是多个独立 skill。
 
 ## 9.5 支持 override
 

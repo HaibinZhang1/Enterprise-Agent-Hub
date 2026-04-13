@@ -1,6 +1,6 @@
 #[cfg(test)]
 #[path = "../adapters/mod.rs"]
-mod adapters;
+pub(crate) mod adapters;
 
 #[cfg(test)]
 use self::adapters::{

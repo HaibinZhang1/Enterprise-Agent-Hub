@@ -29,7 +29,14 @@ check_cmd() {
 }
 
 check_cmd docker
-if docker compose version >/dev/null 2>&1; then
+if [[ "${COMPOSE_IMPL:-v2}" == "legacy" ]]; then
+  if command -v docker-compose >/dev/null 2>&1; then
+    echo "PASS compose: legacy docker-compose $(docker-compose --version)"
+  else
+    echo "FAIL compose: COMPOSE_IMPL=legacy requires docker-compose"
+    exit 1
+  fi
+elif docker compose version >/dev/null 2>&1; then
   echo "PASS compose: docker compose $(docker compose version --short 2>/dev/null || true)"
 elif command -v docker-compose >/dev/null 2>&1; then
   echo "WARN compose: legacy docker-compose $(docker-compose --version)"

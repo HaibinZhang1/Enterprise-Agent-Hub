@@ -5,15 +5,17 @@
 P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标是在企业内网中完成：
 
 - 用户登录、连接状态和身份展示。
+- 游客优先进入本地工作台，并在需要后端能力时弹出登录框。
 - 市场浏览、搜索、筛选、详情和受限详情。
 - Skill 安装、更新、卸载到本机 Central Store。
 - Skill 启用/停用到工具或项目目录，按本详细设计采用 symlink 优先、失败 copy。
 - 本机工具/项目路径配置、检测、异常提示。
 - 应用内通知、离线本地使用和恢复同步。
+- 显式菜单权限、最小可用审核页和完整管理页。
 
 不进入 P1 任务：
 
-- 发布 Skill、审核工作台、部门/用户/Skill 管理台。
+- 发布 Skill 表单、审核处理动作（锁单、同意、拒绝、退回）。
 - Web 管理台、企业统一身份源、企业 IM、系统托盘。
 - 独立搜索引擎、微服务拆分、MCP/插件/RAG、风险脚本扫描。
 
@@ -23,9 +25,10 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 | --- | --- | --- | --- | --- |
 | P1-T01 | 工程骨架与共享契约 | Repo / Shared | 无 | monorepo 目录、共享枚举/DTO、基础脚本。 |
 | P1-T02 | 基础设施与服务端底座 | API / Infra | P1-T01 | PostgreSQL、Redis、MinIO、NestJS 配置、健康检查。 |
-| P1-T03 | P1 服务端 API | API | P1-T02 | Auth、Bootstrap、Market、Detail、Download Ticket、Star、Notifications、Local Events。 |
+| P1-T03 | P1 服务端 API | API | P1-T02 | Session Auth、Bootstrap、Menu Permissions、Market、Detail、Download Ticket、Star、Notifications、Local Events。 |
 | P1-T04 | PostgreSQL FTS 与种子数据 | API / DB | P1-T03 | P1 市场种子数据、FTS 索引、筛选排序。 |
-| P1-T05 | Desktop React 主框架 | Desktop React | P1-T01 | 登录页、Shell、首页、市场、我的 Skill、工具、项目、通知、设置。 |
+| P1-T05 | Desktop React 主框架 | Desktop React | P1-T01 | 游客优先 Shell、登录弹窗、首页、市场、我的 Skill、工具、项目、通知、设置。 |
+| P1-T05A | 审核与管理入口 | Desktop React + API | P1-T03, P1-T05 | 最小可用审核页、完整管理页、权限驱动导航。 |
 | P1-T06 | Rust SQLite 与 Central Store | Tauri Rust | P1-T01 | 本地 DB 迁移、Central Store、下载校验、安装/更新/卸载命令。 |
 | P1-T07 | Tool Adapter 与启用分发 | Tauri Rust | P1-T06 | 内置 Adapter、路径探测、格式转换、symlink/copy 分发。 |
 | P1-T08 | 离线队列与恢复同步 | Desktop + API + Rust | P1-T03, P1-T06, P1-T07 | SQLite 队列、`/desktop/local-events` 同步、冲突提示。 |
@@ -83,7 +86,7 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | MinIO 凭据。 |
 | `MINIO_SKILL_PACKAGE_BUCKET` | Skill 包 bucket。 |
 | `MINIO_SKILL_ASSET_BUCKET` | Skill 资源 bucket。 |
-| `JWT_SECRET` | 自建账号登录 token 签名。 |
+| `SESSION_TTL_SECONDS` | 自建账号 session 默认有效期。 |
 
 ### 验收
 
@@ -97,9 +100,9 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 
 | 接口 | 责任 | 关键实现 |
 | --- | --- | --- |
-| `POST /auth/login` | 自建账号登录 | 返回访问 token 和用户摘要。 |
-| `POST /auth/logout` | 退出登录 | 客户端清理 token；服务端可记录会话失效。 |
-| `GET /desktop/bootstrap` | 启动上下文 | 返回用户、连接、功能开关、首页计数、P1 导航。 |
+| `POST /auth/login` | 自建账号登录 | 返回 session token、用户摘要和 `menuPermissions`。 |
+| `POST /auth/logout` | 退出登录 | 服务端撤销当前 session。 |
+| `GET /desktop/bootstrap` | 启动上下文 | 返回用户、连接、功能开关、首页计数、导航和 `menuPermissions`。 |
 | `GET /skills` | 市场列表和搜索 | 应用权限过滤、FTS、筛选、排序、分页。 |
 | `GET /skills/{skillID}` | 详情/受限详情 | 按 `detailAccess` 返回摘要或完整详情。 |
 | `POST /skills/{skillID}/download-ticket` | 安装/更新前授权 | 校验可安装/可更新，返回短期 URL、SHA-256、大小、文件数。 |
@@ -108,10 +111,15 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 | `GET /notifications` | 通知列表 | 支持未读过滤和分页。 |
 | `POST /notifications/mark-read` | 标记已读 | 支持单条、多条、全部。 |
 | `POST /desktop/local-events` | 本地事件同步 | 接收启用/停用/结果事件，不改变服务端治理状态。 |
+| `GET /admin/reviews` / `GET /admin/reviews/{id}` | 审核只读 | 返回待审核 / 审核中 / 已审核列表和详情。 |
+| `GET/POST/PATCH/DELETE /admin/departments` | 部门管理 | 返回部门树并支持后代部门维护。 |
+| `GET/POST/PATCH/DELETE /admin/users` | 用户管理 | 支持创建、角色调整、冻结、删除，并撤销会话。 |
+| `GET /admin/skills` + `POST/DELETE` 状态接口 | Skill 管理 | 支持上下架与归档。 |
 
 ### 权限口径
 
 - Desktop 不自行推导跨部门权限，服务端直接返回 `detailAccess`、`canInstall`、`canUpdate`、`cannotInstallReason`。
+- Desktop 不自行推导菜单权限，统一消费服务端 `menuPermissions`。
 - 下架、归档、权限收缩时，download-ticket 必须拒绝新增安装和更新。
 - 已安装用户能否继续启用当前本地版本由本地 SQLite 状态和最近服务端同步结果共同展示，但服务端不下发删除本地副本指令。
 
@@ -149,7 +157,7 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 
 | 页面 | 必做状态 |
 | --- | --- |
-| 登录 | 服务地址展示、用户名/密码、登录失败、服务不可用。 |
+| 登录 | 模态框触发、服务地址展示、用户名/密码、登录失败、服务不可用。 |
 | 首页 | 连接状态、已安装、已启用、可更新、最近更新、热门推荐、通知摘要。 |
 | 市场 | 搜索、筛选、排序、列表、简单榜单、离线禁用态、空态。 |
 | Skill 详情 | 完整详情、受限详情、安装/更新/启用/卸载/Star 操作区。 |
@@ -157,6 +165,8 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 | 工具 | Adapter 列表、检测状态、路径、启用数量、刷新检测、手动路径。 |
 | 项目 | 添加项目、项目路径、skills 路径、启用数量、项目级优先提示。 |
 | 通知 | 全部/未读、标记已读、跳转关联对象。 |
+| 审核 | 在线管理员可见，待审核/审核中/已审核列表与详情。 |
+| 管理 | 在线管理员可见，部门树、用户管理、Skill 管理。 |
 | 设置 | 语言、Central Store 路径展示、同步偏好。 |
 
 ### React 状态来源
@@ -167,7 +177,8 @@ P1 任务以 Windows-first Desktop 使用闭环为唯一正式交付面，目标
 
 ### 验收
 
-- P1 导航不展示审核、管理、发布 Skill、MCP、插件正式入口。
+- 游客默认进入本地工作台；点击市场、通知或远端操作时弹出登录框。
+- 审核、管理页签只在在线且具备 `menuPermissions` 时显示。
 - 离线时市场搜索、安装、更新按钮禁用，但我的已安装可打开并能启用/停用。
 - 所有本地写入动作都显示阶段、结果和失败原因。
 - 覆盖、卸载、删除目标副本类操作必须二次确认。
@@ -338,7 +349,7 @@ flowchart TD
     T09 --> T10
 ```
 
-## 14. 当前需同步的需求差异
+## 14. 已同步的需求差异
 
 需求文档 P1 旧口径写明“仅 copy，不使用 symlink”。本详细设计按最新技术要求改为：
 
@@ -347,8 +358,8 @@ flowchart TD
 - symlink 失败自动降级 copy，`resolvedMode=copy`，并记录 `fallbackReason`。
 - 本地和服务端事件都应能记录实际模式，但服务端不以此改变权限或治理状态。
 
-实施前需要同步更新：
+当前已同步更新：
 
 - `docs/RequirementDocument/20_p1_desktop_prd.md` 的启用方式与验收项。
-- `docs/RequirementDocument/21_p1_data_contract.md` 的 `EnabledTarget.installMode` 和 `/desktop/local-events` 字段。
-- `docs/RequirementDocument/22_p1_tool_adapter_contract.md` 的安装模式和冲突规则。
+- `docs/RequirementDocument/21_p1_data_contract.md` 的 `installMode`、`requestedMode`、`resolvedMode` 和 `/desktop/local-events` 字段。
+- `docs/RequirementDocument/22_p1_tool_adapter_contract.md` 的安装模式、fallback 记录和冲突规则。

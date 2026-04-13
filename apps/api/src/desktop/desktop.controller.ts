@@ -1,17 +1,19 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import { P1AuthenticatedRequest, P1AuthGuard } from '../auth/p1-auth.guard';
 import { BootstrapResponse, DesktopService, LocalEventsRequest, LocalEventsResponse } from './desktop.service';
 
 @Controller('desktop')
+@UseGuards(P1AuthGuard)
 export class DesktopController {
   constructor(private readonly desktopService: DesktopService) {}
 
   @Get('bootstrap')
-  bootstrap(): BootstrapResponse {
-    return this.desktopService.bootstrap();
+  bootstrap(@Req() request: P1AuthenticatedRequest): Promise<BootstrapResponse> {
+    return this.desktopService.bootstrap(request.p1User!);
   }
 
   @Post('local-events')
-  localEvents(@Body() body: LocalEventsRequest): LocalEventsResponse {
-    return this.desktopService.acceptLocalEvents(body);
+  localEvents(@Req() request: P1AuthenticatedRequest, @Body() body: LocalEventsRequest): Promise<LocalEventsResponse> {
+    return this.desktopService.acceptLocalEvents(request.p1UserID ?? '', body);
   }
 }

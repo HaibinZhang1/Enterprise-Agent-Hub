@@ -212,6 +212,19 @@
         "tests/smoke/p1-e2e-smoke-spec.json"
       ],
       "requiredForRelease": true
+    },
+    {
+      "id": "p1-real-delivery-static-test",
+      "label": "P1 real delivery static regression checks",
+      "command": "node --test tests/smoke/p1-real-delivery-static.test.mjs",
+      "cwd": ".",
+      "whenPathExists": [
+        "tests/smoke/p1-real-delivery-static.test.mjs",
+        "apps/desktop/src/services/p1Client.ts",
+        "apps/desktop/src-tauri/tauri.conf.json",
+        "apps/api/Dockerfile"
+      ],
+      "requiredForRelease": true
     }
   ],
   "acceptanceScenarioIds": [

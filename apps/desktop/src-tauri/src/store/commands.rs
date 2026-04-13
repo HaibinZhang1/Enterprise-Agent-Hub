@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::central_store::{
     install_or_replace_package, uninstall_central_store_package, InstalledPackage, StoreError,
 };
-use super::models::{EnabledTarget, LocalSkillInstall, LocalStatus, UninstallResult};
+use super::models::{EnabledTarget, EnabledTargetStatus, LocalSkillInstall, LocalStatus, UninstallResult};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallSkillPackageRequest {
@@ -75,9 +75,16 @@ pub fn update_skill_package(
 pub fn uninstall_skill(request: UninstallSkillRequest) -> Result<UninstallResult, StoreError> {
     let removed =
         uninstall_central_store_package(&request.central_store_root, &request.skill_id, None)?;
+    let removed_target_ids = request
+        .enabled_targets
+        .iter()
+        .filter(|target| target.status != EnabledTargetStatus::Failed)
+        .map(|target| target.target_id.clone())
+        .collect();
     Ok(UninstallResult {
         skill_id: request.skill_id,
         removed_central_store_path: removed,
+        removed_target_ids,
         failed_targets: request
             .enabled_targets
             .into_iter()
@@ -89,7 +96,7 @@ pub fn uninstall_skill(request: UninstallSkillRequest) -> Result<UninstallResult
 
 pub fn list_local_installs() -> Result<Vec<LocalSkillInstall>, StoreError> {
     Err(StoreError::IntegrationRequired(
-        "list_local_installs requires the application SQLite connection adapter",
+        "list_local_installs is exposed by the Tauri app-level SQLite state command",
     ))
 }
 
@@ -104,12 +111,13 @@ fn local_install_from_package(
     display_name: String,
     timestamp: String,
 ) -> LocalSkillInstall {
+    let source_package_hash = format!("sha256:{}", installed.package_hash);
     LocalSkillInstall {
         skill_id: installed.skill_id,
         display_name,
         local_version: installed.version,
         local_hash: installed.package_hash.clone(),
-        source_package_hash: installed.package_hash,
+        source_package_hash,
         installed_at: timestamp.clone(),
         updated_at: timestamp,
         local_status: LocalStatus::Installed,

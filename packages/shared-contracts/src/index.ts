@@ -101,6 +101,8 @@ export const ApiErrorCode = {
   Unauthenticated: "unauthenticated",
   PermissionDenied: "permission_denied",
   SkillNotFound: "skill_not_found",
+  ResourceNotFound: "resource_not_found",
+  ValidationFailed: "validation_failed",
   SkillDelisted: "skill_delisted",
   ScopeRestricted: "scope_restricted",
   PackageUnavailable: "package_unavailable",
@@ -116,6 +118,8 @@ export const NavigationItem = {
   Home: "home",
   Market: "market",
   MyInstalled: "my_installed",
+  Review: "review",
+  Manage: "manage",
   Tools: "tools",
   Projects: "projects",
   Notifications: "notifications",
@@ -187,6 +191,7 @@ export interface CurrentUser {
   readonly userID: UserID;
   readonly displayName: string;
   readonly role: string;
+  readonly adminLevel?: number;
   readonly departmentID: DepartmentID;
   readonly departmentName: string;
   readonly locale: string;
@@ -196,15 +201,16 @@ export interface ConnectionInfo {
   readonly status: ConnectionStatus;
   readonly serverTime: ISODateTimeString;
   readonly apiVersion: string;
+  readonly lastError?: string;
 }
 
 export interface FeatureFlags {
   readonly p1Desktop: boolean;
-  readonly publishSkill: false;
-  readonly reviewWorkbench: false;
-  readonly adminManage: false;
-  readonly mcpManage: false;
-  readonly pluginManage: false;
+  readonly publishSkill: boolean;
+  readonly reviewWorkbench: boolean;
+  readonly adminManage: boolean;
+  readonly mcpManage: boolean;
+  readonly pluginManage: boolean;
 }
 
 export interface BootstrapCounts {
@@ -219,6 +225,7 @@ export interface DesktopBootstrapResponse {
   readonly features: FeatureFlags;
   readonly counts: BootstrapCounts;
   readonly navigation: readonly NavigationItem[];
+  readonly menuPermissions: readonly NavigationItem[];
 }
 
 export interface LoginRequest {
@@ -228,8 +235,11 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   readonly accessToken: string;
+  readonly tokenType: "Bearer";
   readonly user: CurrentUser;
   readonly expiresAt: ISODateTimeString;
+  readonly expiresIn: number;
+  readonly menuPermissions: readonly NavigationItem[];
 }
 
 export interface SkillSummary {
@@ -348,6 +358,75 @@ export interface MarkNotificationsReadRequest {
 
 export interface MarkNotificationsReadResponse {
   readonly unreadNotificationCount: number;
+}
+
+export interface DepartmentNode {
+  readonly departmentID: DepartmentID;
+  readonly parentDepartmentID: DepartmentID | null;
+  readonly name: string;
+  readonly path: string;
+  readonly level: number;
+  readonly status: string;
+  readonly userCount: number;
+  readonly skillCount: number;
+  readonly children: readonly DepartmentNode[];
+}
+
+export interface AdminUser {
+  readonly userID: UserID;
+  readonly username: string;
+  readonly displayName: string;
+  readonly departmentID: DepartmentID;
+  readonly departmentName: string;
+  readonly role: "normal_user" | "admin";
+  readonly adminLevel: number | null;
+  readonly status: "active" | "frozen" | "deleted";
+  readonly publishedSkillCount: number;
+  readonly starCount: number;
+}
+
+export interface AdminSkill {
+  readonly skillID: SkillID;
+  readonly displayName: string;
+  readonly publisherName: string;
+  readonly departmentID: DepartmentID;
+  readonly departmentName: string;
+  readonly version: SemVerString;
+  readonly status: SkillStatus;
+  readonly visibilityLevel: VisibilityLevel;
+  readonly starCount: number;
+  readonly downloadCount: number;
+  readonly updatedAt: ISODateTimeString;
+}
+
+export interface ReviewItem {
+  readonly reviewID: string;
+  readonly skillID: SkillID;
+  readonly skillDisplayName: string;
+  readonly submitterName: string;
+  readonly submitterDepartmentName: string;
+  readonly reviewType: "publish" | "update" | "permission_change";
+  readonly reviewStatus: "pending" | "in_review" | "reviewed";
+  readonly riskLevel: RiskLevel;
+  readonly summary: string;
+  readonly lockState: "unlocked" | "locked";
+  readonly currentReviewerName?: string;
+  readonly submittedAt: ISODateTimeString;
+  readonly updatedAt: ISODateTimeString;
+}
+
+export interface ReviewHistory {
+  readonly historyID: string;
+  readonly action: string;
+  readonly actorName: string;
+  readonly comment: string | null;
+  readonly createdAt: ISODateTimeString;
+}
+
+export interface ReviewDetail extends ReviewItem {
+  readonly description: string;
+  readonly reviewSummary?: string;
+  readonly history: readonly ReviewHistory[];
 }
 
 export interface LocalEvent {
@@ -542,7 +621,11 @@ export const P1_API_ROUTES = {
   skillDownloadTicket: "/skills/:skillID/download-ticket",
   skillStar: "/skills/:skillID/star",
   notifications: "/notifications",
-  notificationsMarkRead: "/notifications/mark-read"
+  notificationsMarkRead: "/notifications/mark-read",
+  adminDepartments: "/admin/departments",
+  adminUsers: "/admin/users",
+  adminSkills: "/admin/skills",
+  adminReviews: "/admin/reviews"
 } as const;
 
 export type P1ApiRouteName = keyof typeof P1_API_ROUTES;

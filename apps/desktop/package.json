@@ -7,10 +7,11 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc --bundles nsis",
     "typecheck": "tsc --noEmit",
     "lint": "node ./scripts/p1-ui-lint.mjs",
-    "test": "npm run typecheck"
+    "test": "npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -21,7 +22,7 @@
     "lucide-react": "latest"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
+    "@tauri-apps/cli": "^2.2.7",
     "@types/react": "latest",
     "@types/react-dom": "latest"
   }

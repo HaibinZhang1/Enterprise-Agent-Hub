@@ -2,19 +2,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 
-function resolveDatabaseAsset(...segments: string[]): string {
+function resolveSqlPath(): string {
   const candidates = [
-    join(__dirname, '..', 'database', ...segments),
-    join(__dirname, '..', '..', 'src', 'database', ...segments),
+    join(__dirname, '..', 'database', 'migrations', '001_p1_base.sql'),
+    join(__dirname, '..', '..', 'src', 'database', 'migrations', '001_p1_base.sql'),
   ];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) {
+    throw new Error(`Migration SQL not found. Tried: ${candidates.join(', ')}`);
   }
-
-  throw new Error(`Unable to locate database asset: ${segments.join('/')}`);
+  return found;
 }
 
 async function main(): Promise<void> {
@@ -23,7 +20,7 @@ async function main(): Promise<void> {
     throw new Error('DATABASE_URL is required to run migrations');
   }
 
-  const sql = readFileSync(resolveDatabaseAsset('migrations', '001_p1_base.sql'), 'utf8');
+  const sql = readFileSync(resolveSqlPath(), 'utf8');
   const client = new Client({ connectionString });
   await client.connect();
   try {

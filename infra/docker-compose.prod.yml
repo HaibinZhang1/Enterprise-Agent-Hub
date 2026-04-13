@@ -81,6 +81,11 @@ services:
     command: ["npm", "run", "seed"]
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://eah:change-me@postgres:5432/enterprise_agent_hub}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-change-me-minio-secret}
+      MINIO_SKILL_PACKAGE_BUCKET: ${MINIO_SKILL_PACKAGE_BUCKET:-skill-packages}
 
   api:
     image: ${API_IMAGE:-enterprise-agent-hub-api:0.1.0-p1}

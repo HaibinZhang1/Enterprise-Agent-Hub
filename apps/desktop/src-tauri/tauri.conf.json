@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.enterpriseagenthub.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev --workspace @enterprise-agent-hub/desktop",
-    "beforeBuildCommand": "npm run build --workspace @enterprise-agent-hub/desktop",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../dist"
   },
@@ -31,7 +31,8 @@
     "targets": ["nsis"],
     "icon": [
       "icons/icon.ico",
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.svg"
     ],
     "windows": {
       "nsis": {

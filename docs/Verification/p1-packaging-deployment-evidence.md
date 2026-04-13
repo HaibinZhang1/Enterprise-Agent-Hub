@@ -2,67 +2,66 @@
 
 ## Purpose
 
-This document defines the Worker 6 packaging/deployment evidence contract for P1 基础闭环. It should be completed after product lanes are integrated and before final release sign-off.
+This document records the current P1 delivery evidence for service deployment, Desktop/API connectivity, and Tauri packaging.
 
-## Required commands
+## Verified Commands
 
-Run the full verification gate from the repository root:
+| Area | Command | Result |
+| --- | --- | --- |
+| Deploy script syntax | `bash -n deploy/server-up.sh` | Pass. |
+| Deploy script syntax | `bash -n deploy/server-down.sh` | Pass. |
+| Deploy script syntax | `bash -n deploy/server-check.sh` | Pass. |
+| Deploy script syntax | `bash -n deploy/load-offline-images.sh` | Pass. |
+| Docker prod config | `docker compose -f infra/docker-compose.prod.yml config` | Pass. |
+| Docker legacy config | `docker compose -f infra/docker-compose.legacy.yml config` | Pass. |
+| Workspace typecheck | `npm run typecheck` | Pass. |
+| Workspace tests | `npm test` | Pass. |
+| API tests | `npm test --workspace apps/api` | Pass. |
+| Desktop frontend tests | `npm test --workspace apps/desktop` | Pass. |
+| Static real-delivery regression | `node --test tests/smoke/p1-real-delivery-static.test.mjs` | Pass. |
+| Rust cargo check | `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` | Pass. |
+| Rust cargo tests | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` | Pass. |
+| Tauri compile without bundling | `npm run tauri:build --workspace apps/desktop -- --no-bundle` | Pass; output at `apps/desktop/src-tauri/target/release/enterprise-agent-hub-desktop`. |
+| Windows NSIS installer attempt | `npm run tauri:build:windows --workspace apps/desktop` | Environment-blocked on macOS host: Tauri CLI only exposes `ios`, `app`, and `dmg` bundle values on this host. |
 
-```bash
-node scripts/verification/p1-verify.mjs --strict
+## Deployment Evidence
+
+- Compose now includes PostgreSQL, Redis, MinIO, API, `api-migrate`, `api-seed`, and `minio-init` for the production path.
+- Legacy Compose avoids v2-only `depends_on.condition` while still defining explicit one-shot migrate/seed/bucket initialization services for `COMPOSE_IMPL=legacy`.
+- `deploy/server-up.sh` now waits for PostgreSQL, Redis, and MinIO host ports before one-shot tasks and requires `/health` to return `status: "ok"` instead of accepting any HTTP 200.
+- API production scripts run compiled JavaScript: `npm run migrate` maps to `node dist/scripts/migrate.js`, and `npm run seed` maps to `node dist/scripts/seed.js`.
+
+Docker runtime blocker on this machine:
+
+```text
+docker info
+failed to connect to the docker API at unix:///Users/zhb/.docker/run/docker.sock
 ```
 
-The gate writes:
+Because the Docker daemon socket is absent, this host could validate Compose syntax but could not run `./deploy/server-up.sh`, build the API image, or capture a live `/health` response.
 
-- `verification/reports/p1-verification-report.md`
-- `verification/reports/p1-verification-report.json`
+## Desktop/API Connectivity Evidence
 
-## Evidence matrix
+- Desktop API default is `http://127.0.0.1:3000`, not `/api/v1`.
+- Login stores the real API base URL and Bearer token, then calls `/auth/login` and `/desktop/bootstrap`.
+- Skills, notifications, mark-read, star, `download-ticket`, package download, and local-events now call real endpoints and throw visible errors on request failure.
+- Tauri local command mocks are only allowed behind `VITE_P1_ALLOW_TAURI_MOCKS=true`; otherwise browser-only mode fails visibly instead of pretending local Store/Adapter operations succeeded.
+- `codex-review-helper@1.2.0` has a real seed package zip, seed metadata matches the package size/file-count/hash, and the API seed task uploads that object to MinIO when MinIO environment variables are present.
+- Desktop install/update passes the full `downloadTicket` into Tauri. Tauri downloads the package, extracts it, validates SHA-256 and `SKILL.md`, writes Central Store + SQLite, and `list_local_installs` restores state from SQLite after restart.
+- The P1 vertical slice enables only `tool:codex`: Tauri reads the installed Central Store path from SQLite, runs the Codex Adapter distribution, and records `requestedMode`, `resolvedMode`, `fallbackReason`, target path, and a pending local event in SQLite.
 
-| Area | Gate command or artifact | Required pass condition | Owner |
-| --- | --- | --- | --- |
-| Workspace typecheck | `npm run typecheck` | TypeScript typecheck passes across workspaces. | W1/W2/W3/W6 |
-| Workspace tests | `npm test` | Root test suite passes. | All |
-| API tests | `npm test --workspace apps/api` | Auth/bootstrap/skills/detail/download-ticket/notifications/local-events tests pass. | W2 |
-| Desktop frontend tests | `npm test --workspace apps/desktop` | P1 navigation, market/detail, installed/tools/projects/notifications/settings UI boundaries pass. | W3 |
-| Rust cargo check | `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` | Store/Adapter/Tauri command code compiles. | W4/W5 |
-| Rust cargo tests | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml` | Store, SQLite, offline queue and distribution tests pass. | W4/W5 |
-| Adapter fixtures | `npm test --workspace packages/tool-adapter-fixtures` | Built-in target transforms and symlink/copy fallback fixtures pass. | W5/W6 |
-| Docker prod config | `docker compose -f infra/docker-compose.prod.yml config` | Compose file is syntactically valid. | W2/W6 |
-| Docker legacy config | `docker compose -f infra/docker-compose.legacy.yml config` | Legacy compose validates when present. | W2/W6 |
-| Deploy script syntax | `bash -n deploy/server-up.sh deploy/server-down.sh deploy/server-check.sh deploy/load-offline-images.sh` | Deployment shell scripts parse. | W2/W6 |
-| W6 matrix self-test | `node --test tests/smoke/p1-acceptance-matrix.test.mjs` | Verification config and smoke/e2e matrix remain complete. | W6 |
-| Tracked generated artifacts | Built-in `tracked-generated-artifacts` gate in `p1-verify.mjs` | No tracked `node_modules/**`, package `dist/**`, app build outputs, or coverage outputs remain in final integration. | W6/leader |
+## Packaging Evidence
 
-## Acceptance coverage required before sign-off
+- Tauri config exists at `apps/desktop/src-tauri/tauri.conf.json`.
+- Rust binary entrypoint exists at `apps/desktop/src-tauri/src/main.rs`.
+- Required command names are registered: `get_local_bootstrap`, `install_skill_package`, `update_skill_package`, `uninstall_skill`, `enable_skill`, `disable_skill`, `list_local_installs`, and `detect_tools`.
+- `install_skill_package`, `update_skill_package`, `enable_skill`, `list_local_installs`, and `get_local_bootstrap` now call the SQLite/Central Store implementation instead of returning integration-required placeholders.
+- Windows installer intent is configured as NSIS with `tauri:build:windows`; actual `.exe` installer generation still requires a Windows-capable Tauri bundling host.
 
-The smoke/e2e spec in `tests/smoke/p1-e2e-smoke-spec.json` covers the required P1 acceptance scenarios:
+## Remaining Risks
 
-1. Bootstrap/login with P1-only navigation.
-2. Market search/filter/sort.
-3. Restricted detail without README/audit/package leakage.
-4. Hash-verified install into Central Store and SQLite state.
-5. Hash mismatch failure preserving existing state.
-6. Local hash change warning before update overwrite.
-7. Codex symlink enable success.
-8. Symlink failure falling back to copy with `fallbackReason`.
-9. Disable preserving Central Store.
-10. Uninstall confirmation listing and removing managed targets.
-11. Offline enable/disable queue surviving restart.
-12. Idempotent `/desktop/local-events` sync without governance mutation.
-13. Notification mark-read plus offline cache display.
-
-## Packaging deliverables
-
-| Deliverable | Required evidence |
-| --- | --- |
-| Windows exe installer | Tauri build artifact path, version, SHA-256 checksum, smoke install result on Windows. |
-| Linux server deployment | `deploy/server-up.sh` run log, `/health` output, migration/seed exit codes. |
-| PostgreSQL/Redis/MinIO env template | `infra/env/server.env.example` includes required variables without secrets. |
-| Offline/legacy deployment | `deploy/server-check.sh` output and, when used, offline image checksum verification. |
-| Seed data | Seed command output and deterministic IDs for installable, restricted, update-available and offline scenarios. |
-| Adapter fixture report | Completed `docs/Verification/p1-fixture-acceptance-report.md`. |
-
-## Current W6 baseline
-
-At creation time, this W6 worktree had no root `package.json`, no `apps/**`, no `packages/**`, no `infra/**`, and no `deploy/**`. Use non-strict mode during parallel development to produce a pending report, then use strict mode after integration to fail on any missing product-lane artifact, failing command, or tracked generated artifact such as `node_modules/` or `packages/shared-contracts/dist/`.
+- Live Docker deployment and `/health status=ok` are not proven on this machine because Docker daemon is not running.
+- Windows `.exe` installer generation is not proven on this macOS host because NSIS bundling is not exposed by the local Tauri CLI.
+- Linux Docker live deployment remains unproven on this machine until Docker Engine is available and `./deploy/server-up.sh` can start PostgreSQL, Redis, MinIO, API, seed the package object, and return live `/health status=ok`.
+- Windows NSIS `.exe` packaging remains unproven until repeated on a Windows host or CI runner with the `x86_64-pc-windows-msvc` Tauri target.
+- Disable/uninstall and non-Codex targets remain outside this single P1 vertical-slice completion pass.

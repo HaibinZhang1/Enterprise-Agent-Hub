@@ -19,7 +19,20 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   department_id TEXT REFERENCES departments(id),
   role TEXT NOT NULL DEFAULT 'normal_user',
+  admin_level INTEGER,
   status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS admin_level INTEGER;
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -135,6 +148,34 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS review_items (
+  id TEXT PRIMARY KEY,
+  skill_id TEXT NOT NULL,
+  skill_display_name TEXT NOT NULL,
+  submitter_id TEXT NOT NULL REFERENCES users(id),
+  submitter_name TEXT NOT NULL,
+  submitter_department_id TEXT NOT NULL REFERENCES departments(id),
+  submitter_department_name TEXT NOT NULL,
+  review_type TEXT NOT NULL CHECK (review_type IN ('publish', 'update', 'permission_change')),
+  review_status TEXT NOT NULL CHECK (review_status IN ('pending', 'in_review', 'reviewed')),
+  risk_level TEXT NOT NULL CHECK (risk_level IN ('low', 'medium', 'high', 'unknown')),
+  summary TEXT NOT NULL,
+  description TEXT NOT NULL,
+  review_summary TEXT,
+  lock_owner_id TEXT REFERENCES users(id),
+  submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS review_item_history (
+  id TEXT PRIMARY KEY,
+  review_item_id TEXT NOT NULL REFERENCES review_items(id) ON DELETE CASCADE,
+  actor_id TEXT REFERENCES users(id),
+  action TEXT NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS desktop_devices (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
@@ -188,6 +229,12 @@ CREATE INDEX IF NOT EXISTS idx_skills_status_visibility
 
 CREATE INDEX IF NOT EXISTS idx_desktop_local_events_device_event
   ON desktop_local_events(device_id, event_id);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_status
+  ON auth_sessions(user_id, revoked_at, expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_review_items_department_status
+  ON review_items(submitter_department_id, review_status, updated_at DESC);
 
 CREATE OR REPLACE FUNCTION refresh_skill_search_document(target_skill_id UUID)
 RETURNS VOID AS $$
