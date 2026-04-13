@@ -17,6 +17,7 @@ pub mod commands {
     pub mod distribution;
     pub mod local_state;
     pub mod path_validation;
+    pub mod project_directory;
     pub mod tool_detection;
 }
 

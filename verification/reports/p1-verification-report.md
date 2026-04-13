@@ -1,6 +1,6 @@
 # P1 foundation loop verification path
 
-Generated: 2026-04-12T15:57:26.237Z
+Generated: 2026-04-13T16:13:56.551Z
 Mode: strict release gate
 Overall status: **PASS**
 
@@ -8,8 +8,8 @@ Overall status: **PASS**
 
 - Artifact checks: 12 pass, 0 pending, 0 fail
 - Generated artifact checks: 1 pass, 0 pending, 0 fail
-- Command checks: 12 pass, 0 pending, 0 fail
-- Acceptance scenarios covered by spec: 13/13
+- Command checks: 15 pass, 0 pending, 0 fail
+- Acceptance scenarios covered by spec: 19/19
 
 ## Artifact checks
 
@@ -50,6 +50,9 @@ Overall status: **PASS**
 | pass | deploy-script-syntax | `bash -n deploy/server-up.sh deploy/server-down.sh deploy/server-check.sh deploy/load-offline-images.sh` | exit=0 |
 | pass | w6-acceptance-matrix-test | `node --test tests/smoke/p1-acceptance-matrix.test.mjs` | exit=0 |
 | pass | p1-real-delivery-static-test | `node --test tests/smoke/p1-real-delivery-static.test.mjs` | exit=0 |
+| pass | p1-ui-closure | `npm run p1:ui-closure` | exit=0 |
+| pass | p1-native-closure | `npm run p1:native-closure` | exit=0 |
+| pass | p1-full-closure | `npm run p1:full-closure` | exit=0 |
 
 ## Acceptance coverage
 
@@ -67,6 +70,12 @@ Overall status: **PASS**
 | covered | uninstall-managed-targets-with-confirmation |
 | covered | offline-enable-disable-queue-restart |
 | covered | local-events-idempotent-sync |
+| covered | publisher-upload-review-browser-flow |
+| covered | publisher-return-resubmit-browser-flow |
+| covered | publisher-reject-no-market-leakage |
+| covered | permission-change-visibility-switch-after-approval |
+| covered | update-publish-old-version-remains-live |
+| covered | same-skill-market-download-install-enable |
 | covered | notifications-read-offline-cache |
 
 ## Failed command output

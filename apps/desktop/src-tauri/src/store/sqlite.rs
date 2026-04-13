@@ -1,6 +1,9 @@
 pub const P1_INITIAL_MIGRATION_NAME: &str = "0001_p1_local_state";
 pub const P1_INITIAL_MIGRATION_SQL: &str =
     include_str!("../../sqlite/migrations/0001_p1_local_state.sql");
+pub const LOCAL_NOTIFICATION_CACHE_MIGRATION_NAME: &str = "0002_local_notification_cache";
+pub const LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL: &str =
+    include_str!("../../sqlite/migrations/0002_local_notification_cache.sql");
 
 /// Store-owned persistence statements. The Tauri application DB adapter should bind values
 /// to these statements instead of duplicating table/field names in command handlers.
@@ -59,15 +62,31 @@ WHERE event_id = ?
 
     pub const UPSERT_LOCAL_NOTIFICATION: &str = r#"
 INSERT INTO local_notifications (
-  notification_id, type, title, summary, object_type, object_id, read_at, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  notification_id, type, title, summary, object_type, object_id, related_skill_id,
+  target_page, source, read_at, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(notification_id) DO UPDATE SET
   type = excluded.type,
   title = excluded.title,
   summary = excluded.summary,
   object_type = excluded.object_type,
   object_id = excluded.object_id,
+  related_skill_id = excluded.related_skill_id,
+  target_page = excluded.target_page,
+  source = excluded.source,
   read_at = excluded.read_at
+"#;
+
+    pub const MARK_LOCAL_NOTIFICATION_READ: &str = r#"
+UPDATE local_notifications
+SET read_at = ?
+WHERE notification_id = ?
+"#;
+
+    pub const MARK_ALL_LOCAL_NOTIFICATIONS_READ: &str = r#"
+UPDATE local_notifications
+SET read_at = ?
+WHERE read_at IS NULL
 "#;
 
     pub const UPSERT_SYNC_STATE: &str = r#"
@@ -96,7 +115,9 @@ pub fn ordered_migrations() -> [(&'static str, &'static str); 1] {
 
 #[cfg(test)]
 mod tests {
-    use super::{statements, P1_INITIAL_MIGRATION_SQL};
+    use super::{
+        statements, LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL, P1_INITIAL_MIGRATION_SQL,
+    };
 
     #[test]
     fn migration_contains_store_owned_tables() {
@@ -113,6 +134,8 @@ mod tests {
         assert!(P1_INITIAL_MIGRATION_SQL.contains("requested_mode"));
         assert!(P1_INITIAL_MIGRATION_SQL.contains("resolved_mode"));
         assert!(P1_INITIAL_MIGRATION_SQL.contains("fallback_reason"));
+        assert!(LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL.contains("target_page"));
+        assert!(LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL.contains("source"));
     }
 
     #[test]
@@ -121,6 +144,8 @@ mod tests {
         assert!(statements::UPSERT_ENABLED_TARGET.contains("requested_mode"));
         assert!(statements::INSERT_OFFLINE_EVENT.contains("offline_event_queue"));
         assert!(statements::UPSERT_LOCAL_NOTIFICATION.contains("local_notifications"));
+        assert!(statements::MARK_LOCAL_NOTIFICATION_READ.contains("local_notifications"));
+        assert!(statements::MARK_ALL_LOCAL_NOTIFICATIONS_READ.contains("local_notifications"));
         assert!(statements::UPSERT_SYNC_STATE.contains("sync_state"));
         assert!(statements::SET_STORE_METADATA.contains("store_metadata"));
     }

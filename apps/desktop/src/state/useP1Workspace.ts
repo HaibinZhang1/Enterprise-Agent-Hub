@@ -4,6 +4,7 @@ import type {
   AdminUser,
   AuthState,
   BootstrapContext,
+  DiscoveredLocalSkill,
   DepartmentNode,
   LocalBootstrap,
   LocalEvent,
@@ -12,6 +13,9 @@ import type {
   MarketFilters,
   OperationProgress,
   PageID,
+  PublisherSkillSummary,
+  PublisherSubmissionDetail,
+  PublishDraft,
   RequestedMode,
   ReviewDetail,
   ReviewItem,
@@ -24,6 +28,8 @@ import {
 } from "../fixtures/p1SeedData";
 import { isPermissionError, isUnauthenticatedError, p1Client } from "../services/p1Client";
 import { desktopBridge } from "../services/tauriBridge";
+import { deriveDiscoveredLocalSkills } from "../utils/discoveredLocalSkills";
+import { detectDesktopPlatform } from "../utils/platformPaths";
 
 const defaultFilters: MarketFilters = {
   query: "",
@@ -32,7 +38,10 @@ const defaultFilters: MarketFilters = {
   installed: "all",
   enabled: "all",
   accessScope: "include_public",
+  category: "all",
   riskLevel: "all",
+  publishedWithin: "all",
+  updatedWithin: "all",
   sort: "composite"
 };
 
@@ -83,6 +92,7 @@ function applyLocalInstallToSkill(skill: SkillSummary, install: LocalSkillInstal
 
 function localSummaryFromInstall(install: LocalSkillInstall): SkillSummary {
   const enabledTargets = normalizeLocalInstallTargets(install);
+  const compatibleSystem = detectDesktopPlatform() === "windows" ? "windows" : "macos";
   return {
     skillID: install.skillID,
     displayName: install.displayName,
@@ -101,7 +111,7 @@ function localSummaryFromInstall(install: LocalSkillInstall): SkillSummary {
     currentVersionUpdatedAt: install.updatedAt,
     publishedAt: install.installedAt,
     compatibleTools: [],
-    compatibleSystems: ["windows"],
+    compatibleSystems: [compatibleSystem],
     tags: ["本机"],
     category: "本地已安装",
     riskLevel: "unknown",
@@ -142,14 +152,22 @@ function buildGuestBootstrap(localBootstrap: LocalBootstrap, message?: string): 
 }
 
 function mergeNotifications(remoteNotifications: LocalNotification[], localNotifications: LocalNotification[]): LocalNotification[] {
-  const merged = [...localNotifications];
-  const seen = new Set(localNotifications.map((notification) => notification.notificationID));
-  for (const notification of remoteNotifications) {
-    if (!seen.has(notification.notificationID)) {
-      merged.unshift(notification);
+  return upsertNotifications(localNotifications, remoteNotifications);
+}
+
+function upsertNotifications(current: LocalNotification[], incoming: LocalNotification[]): LocalNotification[] {
+  const next = [...current];
+  const indexByID = new Map(current.map((notification, index) => [notification.notificationID, index]));
+  for (const notification of incoming) {
+    const existingIndex = indexByID.get(notification.notificationID);
+    if (existingIndex === undefined) {
+      indexByID.set(notification.notificationID, next.length);
+      next.push(notification);
+      continue;
     }
+    next[existingIndex] = notification;
   }
-  return merged.sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
+  return next.sort((left, right) => right.occurredAt.localeCompare(left.occurredAt));
 }
 
 function findDepartment(nodes: DepartmentNode[], departmentID: string | null): DepartmentNode | null {
@@ -171,6 +189,7 @@ export function useP1Workspace() {
   const [projects, setProjects] = useState<LocalBootstrap["projects"]>([]);
   const [notifications, setNotifications] = useState<LocalNotification[]>(emptyLocalNotifications);
   const [offlineEvents, setOfflineEvents] = useState<LocalEvent[]>([]);
+  const [localCentralStorePath, setLocalCentralStorePath] = useState("");
   const [filters, setFilters] = useState<MarketFilters>(defaultFilters);
   const [selectedSkillID, setSelectedSkillID] = useState("");
   const [progress, setProgress] = useState<OperationProgress | null>(null);
@@ -180,6 +199,9 @@ export function useP1Workspace() {
   const [selectedDepartmentID, setSelectedDepartmentID] = useState<string | null>(null);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [adminSkills, setAdminSkills] = useState<AdminSkill[]>([]);
+  const [publisherSkills, setPublisherSkills] = useState<PublisherSkillSummary[]>([]);
+  const [selectedPublisherSubmissionID, setSelectedPublisherSubmissionID] = useState<string | null>(null);
+  const [selectedPublisherSubmission, setSelectedPublisherSubmission] = useState<PublisherSubmissionDetail | null>(null);
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [selectedReviewID, setSelectedReviewID] = useState<string | null>(null);
   const [selectedReview, setSelectedReview] = useState<ReviewDetail | null>(null);
@@ -200,7 +222,9 @@ export function useP1Workspace() {
     localBootstrapRef.current = localBootstrap;
     setTools(localBootstrap.tools);
     setProjects(localBootstrap.projects);
+    localNotificationsRef.current = localBootstrap.notifications;
     setOfflineEvents(localBootstrap.offlineEvents);
+    setLocalCentralStorePath(localBootstrap.centralStorePath);
     return localBootstrap;
   }, []);
 
@@ -211,7 +235,7 @@ export function useP1Workspace() {
   }, []);
 
   useEffect(() => {
-    localNotificationsRef.current = notifications.filter((notification) => notification.source !== "server");
+    localNotificationsRef.current = notifications;
   }, [notifications]);
 
   const selectedSkill = useMemo(
@@ -243,6 +267,8 @@ export function useP1Workspace() {
         if (authState === "authenticated" && bootstrap.connection.status === "connected") {
           return matchesInstalled && matchesEnabled;
         }
+        const publishedWindowDays = filters.publishedWithin === "7d" ? 7 : filters.publishedWithin === "30d" ? 30 : filters.publishedWithin === "90d" ? 90 : 0;
+        const updatedWindowDays = filters.updatedWithin === "7d" ? 7 : filters.updatedWithin === "30d" ? 30 : filters.updatedWithin === "90d" ? 90 : 0;
         const matchesQuery =
           query.length === 0 ||
           skill.displayName.toLocaleLowerCase().includes(query) ||
@@ -254,8 +280,13 @@ export function useP1Workspace() {
         const matchesDepartment = filters.department === "all" || skill.authorDepartment === filters.department;
         const matchesTool = filters.compatibleTool === "all" || skill.compatibleTools.includes(filters.compatibleTool);
         const matchesAccess = filters.accessScope === "include_public" || skill.detailAccess === "full";
+        const matchesCategory = filters.category === "all" || skill.category === filters.category;
         const matchesRisk = filters.riskLevel === "all" || skill.riskLevel === filters.riskLevel;
-        return matchesQuery && matchesDepartment && matchesTool && matchesInstalled && matchesEnabled && matchesAccess && matchesRisk;
+        const matchesPublishedWithin =
+          publishedWindowDays === 0 || new Date(skill.publishedAt).getTime() >= Date.now() - publishedWindowDays * 24 * 60 * 60 * 1000;
+        const matchesUpdatedWithin =
+          updatedWindowDays === 0 || new Date(skill.currentVersionUpdatedAt).getTime() >= Date.now() - updatedWindowDays * 24 * 60 * 60 * 1000;
+        return matchesQuery && matchesDepartment && matchesTool && matchesInstalled && matchesEnabled && matchesAccess && matchesCategory && matchesRisk && matchesPublishedWithin && matchesUpdatedWithin;
       });
 
     if (authState === "authenticated" && bootstrap.connection.status === "connected") {
@@ -282,12 +313,22 @@ export function useP1Workspace() {
   }, [authState, bootstrap.connection.status, filters, skills]);
 
   const installedSkills = useMemo(() => skills.filter((skill) => skill.localVersion !== null), [skills]);
+  const discoveredLocalSkills = useMemo<DiscoveredLocalSkill[]>(
+    () =>
+      deriveDiscoveredLocalSkills({
+        installedSkills,
+        marketSkills: skills,
+        scanTargets
+      }),
+    [installedSkills, scanTargets, skills]
+  );
   const visibleNavigation = useMemo(
     () => (authState === "authenticated" && bootstrap.connection.status === "connected" ? bootstrap.navigation : guestNavigation),
     [authState, bootstrap.connection.status, bootstrap.navigation]
   );
   const departmentsFilter = useMemo(() => [...new Set(skills.map((skill) => skill.authorDepartment).filter(Boolean))] as string[], [skills]);
   const compatibleTools = useMemo(() => [...new Set(skills.flatMap((skill) => skill.compatibleTools))], [skills]);
+  const categories = useMemo(() => [...new Set(skills.map((skill) => skill.category).filter(Boolean))], [skills]);
   const isAdminConnected = authState === "authenticated" && bootstrap.connection.status === "connected" && bootstrap.menuPermissions.includes("manage");
 
   const queueLogin = useCallback((page: PageID | null, action?: () => Promise<void> | void) => {
@@ -306,16 +347,19 @@ export function useP1Workspace() {
     setSkills(localSkills);
     setOfflineEvents(localBootstrap.offlineEvents);
     setScanTargets(localScanTargets);
-    setNotifications(localNotificationsRef.current);
+    setNotifications(localBootstrap.notifications);
     setDepartments([]);
     setAdminUsers([]);
     setAdminSkills([]);
+    setPublisherSkills([]);
+    setSelectedPublisherSubmission(null);
+    setSelectedPublisherSubmissionID(null);
     setReviews([]);
     setSelectedReview(null);
     setSelectedReviewID(null);
     setSelectedDepartmentID(null);
     setSelectedSkillID((current) => (localSkills.some((skill) => skill.skillID === current) ? current : localSkills[0]?.skillID ?? ""));
-    setActivePageState((current) => (current === "manage" || current === "review" || current === "market" || current === "notifications" ? "home" : current));
+    setActivePageState((current) => (current === "manage" || current === "review" || current === "market" ? "home" : current));
   }, [refreshLocalBootstrap]);
 
   const stripAdminCapabilities = useCallback(() => {
@@ -365,7 +409,9 @@ export function useP1Workspace() {
         p1Client.listSkills(remoteMarketFilters),
         p1Client.listNotifications()
       ]);
+      await desktopBridge.upsertLocalNotifications(remoteNotifications).catch(() => undefined);
       const mergedSkills = mergeLocalInstalls(remoteSkills, currentLocalBootstrap);
+      const mergedNotifications = mergeNotifications(remoteNotifications, currentLocalBootstrap.notifications);
       setAuthState("authenticated");
       setBootstrap(remoteBootstrap);
       setSkills(mergedSkills);
@@ -373,7 +419,7 @@ export function useP1Workspace() {
       setProjects(currentLocalBootstrap.projects);
       setOfflineEvents(currentLocalBootstrap.offlineEvents);
       setScanTargets(localScanTargets);
-      setNotifications(mergeNotifications(remoteNotifications, localNotificationsRef.current));
+      setNotifications(mergedNotifications);
       setSelectedSkillID((current) => (mergedSkills.some((skill) => skill.skillID === current) ? current : mergedSkills[0]?.skillID ?? ""));
       return remoteBootstrap;
     },
@@ -390,7 +436,7 @@ export function useP1Workspace() {
       const localSkills = localBootstrap.installs.map(localSummaryFromInstall);
       setBootstrap(buildGuestBootstrap(localBootstrap));
       setSkills(localSkills);
-      setNotifications(localNotificationsRef.current);
+      setNotifications(localBootstrap.notifications);
       setOfflineEvents(localBootstrap.offlineEvents);
       setScanTargets(localScanTargets);
       setSelectedSkillID(localSkills[0]?.skillID ?? "");
@@ -461,6 +507,17 @@ export function useP1Workspace() {
     setSelectedDepartmentID((current) => findDepartment(nextDepartments, current) ? current : nextDepartments[0]?.departmentID ?? null);
   }, []);
 
+  const refreshPublisherData = useCallback(async () => {
+    const nextPublisherSkills = await p1Client.listPublisherSkills();
+    setPublisherSkills(nextPublisherSkills);
+    setSelectedPublisherSubmissionID((current) => {
+      if (current && nextPublisherSkills.some((skill) => skill.latestSubmissionID === current)) {
+        return current;
+      }
+      return nextPublisherSkills.find((skill) => !!skill.latestSubmissionID)?.latestSubmissionID ?? null;
+    });
+  }, []);
+
   const refreshReviews = useCallback(async () => {
     const nextReviews = await p1Client.listReviews();
     setReviews(nextReviews);
@@ -472,10 +529,27 @@ export function useP1Workspace() {
     if (activePage === "manage" && bootstrap.menuPermissions.includes("manage")) {
       void refreshManageData().catch((error) => void handleRemoteError(error));
     }
+    if (activePage === "my_installed" && bootstrap.features.publishSkill) {
+      void refreshPublisherData().catch((error) => void handleRemoteError(error));
+    }
     if (activePage === "review" && bootstrap.menuPermissions.includes("review")) {
       void refreshReviews().catch((error) => void handleRemoteError(error));
     }
-  }, [activePage, authState, bootstrap.connection.status, bootstrap.menuPermissions, handleRemoteError, refreshManageData, refreshReviews]);
+  }, [activePage, authState, bootstrap.connection.status, bootstrap.features.publishSkill, bootstrap.menuPermissions, handleRemoteError, refreshManageData, refreshPublisherData, refreshReviews]);
+
+  useEffect(() => {
+    if (authState !== "authenticated" || activePage !== "my_installed" || !selectedPublisherSubmissionID) return;
+    void p1Client
+      .getPublisherSubmission(selectedPublisherSubmissionID)
+      .then(setSelectedPublisherSubmission)
+      .catch((error) => void handleRemoteError(error));
+  }, [activePage, authState, handleRemoteError, selectedPublisherSubmissionID]);
+
+  useEffect(() => {
+    if (!selectedPublisherSubmissionID) {
+      setSelectedPublisherSubmission(null);
+    }
+  }, [selectedPublisherSubmissionID]);
 
   useEffect(() => {
     if (authState !== "authenticated" || activePage !== "review" || !selectedReviewID) return;
@@ -517,7 +591,7 @@ export function useP1Workspace() {
 
   const openPage = useCallback(
     (page: PageID) => {
-      if ((page === "market" || page === "notifications") && authState !== "authenticated") {
+      if (page === "market" && authState !== "authenticated") {
         queueLogin(page);
         return;
       }
@@ -577,6 +651,14 @@ export function useP1Workspace() {
     setProgress(null);
   }, []);
 
+  const persistNotifications = useCallback(async (incoming: LocalNotification[]) => {
+    if (incoming.length === 0) {
+      return;
+    }
+    setNotifications((current) => upsertNotifications(current, incoming));
+    await desktopBridge.upsertLocalNotifications(incoming).catch(() => undefined);
+  }, []);
+
   const performInstallOrUpdate = useCallback(
     async (skillID: string, operation: "install" | "update") => {
       const skill = skills.find((item) => item.skillID === skillID);
@@ -604,9 +686,9 @@ export function useP1Workspace() {
         message: `${skill.displayName} 已写入 Central Store，原启用位置不会被自动覆盖。`
       };
       updateSkillProgress(nextProgress);
-      setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
+      await persistNotifications([notificationFromProgress(nextProgress)]);
     },
-    [bootstrap.connection.status, refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
+    [bootstrap.connection.status, persistNotifications, refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const installOrUpdate = useCallback(
@@ -652,9 +734,9 @@ export function useP1Workspace() {
         message: `${skill.displayName} 已启用到 ${result.target.targetName}`
       };
       updateSkillProgress(nextProgress);
-      setNotifications((current) => [notificationFromProgress(nextProgress, result.target.fallbackReason), ...current]);
+      await persistNotifications([notificationFromProgress(nextProgress, result.target.fallbackReason)]);
     },
-    [refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
+    [persistNotifications, refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const disableSkill = useCallback(
@@ -676,9 +758,9 @@ export function useP1Workspace() {
       setOfflineEvents(localBootstrap.offlineEvents);
       const nextProgress: OperationProgress = { operation: "disable", skillID, stage: "完成", result: "success", message: `${skill.displayName} 已从目标停用。` };
       updateSkillProgress(nextProgress);
-      setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
+      await persistNotifications([notificationFromProgress(nextProgress)]);
     },
-    [refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
+    [persistNotifications, refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const uninstallSkill = useCallback(
@@ -703,9 +785,9 @@ export function useP1Workspace() {
           : `${skill.displayName} 已卸载，但仍有 ${result.failedTargetIDs.length} 个目标需要手动清理。`
       };
       updateSkillProgress(nextProgress);
-      setNotifications((current) => [notificationFromProgress(nextProgress), ...current]);
+      await persistNotifications([notificationFromProgress(nextProgress)]);
     },
-    [refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
+    [persistNotifications, refreshLocalBootstrap, refreshLocalScans, skills, updateSkillProgress]
   );
 
   const toggleStar = useCallback(
@@ -722,16 +804,37 @@ export function useP1Workspace() {
 
   const markNotificationsRead = useCallback(
     async (notificationIDs: string[] | "all") => {
-      requireAuthenticatedAction("notifications", async () => {
-        await p1Client.markNotificationsRead(notificationIDs);
-        setNotifications((current) =>
-          current.map((notification) =>
-            notificationIDs === "all" || notificationIDs.includes(notification.notificationID) ? { ...notification, unread: false } : notification
-          )
-        );
-      });
+      const selectedNotifications = notificationIDs === "all"
+        ? notifications
+        : notifications.filter((notification) => notificationIDs.includes(notification.notificationID));
+      const selectedIDs = new Set(selectedNotifications.map((notification) => notification.notificationID));
+      const serverNotificationIDs = selectedNotifications
+        .filter((notification) => notification.source === "server")
+        .map((notification) => notification.notificationID);
+
+      if (authState === "authenticated" && bootstrap.connection.status === "connected") {
+        if (notificationIDs === "all" ? notifications.some((notification) => notification.source === "server") : serverNotificationIDs.length > 0) {
+          try {
+            await p1Client.markNotificationsRead(notificationIDs === "all" ? "all" : serverNotificationIDs);
+          } catch (error) {
+            await handleRemoteError(error);
+            return;
+          }
+        }
+      }
+
+      await desktopBridge.markLocalNotificationsRead(
+        notificationIDs === "all" ? "all" : selectedNotifications.map((notification) => notification.notificationID)
+      );
+      setNotifications((current) =>
+        current.map((notification) =>
+          notificationIDs === "all" || selectedIDs.has(notification.notificationID)
+            ? { ...notification, unread: false }
+            : notification
+        )
+      );
     },
-    [requireAuthenticatedAction]
+    [authState, bootstrap.connection.status, handleRemoteError, notifications]
   );
 
   const syncOfflineEvents = useCallback(async () => {
@@ -745,7 +848,7 @@ export function useP1Workspace() {
         setOfflineEvents(localBootstrap.offlineEvents);
       }
       if (result.serverStateChanged) {
-        setNotifications((current) => [
+        await persistNotifications([
           {
             notificationID: `sync_${crypto.randomUUID()}`,
             type: "connection_restored",
@@ -756,12 +859,11 @@ export function useP1Workspace() {
             occurredAt: new Date().toISOString(),
             unread: true,
             source: "sync"
-          },
-          ...current
+          }
         ]);
       }
     });
-  }, [bootstrap.connection.status, offlineEvents, refreshLocalBootstrap, requireAuthenticatedAction]);
+  }, [bootstrap.connection.status, offlineEvents, persistNotifications, refreshLocalBootstrap, requireAuthenticatedAction]);
 
   const refreshTools = useCallback(async () => {
     const detectedTools = await desktopBridge.refreshToolDetection();
@@ -788,6 +890,10 @@ export function useP1Workspace() {
     return desktopBridge.validateTargetPath(targetPath);
   }, []);
 
+  const pickProjectDirectory = useCallback(async () => {
+    return desktopBridge.pickProjectDirectory();
+  }, []);
+
   const saveProjectConfig = useCallback(
     async (project: { projectID?: string; name: string; projectPath: string; skillsPath: string; enabled?: boolean }) => {
       const saved = await desktopBridge.saveProjectConfig(project);
@@ -797,6 +903,30 @@ export function useP1Workspace() {
       return saved;
     },
     [refreshLocalBootstrap, refreshLocalScans]
+  );
+
+  const submitPublisherSubmission = useCallback(
+    async (formData: FormData) => {
+      requireAuthenticatedAction("my_installed", async () => {
+        const submission = await p1Client.submitPublisherSubmission(formData);
+        setSelectedPublisherSubmission(submission);
+        setSelectedPublisherSubmissionID(submission.submissionID);
+        await refreshPublisherData();
+      });
+    },
+    [refreshPublisherData, requireAuthenticatedAction]
+  );
+
+  const withdrawPublisherSubmission = useCallback(
+    async (submissionID: string) => {
+      requireAuthenticatedAction("my_installed", async () => {
+        const submission = await p1Client.withdrawPublisherSubmission(submissionID);
+        setSelectedPublisherSubmission(submission);
+        setSelectedPublisherSubmissionID(submission.submissionID);
+        await refreshPublisherData();
+      });
+    },
+    [refreshPublisherData, requireAuthenticatedAction]
   );
 
   const createDepartment = useCallback(
@@ -904,6 +1034,66 @@ export function useP1Workspace() {
     [requireAuthenticatedAction]
   );
 
+  const claimReview = useCallback(
+    async (reviewID: string) => {
+      requireAuthenticatedAction("review", async () => {
+        const detail = await p1Client.claimReview(reviewID);
+        setSelectedReview(detail);
+        setSelectedReviewID(detail.reviewID);
+        await refreshReviews();
+      });
+    },
+    [refreshReviews, requireAuthenticatedAction]
+  );
+
+  const passPrecheck = useCallback(
+    async (reviewID: string, comment: string) => {
+      requireAuthenticatedAction("review", async () => {
+        const detail = await p1Client.passPrecheck(reviewID, comment);
+        setSelectedReview(detail);
+        setSelectedReviewID(detail.reviewID);
+        await refreshReviews();
+      });
+    },
+    [refreshReviews, requireAuthenticatedAction]
+  );
+
+  const approveReview = useCallback(
+    async (reviewID: string, comment: string) => {
+      requireAuthenticatedAction("review", async () => {
+        const detail = await p1Client.approveReview(reviewID, comment);
+        setSelectedReview(detail);
+        setSelectedReviewID(detail.reviewID);
+        await refreshReviews();
+      });
+    },
+    [refreshReviews, requireAuthenticatedAction]
+  );
+
+  const returnReview = useCallback(
+    async (reviewID: string, comment: string) => {
+      requireAuthenticatedAction("review", async () => {
+        const detail = await p1Client.returnReview(reviewID, comment);
+        setSelectedReview(detail);
+        setSelectedReviewID(detail.reviewID);
+        await refreshReviews();
+      });
+    },
+    [refreshReviews, requireAuthenticatedAction]
+  );
+
+  const rejectReview = useCallback(
+    async (reviewID: string, comment: string) => {
+      requireAuthenticatedAction("review", async () => {
+        const detail = await p1Client.rejectReview(reviewID, comment);
+        setSelectedReview(detail);
+        setSelectedReviewID(detail.reviewID);
+        await refreshReviews();
+      });
+    },
+    [refreshReviews, requireAuthenticatedAction]
+  );
+
   return {
     authState,
     loggedIn: authState === "authenticated",
@@ -917,12 +1107,14 @@ export function useP1Workspace() {
     skills,
     marketSkills,
     installedSkills,
+    discoveredLocalSkills,
     selectedSkill,
     selectedSkillID,
     selectSkill,
     openSkill,
     tools,
     projects,
+    localCentralStorePath,
     scanTargets,
     notifications,
     offlineEvents,
@@ -930,6 +1122,7 @@ export function useP1Workspace() {
     setFilters,
     departments: departmentsFilter,
     compatibleTools,
+    categories,
     progress,
     clearProgress,
     authError,
@@ -948,10 +1141,20 @@ export function useP1Workspace() {
     refreshTools,
     scanLocalTargets,
     validateTargetPath,
+    pickProjectDirectory,
     requireAuth: queueLogin,
     apiBaseURL: p1Client.currentAPIBase(),
     currentUser: bootstrap.user,
     isAdminConnected,
+    publisherData: {
+      publisherSkills,
+      selectedPublisherSubmission,
+      selectedPublisherSubmissionID,
+      setSelectedPublisherSubmissionID,
+      refreshPublisherData,
+      submitPublisherSubmission,
+      withdrawPublisherSubmission
+    },
     adminData: {
       departments,
       selectedDepartment,
@@ -966,6 +1169,11 @@ export function useP1Workspace() {
       setManageSection,
       refreshManageData,
       refreshReviews,
+      claimReview,
+      passPrecheck,
+      approveReview,
+      returnReview,
+      rejectReview,
       createDepartment,
       updateDepartment,
       deleteDepartment,

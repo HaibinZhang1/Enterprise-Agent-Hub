@@ -5,6 +5,9 @@ RUN npm ci --omit=dev
 
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends zip unzip \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY apps/api/dist ./apps/api/dist

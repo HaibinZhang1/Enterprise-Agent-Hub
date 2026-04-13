@@ -1,6 +1,6 @@
 # 4. 用户角色与权限模型
 
-> 当前阶段说明：Desktop 已接入显式菜单权限。游客态只使用本地能力；登录后由服务端下发 `menuPermissions`，并据此展示市场、通知、审核、管理等页签。管理员体系当前采用 `role + adminLevel` 中间态模型：`role=admin` 且 `adminLevel` 越小权限越高。
+> 当前说明：Desktop 已接入显式菜单权限。游客态只使用本地能力；登录后由服务端下发 `menuPermissions`，并据此展示市场、通知、审核、管理等页签。管理员体系当前采用 `role + adminLevel` 中间态模型：`role=admin` 且 `adminLevel` 越小权限越高。
 
 ## 4.1 角色分类
 系统包含以下角色：

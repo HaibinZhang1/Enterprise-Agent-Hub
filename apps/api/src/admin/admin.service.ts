@@ -9,10 +9,6 @@ import {
   AdminSkillDto,
   AdminUserDto,
   DepartmentNodeDto,
-  ReviewDetailDto,
-  ReviewHistoryDto,
-  ReviewItemDto,
-  RiskLevel,
   SkillStatus,
   VisibilityLevel,
 } from '../common/p1-contracts';
@@ -66,25 +62,6 @@ interface SkillRow {
   visibility_level: VisibilityLevel;
   star_count: string;
   download_count: string;
-  updated_at: Date;
-}
-
-interface ReviewRow {
-  review_id: string;
-  skill_id: string;
-  skill_display_name: string;
-  submitter_name: string;
-  submitter_department_name: string;
-  submitter_department_path: string;
-  review_type: 'publish' | 'update' | 'permission_change';
-  review_status: 'pending' | 'in_review' | 'reviewed';
-  risk_level: RiskLevel;
-  summary: string;
-  description: string;
-  review_summary: string | null;
-  current_reviewer_name: string | null;
-  lock_owner_id: string | null;
-  submitted_at: Date;
   updated_at: Date;
 }
 
@@ -409,51 +386,6 @@ export class AdminService {
     return this.listSkills(userID);
   }
 
-  async listReviews(userID: string): Promise<ReviewItemDto[]> {
-    const actor = await this.loadActor(userID);
-    const rows = await this.loadReviewRows(actor);
-    return rows.map(toReviewSummary);
-  }
-
-  async getReview(userID: string, reviewID: string): Promise<ReviewDetailDto> {
-    const actor = await this.loadActor(userID);
-    const row = (await this.loadReviewRows(actor, reviewID))[0];
-    if (!row) {
-      throw new NotFoundException('resource_not_found');
-    }
-    const historyResult = await this.database.query<{
-      id: string;
-      action: string;
-      actor_name: string;
-      comment: string | null;
-      created_at: Date;
-    }>(
-      `
-      SELECT h.id, h.action, COALESCE(u.display_name, '系统') AS actor_name, h.comment, h.created_at
-      FROM review_item_history h
-      LEFT JOIN users u ON u.id = h.actor_id
-      WHERE h.review_item_id = $1
-      ORDER BY h.created_at ASC
-      `,
-      [reviewID],
-    );
-
-    return {
-      ...toReviewSummary(row),
-      description: row.description,
-      reviewSummary: row.review_summary ?? undefined,
-      history: historyResult.rows.map(
-        (history): ReviewHistoryDto => ({
-          historyID: history.id,
-          action: history.action,
-          actorName: history.actor_name,
-          comment: history.comment,
-          createdAt: history.created_at.toISOString(),
-        }),
-      ),
-    };
-  }
-
   private async loadActor(userID: string): Promise<ActorContext> {
     const actor = await this.database.one<{
       user_id: string;
@@ -563,40 +495,6 @@ export class AdminService {
     return target;
   }
 
-  private async loadReviewRows(actor: ActorContext, reviewID?: string): Promise<ReviewRow[]> {
-    const result = await this.database.query<ReviewRow>(
-      `
-      SELECT
-        r.id AS review_id,
-        r.skill_id,
-        r.skill_display_name,
-        r.submitter_name,
-        r.submitter_department_name,
-        d.path AS submitter_department_path,
-        r.review_type,
-        r.review_status,
-        r.risk_level,
-        r.summary,
-        r.description,
-        r.review_summary,
-        reviewer.display_name AS current_reviewer_name,
-        r.lock_owner_id,
-        r.submitted_at,
-        r.updated_at
-      FROM review_items r
-      JOIN departments d ON d.id = r.submitter_department_id
-      LEFT JOIN users reviewer ON reviewer.id = r.lock_owner_id
-      WHERE (d.id = $1 OR d.path LIKE $2)
-        ${reviewID ? 'AND r.id = $3' : ''}
-      ORDER BY r.updated_at DESC
-      `,
-      reviewID
-        ? [actor.departmentID, `${actor.departmentPath}/%`, reviewID]
-        : [actor.departmentID, `${actor.departmentPath}/%`],
-    );
-    return result.rows;
-  }
-
   private assertAssignableRole(
     actor: ActorContext,
     nextRole: 'normal_user' | 'admin',
@@ -678,24 +576,6 @@ function toAdminSkill(row: SkillRow): AdminSkillDto {
     visibilityLevel: row.visibility_level,
     starCount: Number(row.star_count),
     downloadCount: Number(row.download_count),
-    updatedAt: row.updated_at.toISOString(),
-  };
-}
-
-function toReviewSummary(row: ReviewRow): ReviewItemDto {
-  return {
-    reviewID: row.review_id,
-    skillID: row.skill_id,
-    skillDisplayName: row.skill_display_name,
-    submitterName: row.submitter_name,
-    submitterDepartmentName: row.submitter_department_name,
-    reviewType: row.review_type,
-    reviewStatus: row.review_status,
-    riskLevel: row.risk_level,
-    summary: row.summary,
-    lockState: row.lock_owner_id ? 'locked' : 'unlocked',
-    currentReviewerName: row.current_reviewer_name ?? undefined,
-    submittedAt: row.submitted_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
 }

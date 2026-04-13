@@ -13,7 +13,7 @@
 4. **多格式兼容**
    支持不同工具要求的 skill 目录结构或文件格式。
 5. **安装方式可回退**
-   P1 默认先尝试 `symlink`，失败时自动回退到 `copy`，并记录真实模式与失败原因。
+   当前版本 默认先尝试 `symlink`，失败时自动回退到 `copy`，并记录真实模式与失败原因。
 6. **扫描与去重**
    能扫描已存在的各工具目录，并基于目标路径与 Hash 识别“同一个 skill 被多个工具引用”的情况。
 7. **可扩展**
@@ -350,7 +350,7 @@ CREATE TABLE installations (
   scope TEXT NOT NULL,      -- global/project
   target_path TEXT NOT NULL,
   real_path TEXT,
-  mode TEXT NOT NULL,       -- symlink/copy，P1 默认 symlink + copy fallback
+  mode TEXT NOT NULL,       -- symlink/copy，当前版本 默认 symlink + copy fallback
   checksum TEXT,
   status TEXT NOT NULL,     -- installed/missing/drift/conflict
   created_at TEXT,
@@ -387,7 +387,7 @@ CREATE TABLE offline_event_queue (
 );
 ```
 
-当前 P1 Desktop 的本地真源以 SQLite 为准：
+当前 当前版本 Desktop 的本地真源以 SQLite 为准：
 
 - `local_skill_installs` / `enabled_targets` 记录安装、启用、停用、卸载闭环。
 - `project_configs` 持久化项目目标，并由 `get_local_bootstrap` 返回真实 `projects`。
@@ -519,7 +519,7 @@ tools:
 
 ## 9.4 用目标路径与 Hash 去重
 
-P1 默认 symlink，失败会自动回退 copy；无论最终落到哪种模式，只要多个工具目录中的内容来自同一个 Central Store 版本，扫描时都应通过安装记录、目标路径和 checksum 识别为同一个 skill 的多个启用目标，而不是多个独立 skill。
+当前版本 默认 symlink，失败会自动回退 copy；无论最终落到哪种模式，只要多个工具目录中的内容来自同一个 Central Store 版本，扫描时都应通过安装记录、目标路径和 checksum 识别为同一个 skill 的多个启用目标，而不是多个独立 skill。
 
 ## 9.5 支持 override
 

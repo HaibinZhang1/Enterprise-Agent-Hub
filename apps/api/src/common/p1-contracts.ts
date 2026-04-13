@@ -46,6 +46,23 @@ export type NotificationType =
   | 'disable_result';
 export type ReviewStatus = 'pending' | 'in_review' | 'reviewed';
 export type ReviewType = 'publish' | 'update' | 'permission_change';
+export type WorkflowState =
+  | 'system_prechecking'
+  | 'manual_precheck'
+  | 'pending_review'
+  | 'in_review'
+  | 'returned_for_changes'
+  | 'review_rejected'
+  | 'withdrawn'
+  | 'published';
+export type PublishScopeType =
+  | 'current_department'
+  | 'department_tree'
+  | 'selected_departments'
+  | 'all_employees';
+export type SubmissionType = ReviewType;
+export type ReviewDecision = 'approve' | 'return_for_changes' | 'reject' | 'withdraw';
+export type ReviewAction = 'claim' | 'pass_precheck' | 'approve' | 'return_for_changes' | 'reject' | 'withdraw';
 
 export interface PageQuery {
   page?: number;
@@ -215,6 +232,13 @@ export interface ReviewHistoryDto {
   createdAt: string;
 }
 
+export interface ReviewPrecheckItemDto {
+  id: string;
+  label: string;
+  status: 'pass' | 'warn';
+  message: string;
+}
+
 export interface ReviewItemDto {
   reviewID: string;
   skillID: string;
@@ -223,10 +247,17 @@ export interface ReviewItemDto {
   submitterDepartmentName: string;
   reviewType: ReviewType;
   reviewStatus: ReviewStatus;
+  workflowState: WorkflowState;
   riskLevel: RiskLevel;
   summary: string;
   lockState: 'unlocked' | 'locked';
+  lockOwnerID?: string;
   currentReviewerName?: string;
+  requestedVersion?: string;
+  requestedVisibilityLevel?: VisibilityLevel;
+  requestedScopeType?: PublishScopeType;
+  decision?: ReviewDecision;
+  availableActions: ReviewAction[];
   submittedAt: string;
   updatedAt: string;
 }
@@ -234,6 +265,68 @@ export interface ReviewItemDto {
 export interface ReviewDetailDto extends ReviewItemDto {
   description: string;
   reviewSummary?: string;
+  currentVersion?: string;
+  currentVisibilityLevel?: VisibilityLevel;
+  currentScopeType?: PublishScopeType;
+  requestedDepartmentIDs: string[];
+  precheckResults: ReviewPrecheckItemDto[];
+  packageRef?: string;
+  packageURL?: string;
+  packageHash?: string;
+  packageSize?: number;
+  packageFileCount?: number;
+  history: ReviewHistoryDto[];
+}
+
+export interface PublisherSkillSummaryDto {
+  skillID: string;
+  displayName: string;
+  publishedSkillExists: boolean;
+  currentVersion?: string | null;
+  currentStatus?: SkillStatus | null;
+  currentVisibilityLevel?: VisibilityLevel | null;
+  currentScopeType?: PublishScopeType | null;
+  latestSubmissionID?: string | null;
+  latestSubmissionType?: SubmissionType | null;
+  latestWorkflowState?: WorkflowState | null;
+  latestReviewStatus?: ReviewStatus | null;
+  latestDecision?: ReviewDecision | null;
+  latestRequestedVersion?: string | null;
+  latestRequestedVisibilityLevel?: VisibilityLevel | null;
+  latestRequestedScopeType?: PublishScopeType | null;
+  latestReviewSummary?: string | null;
+  submittedAt?: string | null;
+  updatedAt: string;
+  canWithdraw: boolean;
+}
+
+export interface PublisherSubmissionDetailDto {
+  submissionID: string;
+  submissionType: SubmissionType;
+  workflowState: WorkflowState;
+  reviewStatus: ReviewStatus;
+  decision?: ReviewDecision;
+  skillID: string;
+  displayName: string;
+  description: string;
+  changelog: string;
+  version: string;
+  currentVersion?: string | null;
+  visibilityLevel: VisibilityLevel;
+  currentVisibilityLevel?: VisibilityLevel | null;
+  scopeType: PublishScopeType;
+  currentScopeType?: PublishScopeType | null;
+  selectedDepartmentIDs: string[];
+  reviewSummary?: string | null;
+  precheckResults: ReviewPrecheckItemDto[];
+  packageRef?: string;
+  packageURL?: string;
+  packageHash?: string;
+  packageSize?: number;
+  packageFileCount?: number;
+  submittedAt: string;
+  updatedAt: string;
+  canWithdraw: boolean;
   history: ReviewHistoryDto[];
 }
 

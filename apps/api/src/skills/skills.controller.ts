@@ -12,21 +12,22 @@ export class SkillsController {
   constructor(private readonly skillsService: SkillsService) {}
 
   @Get()
-  list(@Query() query: SkillListQuery): Promise<PageResponse<SkillSummary>> {
-    return this.skillsService.list(query);
+  list(@Req() request: P1AuthenticatedRequest, @Query() query: SkillListQuery): Promise<PageResponse<SkillSummary>> {
+    return this.skillsService.list(query, request.p1UserID ?? undefined);
   }
 
   @Get(':skillID')
-  detail(@Param('skillID') skillID: string): Promise<SkillDetail | SkillSummary> {
-    return this.skillsService.detail(skillID);
+  detail(@Req() request: P1AuthenticatedRequest, @Param('skillID') skillID: string): Promise<SkillDetail | SkillSummary> {
+    return this.skillsService.detail(skillID, request.p1UserID ?? undefined);
   }
 
   @Post(':skillID/download-ticket')
   downloadTicket(
+    @Req() request: P1AuthenticatedRequest,
     @Param('skillID') skillID: string,
     @Body() body: DownloadTicketRequest,
   ): Promise<DownloadTicketResponse> {
-    return this.skillsService.downloadTicket(skillID, body);
+    return this.skillsService.downloadTicket(skillID, body, request.p1UserID ?? undefined);
   }
 
   @Post(':skillID/star')

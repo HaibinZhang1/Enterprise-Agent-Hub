@@ -41,7 +41,7 @@
 
 | 术语 | 英文 | 定义 |
 |------|------|------|
-| 系统初审 | Automated Pre-Review | 系统自动执行的结构校验、元信息校验、安全扫描。异常时转人工，不直接拒绝；P1 不执行风险脚本扫描 |
+| 系统初审 | Automated Pre-Review | 系统自动执行的结构校验、元信息校验、安全扫描。异常时转人工，不直接拒绝；当前版本不执行风险脚本扫描 |
 | 人工复核 | Manual Re-Review | 系统初审发现异常后的人工二次判断 |
 | 锁单 | Claim/Lock | 审核员领取审核任务，获得排他处理权（超时 5 分钟自动释放） |
 | 同级审核员 | Peer Reviewer | 同一父部门下、与发布者同级别的其他管理员 |
@@ -55,8 +55,8 @@
 |------|------|------|
 | Central Store | Central Store | 本地唯一真源，存储所有已安装 skill 原始内容（如 `~/.ai-skills/skills/`） |
 | Tool Adapter | Tool Adapter | 每个 AI 工具对应的适配器，负责路径探测、格式转换、安装/卸载 |
-| symlink 安装 | Symlink Install | 通过符号链接将 Central Store 中的 skill 链接到工具目录；P1 不使用 |
-| copy 安装 | Copy Install | 将转换后的 skill 文件复制到工具或项目目录；P1 固定使用 |
+| symlink 安装 | Symlink Install | 通过符号链接将 Central Store 中的 skill 链接到工具或项目目录；当前默认优先使用 |
+| copy 安装 | Copy Install | 将转换后的 skill 文件复制到工具或项目目录；当 symlink 失败时自动降级使用 |
 | Hash 校验 | Hash Verification | 比较本地文件和服务端的 Hash 值，判断是否有本地修改（全量覆盖更新） |
 
 ## 统计相关

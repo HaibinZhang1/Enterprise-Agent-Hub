@@ -2,7 +2,7 @@
 
 ## 1. 范围与目标
 
-本设计面向企业内网正式运行的第一阶段工程基础架构，覆盖 Windows-first Desktop 使用闭环和最小服务端能力。目标是让用户可以登录、浏览市场、搜索、查看详情、安装、更新、卸载、启用/停用 Skill，并在离线时继续使用本地已安装 Skill。
+本设计面向企业内网正式运行的第一阶段工程基础架构，覆盖 Desktop/Tauri 使用闭环和最小服务端能力。当前正式安装包交付仍以 Windows exe 为主，同时为 macOS 保留 Desktop runtime 的编译、运行和测试支持。目标是让用户可以登录、浏览市场、搜索、查看详情、安装、更新、卸载、启用/停用 Skill，并在离线时继续使用本地已安装 Skill。
 
 设计原则：
 
@@ -116,7 +116,7 @@ EnterpriseAgentHub/
 
 说明：
 
-- `apps/desktop/src` 承接 `ui-prototype` 中已验证的页面结构，但生产实现需要隐藏发布、审核、管理等 P2/P3 入口。
+- `apps/desktop/src` 承接 `ui-prototype` 中已验证的页面结构，但生产实现需要隐藏发布、审核、管理等 后续版本 入口。
 - `apps/desktop/src-tauri` 是所有本地系统能力的唯一入口，React 只通过 `invoke` 调用命令。
 - `packages/shared-contracts` 放 API DTO、枚举和跨端类型，避免 Desktop 与 API 字段漂移。
 - `packages/tool-adapter-fixtures` 放 Codex、Claude、Cursor、Windsurf、opencode 的格式转换 golden fixture。
@@ -157,11 +157,11 @@ EnterpriseAgentHub/
 | 模块 | 责任 |
 | --- | --- |
 | `AuthModule` | 自建账号登录、会话/JWT、密码策略、管理员预置账号。 |
-| `UsersModule` | 用户、角色、部门归属的只读消费与后续 P2 管理扩展。 |
+| `UsersModule` | 用户、角色、部门归属的只读消费与后续 后续版本 管理扩展。 |
 | `DepartmentsModule` | 部门树、授权范围计算所需基础数据。 |
 | `SkillsModule` | Skill 元数据、版本、状态、权限、Star、下载计数。 |
 | `PackagesModule` | 包元数据、Hash、大小、文件数、下载凭证生成。 |
-| `MarketModule` | `/skills`、`/skills/{skillID}` 聚合查询和 P1 筛选排序。 |
+| `MarketModule` | `/skills`、`/skills/{skillID}` 聚合查询和 当前版本 筛选排序。 |
 | `SearchModule` | PostgreSQL FTS 查询、排序权重和 GIN 索引维护。 |
 | `NotificationsModule` | 应用内通知、未读计数、标记已读。 |
 | `DesktopModule` | `/desktop/bootstrap`、`/desktop/local-events`、设备状态和本地事件接收。 |
@@ -226,13 +226,13 @@ React 不直接做：
 
 | 表 | 关键字段 | 说明 |
 | --- | --- | --- |
-| `users` | `id, username, password_hash, display_name, department_id, role, status, created_at` | 自建账号体系；P1 只需登录和身份展示。 |
+| `users` | `id, username, password_hash, display_name, department_id, role, status, created_at` | 自建账号体系；当前版本 只需登录和身份展示。 |
 | `departments` | `id, parent_id, name, path, level, status` | 支撑部门筛选和后续权限范围计算。 |
 | `skills` | `id, skill_id, display_name, description, author_id, department_id, status, visibility_level, current_version_id, created_at, updated_at` | Skill 主表，不存包体。 |
 | `skill_versions` | `id, skill_id, version, readme_object_key, changelog, risk_level, review_summary, published_at, package_id` | 当前版本和历史版本元数据。 |
 | `skill_packages` | `id, skill_version_id, bucket, object_key, sha256, size_bytes, file_count, content_type, created_at` | MinIO 对象引用、Hash、大小和文件数。 |
 | `skill_assets` | `id, skill_version_id, asset_type, bucket, object_key, sha256, size_bytes` | 图标、截图、README 附件等资源对象。 |
-| `skill_authorizations` | `id, skill_id, scope_type, department_id, created_at` | 授权范围；P1 服务端返回 `canInstall` 结果。 |
+| `skill_authorizations` | `id, skill_id, scope_type, department_id, created_at` | 授权范围；当前版本 服务端返回 `canInstall` 结果。 |
 | `skill_tool_compatibilities` | `id, skill_id, tool_id, system` | 兼容工具和系统筛选。 |
 | `skill_tags` | `id, skill_id, tag` | 标签搜索和展示。 |
 | `skill_stars` | `user_id, skill_id, created_at` | Star 实时计数来源，唯一键为 `user_id + skill_id`。 |
@@ -296,9 +296,9 @@ bucket: skill-assets
 1. 搭建工程骨架：创建 `apps/desktop`、`apps/api`、`packages/shared-contracts`、`infra`，固化环境变量和本地启动脚本。
 2. 启动基础设施：PostgreSQL、Redis、MinIO；完成 NestJS 配置、健康检查和数据库迁移基线。
 3. 固化共享契约：枚举、DTO、错误码、分页响应、`installMode` 的 `symlink|copy` 实际模式字段。
-4. 实现服务端 P1 API：登录、`/desktop/bootstrap`、`/skills`、`/skills/{skillID}`、download-ticket、Star、通知、`/desktop/local-events`。
+4. 实现服务端 当前版本 API：登录、`/desktop/bootstrap`、`/skills`、`/skills/{skillID}`、download-ticket、Star、通知、`/desktop/local-events`。
 5. 接入 MinIO 与 BullMQ：包对象元数据、短期下载凭证、包校验任务、通知生成任务。
-6. 实现 Desktop React 主框架：登录、首页、市场、详情、我的已安装、工具、项目、通知、设置；以 `ui-prototype` 为页面参考，移除 P2/P3 正式入口。
+6. 实现 Desktop React 主框架：登录、首页、市场、详情、我的已安装、工具、项目、通知、设置；以 `ui-prototype` 为页面参考，移除 后续版本 正式入口。
 7. 实现 Rust SQLite 与 Central Store：本地迁移、安装状态、工具/项目配置、下载校验、覆盖更新、卸载。
 8. 实现 Tool Adapter 与本地分发：Codex、Claude、Cursor、Windsurf、opencode、自定义目录；优先 symlink，失败 copy；补齐 fixture 验收。
 9. 实现离线闭环：离线启用/停用写 SQLite 队列；恢复网络后上报本地事件；权限、下架、版本仍以服务端为准。

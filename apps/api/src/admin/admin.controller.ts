@@ -2,12 +2,16 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } fro
 import { MenuPermissionGuard } from '../auth/menu-permission.guard';
 import { P1AuthenticatedRequest, P1AuthGuard } from '../auth/p1-auth.guard';
 import { RequireMenuPermission } from '../auth/require-menu-permission.decorator';
+import { PublishingService } from '../publishing/publishing.service';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
 @UseGuards(P1AuthGuard, MenuPermissionGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly publishingService: PublishingService,
+  ) {}
 
   @Get('departments')
   @RequireMenuPermission('manage')
@@ -121,12 +125,58 @@ export class AdminController {
   @Get('reviews')
   @RequireMenuPermission('review')
   listReviews(@Req() request: P1AuthenticatedRequest) {
-    return this.adminService.listReviews(request.p1UserID ?? '');
+    return this.publishingService.listReviews(request.p1UserID ?? '');
   }
 
   @Get('reviews/:reviewID')
   @RequireMenuPermission('review')
   getReview(@Req() request: P1AuthenticatedRequest, @Param('reviewID') reviewID: string) {
-    return this.adminService.getReview(request.p1UserID ?? '', reviewID);
+    return this.publishingService.getReview(request.p1UserID ?? '', reviewID);
+  }
+
+  @Post('reviews/:reviewID/claim')
+  @RequireMenuPermission('review')
+  claimReview(@Req() request: P1AuthenticatedRequest, @Param('reviewID') reviewID: string) {
+    return this.publishingService.claimReview(request.p1UserID ?? '', reviewID);
+  }
+
+  @Post('reviews/:reviewID/pass-precheck')
+  @RequireMenuPermission('review')
+  passPrecheck(
+    @Req() request: P1AuthenticatedRequest,
+    @Param('reviewID') reviewID: string,
+    @Body() body: { comment?: string },
+  ) {
+    return this.publishingService.passPrecheck(request.p1UserID ?? '', reviewID, body.comment ?? '');
+  }
+
+  @Post('reviews/:reviewID/approve')
+  @RequireMenuPermission('review')
+  approveReview(
+    @Req() request: P1AuthenticatedRequest,
+    @Param('reviewID') reviewID: string,
+    @Body() body: { comment?: string },
+  ) {
+    return this.publishingService.approveReview(request.p1UserID ?? '', reviewID, body.comment ?? '');
+  }
+
+  @Post('reviews/:reviewID/return')
+  @RequireMenuPermission('review')
+  returnReview(
+    @Req() request: P1AuthenticatedRequest,
+    @Param('reviewID') reviewID: string,
+    @Body() body: { comment?: string },
+  ) {
+    return this.publishingService.returnReview(request.p1UserID ?? '', reviewID, body.comment ?? '');
+  }
+
+  @Post('reviews/:reviewID/reject')
+  @RequireMenuPermission('review')
+  rejectReview(
+    @Req() request: P1AuthenticatedRequest,
+    @Param('reviewID') reviewID: string,
+    @Body() body: { comment?: string },
+  ) {
+    return this.publishingService.rejectReview(request.p1UserID ?? '', reviewID, body.comment ?? '');
   }
 }

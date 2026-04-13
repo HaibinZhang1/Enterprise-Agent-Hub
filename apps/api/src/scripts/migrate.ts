@@ -1,15 +1,15 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Client } from 'pg';
 
-function resolveSqlPath(): string {
+function resolveMigrationDir(): string {
   const candidates = [
-    join(__dirname, '..', 'database', 'migrations', '001_p1_base.sql'),
-    join(__dirname, '..', '..', 'src', 'database', 'migrations', '001_p1_base.sql'),
+    join(__dirname, '..', 'database', 'migrations'),
+    join(__dirname, '..', '..', 'src', 'database', 'migrations'),
   ];
   const found = candidates.find((candidate) => existsSync(candidate));
   if (!found) {
-    throw new Error(`Migration SQL not found. Tried: ${candidates.join(', ')}`);
+    throw new Error(`Migration directory not found. Tried: ${candidates.join(', ')}`);
   }
   return found;
 }
@@ -20,11 +20,17 @@ async function main(): Promise<void> {
     throw new Error('DATABASE_URL is required to run migrations');
   }
 
-  const sql = readFileSync(resolveSqlPath(), 'utf8');
+  const migrationDir = resolveMigrationDir();
+  const migrationFiles = readdirSync(migrationDir)
+    .filter((entry) => entry.endsWith('.sql'))
+    .sort((left, right) => left.localeCompare(right));
   const client = new Client({ connectionString });
   await client.connect();
   try {
-    await client.query(sql);
+    for (const file of migrationFiles) {
+      const sql = readFileSync(join(migrationDir, file), 'utf8');
+      await client.query(sql);
+    }
   } finally {
     await client.end();
   }

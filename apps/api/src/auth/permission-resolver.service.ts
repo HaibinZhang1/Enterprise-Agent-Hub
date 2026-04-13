@@ -37,7 +37,7 @@ export class PermissionResolverService {
     const isAdmin = user.role === 'admin';
     return {
       p1Desktop: true,
-      publishSkill: false,
+      publishSkill: true,
       reviewWorkbench: isAdmin,
       adminManage: isAdmin,
       mcpManage: false,

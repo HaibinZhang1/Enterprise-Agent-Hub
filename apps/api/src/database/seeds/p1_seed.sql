@@ -103,7 +103,10 @@ WITH upsert_skill AS (
   VALUES
     ('codex-review-helper', 'Codex Review Helper', '为 Codex 项目提供代码审查提示和提交前检查清单。', 'u_author_frontend', 'dept_frontend', 'published', 'public_installable', 'engineering'),
     ('design-guideline-lite', 'Design Guideline Lite', '企业 UI 规范摘要，详情仅对授权部门开放。', 'u_author_design', 'dept_design', 'published', 'summary_visible', 'design'),
-    ('legacy-dept-runbook', 'Legacy Department Runbook', '已下架的部门运行手册，验证不可安装场景。', 'u_author_ops', 'dept_ops', 'delisted', 'detail_visible', 'operations')
+    ('legacy-dept-runbook', 'Legacy Department Runbook', '已下架的部门运行手册，验证不可安装场景。', 'u_author_ops', 'dept_ops', 'delisted', 'detail_visible', 'operations'),
+    ('prompt-lint-checklist', 'Prompt Lint Checklist', '提交前检查 prompt 结构、变量占位和禁用词，适合做发布前自检。', 'u_author_frontend', 'dept_frontend', 'published', 'public_installable', 'engineering'),
+    ('frontend-a11y-guard', 'Frontend A11y Guard', '为前端页面提供可访问性检查提示、回归清单和常见问题修复建议。', 'u_author_design', 'dept_design', 'published', 'detail_visible', 'design'),
+    ('ops-oncall-companion', 'Ops Oncall Companion', '面向值班场景的排障步骤、交接模板和事故回顾提示。', 'u_author_ops', 'dept_ops', 'published', 'public_installable', 'operations')
   ON CONFLICT (skill_id) DO UPDATE
   SET
     display_name = EXCLUDED.display_name,
@@ -122,22 +125,41 @@ WITH upsert_skill AS (
   SELECT id, '0.9.0', 'skills/design-guideline-lite/0.9.0/readme.md', 'P1 seed', 'unknown', NULL, NULL, now() FROM upsert_skill WHERE skill_id = 'design-guideline-lite'
   UNION ALL
   SELECT id, '2.0.1', 'skills/legacy-dept-runbook/2.0.1/readme.md', 'P1 seed', 'medium', NULL, '下架验证数据', now() FROM upsert_skill WHERE skill_id = 'legacy-dept-runbook'
+  UNION ALL
+  SELECT id, '1.0.0', 'skills/prompt-lint-checklist/1.0.0/readme.md', 'P1 seed', 'low', '低风险：仅包含文档和提示模板。', '适合作为测试市场数据和安装流程验证样本。', now() FROM upsert_skill WHERE skill_id = 'prompt-lint-checklist'
+  UNION ALL
+  SELECT id, '1.1.0', 'skills/frontend-a11y-guard/1.1.0/readme.md', 'P1 seed', 'medium', '中风险：包含人工检查建议，不含脚本执行。', '设计与前端协作测试样本。', now() FROM upsert_skill WHERE skill_id = 'frontend-a11y-guard'
+  UNION ALL
+  SELECT id, '0.8.3', 'skills/ops-oncall-companion/0.8.3/readme.md', 'P1 seed', 'low', '低风险：值班流程模板。', '运维值班测试样本。', now() FROM upsert_skill WHERE skill_id = 'ops-oncall-companion'
   ON CONFLICT (skill_id, version) DO UPDATE
   SET changelog = EXCLUDED.changelog
   RETURNING id, skill_id, version
 ), packages AS (
   INSERT INTO skill_packages (id, skill_version_id, bucket, object_key, sha256, size_bytes, file_count)
-  SELECT 'pkg_' || s.skill_id || '_' || replace(v.version, '.', '_'), v.id, 'skill-packages', 'skills/' || s.skill_id || '/' || v.version || '/package.zip', 'sha256:9650d3afdfb7b401ff9c52015f277ec075e768a64aefcc8872257dd51b4cdef5', 591, 2
+  SELECT 'pkg_' || s.skill_id || '_' || replace(v.version, '.', '_'), v.id, 'skill-packages', 'skills/codex-review-helper/1.2.0/package.zip', 'sha256:24a3894bc96e9d25c94a15f7f74d5d9215539bfbd7f72faf06fc7742233b3972', 591, 2
   FROM version_rows v
   JOIN skills s ON s.id = v.skill_id
   ON CONFLICT (id) DO UPDATE
   SET sha256 = EXCLUDED.sha256, size_bytes = EXCLUDED.size_bytes, file_count = EXCLUDED.file_count
   RETURNING skill_version_id
 )
+SELECT 1 FROM packages;
+
+WITH desired_versions(skill_id, version) AS (
+  VALUES
+    ('codex-review-helper', '1.2.0'),
+    ('design-guideline-lite', '0.9.0'),
+    ('legacy-dept-runbook', '2.0.1'),
+    ('prompt-lint-checklist', '1.0.0'),
+    ('frontend-a11y-guard', '1.1.0'),
+    ('ops-oncall-companion', '0.8.3')
+)
 UPDATE skills s
 SET current_version_id = v.id
-FROM version_rows v
-WHERE s.id = v.skill_id;
+FROM desired_versions dv
+JOIN skill_versions v ON v.version = dv.version
+WHERE s.skill_id = dv.skill_id
+  AND v.skill_id = s.id;
 
 INSERT INTO skill_tags (skill_id, tag)
 SELECT s.id, tag
@@ -146,6 +168,9 @@ CROSS JOIN LATERAL unnest(
   CASE s.skill_id
     WHEN 'codex-review-helper' THEN ARRAY['codex', 'review', 'quality']
     WHEN 'design-guideline-lite' THEN ARRAY['design', 'restricted']
+    WHEN 'prompt-lint-checklist' THEN ARRAY['prompt', 'lint', 'quality']
+    WHEN 'frontend-a11y-guard' THEN ARRAY['frontend', 'accessibility', 'design']
+    WHEN 'ops-oncall-companion' THEN ARRAY['ops', 'oncall', 'incident']
     ELSE ARRAY['ops', 'delisted']
   END
 ) AS tag
@@ -164,6 +189,51 @@ CROSS JOIN LATERAL (
     ('custom_directory', 'linux')
 ) AS compatibility(tool_id, system)
 WHERE s.skill_id = 'codex-review-helper'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO skill_tool_compatibilities (skill_id, tool_id, system)
+SELECT s.id, tool_id, system
+FROM skills s
+CROSS JOIN LATERAL (
+  VALUES
+    ('codex', 'macos'),
+    ('codex', 'windows'),
+    ('claude', 'macos'),
+    ('claude', 'windows'),
+    ('custom_directory', 'macos'),
+    ('custom_directory', 'windows')
+) AS compatibility(tool_id, system)
+WHERE s.skill_id = 'prompt-lint-checklist'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO skill_tool_compatibilities (skill_id, tool_id, system)
+SELECT s.id, tool_id, system
+FROM skills s
+CROSS JOIN LATERAL (
+  VALUES
+    ('codex', 'macos'),
+    ('codex', 'windows'),
+    ('cursor', 'macos'),
+    ('cursor', 'windows'),
+    ('custom_directory', 'macos'),
+    ('custom_directory', 'windows')
+) AS compatibility(tool_id, system)
+WHERE s.skill_id = 'frontend-a11y-guard'
+ON CONFLICT DO NOTHING;
+
+INSERT INTO skill_tool_compatibilities (skill_id, tool_id, system)
+SELECT s.id, tool_id, system
+FROM skills s
+CROSS JOIN LATERAL (
+  VALUES
+    ('codex', 'macos'),
+    ('codex', 'windows'),
+    ('opencode', 'macos'),
+    ('opencode', 'windows'),
+    ('custom_directory', 'macos'),
+    ('custom_directory', 'windows')
+) AS compatibility(tool_id, system)
+WHERE s.skill_id = 'ops-oncall-companion'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO notifications (id, user_id, type, title, summary, object_type, object_id, read_at)

@@ -97,6 +97,58 @@ export const NotificationType = {
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
+export const ReviewStatus = {
+  Pending: "pending",
+  InReview: "in_review",
+  Reviewed: "reviewed"
+} as const;
+export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus];
+
+export const ReviewType = {
+  Publish: "publish",
+  Update: "update",
+  PermissionChange: "permission_change"
+} as const;
+export type ReviewType = (typeof ReviewType)[keyof typeof ReviewType];
+
+export const WorkflowState = {
+  SystemPrechecking: "system_prechecking",
+  ManualPrecheck: "manual_precheck",
+  PendingReview: "pending_review",
+  InReview: "in_review",
+  ReturnedForChanges: "returned_for_changes",
+  ReviewRejected: "review_rejected",
+  Withdrawn: "withdrawn",
+  Published: "published"
+} as const;
+export type WorkflowState = (typeof WorkflowState)[keyof typeof WorkflowState];
+
+export const PublishScopeType = {
+  CurrentDepartment: "current_department",
+  DepartmentTree: "department_tree",
+  SelectedDepartments: "selected_departments",
+  AllEmployees: "all_employees"
+} as const;
+export type PublishScopeType = (typeof PublishScopeType)[keyof typeof PublishScopeType];
+
+export const ReviewDecision = {
+  Approve: "approve",
+  ReturnForChanges: "return_for_changes",
+  Reject: "reject",
+  Withdraw: "withdraw"
+} as const;
+export type ReviewDecision = (typeof ReviewDecision)[keyof typeof ReviewDecision];
+
+export const ReviewAction = {
+  Claim: "claim",
+  PassPrecheck: "pass_precheck",
+  Approve: "approve",
+  ReturnForChanges: "return_for_changes",
+  Reject: "reject",
+  Withdraw: "withdraw"
+} as const;
+export type ReviewAction = (typeof ReviewAction)[keyof typeof ReviewAction];
+
 export const ApiErrorCode = {
   Unauthenticated: "unauthenticated",
   PermissionDenied: "permission_denied",
@@ -413,12 +465,19 @@ export interface ReviewItem {
   readonly skillDisplayName: string;
   readonly submitterName: string;
   readonly submitterDepartmentName: string;
-  readonly reviewType: "publish" | "update" | "permission_change";
-  readonly reviewStatus: "pending" | "in_review" | "reviewed";
+  readonly reviewType: ReviewType;
+  readonly reviewStatus: ReviewStatus;
+  readonly workflowState: WorkflowState;
   readonly riskLevel: RiskLevel;
   readonly summary: string;
   readonly lockState: "unlocked" | "locked";
+  readonly lockOwnerID?: UserID;
   readonly currentReviewerName?: string;
+  readonly requestedVersion?: SemVerString;
+  readonly requestedVisibilityLevel?: VisibilityLevel;
+  readonly requestedScopeType?: PublishScopeType;
+  readonly decision?: ReviewDecision;
+  readonly availableActions: readonly ReviewAction[];
   readonly submittedAt: ISODateTimeString;
   readonly updatedAt: ISODateTimeString;
 }
@@ -434,6 +493,75 @@ export interface ReviewHistory {
 export interface ReviewDetail extends ReviewItem {
   readonly description: string;
   readonly reviewSummary?: string;
+  readonly currentVersion?: SemVerString;
+  readonly currentVisibilityLevel?: VisibilityLevel;
+  readonly currentScopeType?: PublishScopeType;
+  readonly requestedDepartmentIDs: readonly DepartmentID[];
+  readonly precheckResults: readonly ReviewPrecheckItem[];
+  readonly packageRef?: string;
+  readonly packageURL?: string;
+  readonly packageHash?: `sha256:${string}` | string;
+  readonly packageSize?: number;
+  readonly packageFileCount?: number;
+  readonly history: readonly ReviewHistory[];
+}
+
+export interface ReviewPrecheckItem {
+  readonly id: string;
+  readonly label: string;
+  readonly status: "pass" | "warn";
+  readonly message: string;
+}
+
+export interface PublisherSkillSummary {
+  readonly skillID: SkillID;
+  readonly displayName: string;
+  readonly publishedSkillExists: boolean;
+  readonly currentVersion?: SemVerString | null;
+  readonly currentStatus?: SkillStatus | null;
+  readonly currentVisibilityLevel?: VisibilityLevel | null;
+  readonly currentScopeType?: PublishScopeType | null;
+  readonly latestSubmissionID?: string | null;
+  readonly latestSubmissionType?: ReviewType | null;
+  readonly latestWorkflowState?: WorkflowState | null;
+  readonly latestReviewStatus?: ReviewStatus | null;
+  readonly latestDecision?: ReviewDecision | null;
+  readonly latestRequestedVersion?: SemVerString | null;
+  readonly latestRequestedVisibilityLevel?: VisibilityLevel | null;
+  readonly latestRequestedScopeType?: PublishScopeType | null;
+  readonly latestReviewSummary?: string | null;
+  readonly submittedAt?: ISODateTimeString | null;
+  readonly updatedAt: ISODateTimeString;
+  readonly canWithdraw: boolean;
+}
+
+export interface PublisherSubmissionDetail {
+  readonly submissionID: string;
+  readonly submissionType: ReviewType;
+  readonly workflowState: WorkflowState;
+  readonly reviewStatus: ReviewStatus;
+  readonly decision?: ReviewDecision;
+  readonly skillID: SkillID;
+  readonly displayName: string;
+  readonly description: string;
+  readonly changelog: string;
+  readonly version: SemVerString;
+  readonly currentVersion?: SemVerString | null;
+  readonly visibilityLevel: VisibilityLevel;
+  readonly currentVisibilityLevel?: VisibilityLevel | null;
+  readonly scopeType: PublishScopeType;
+  readonly currentScopeType?: PublishScopeType | null;
+  readonly selectedDepartmentIDs: readonly DepartmentID[];
+  readonly reviewSummary?: string;
+  readonly precheckResults: readonly ReviewPrecheckItem[];
+  readonly packageRef?: string;
+  readonly packageURL?: string;
+  readonly packageHash?: `sha256:${string}` | string;
+  readonly packageSize?: number;
+  readonly packageFileCount?: number;
+  readonly submittedAt: ISODateTimeString;
+  readonly updatedAt: ISODateTimeString;
+  readonly canWithdraw: boolean;
   readonly history: readonly ReviewHistory[];
 }
 

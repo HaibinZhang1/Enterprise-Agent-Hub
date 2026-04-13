@@ -36,6 +36,19 @@ export type NotificationType =
   | "disable_result";
 export type ReviewStatus = "pending" | "in_review" | "reviewed";
 export type ReviewType = "publish" | "update" | "permission_change";
+export type WorkflowState =
+  | "system_prechecking"
+  | "manual_precheck"
+  | "pending_review"
+  | "in_review"
+  | "returned_for_changes"
+  | "review_rejected"
+  | "withdrawn"
+  | "published";
+export type PublishScopeType = "current_department" | "department_tree" | "selected_departments" | "all_employees";
+export type SubmissionType = ReviewType;
+export type ReviewDecision = "approve" | "return_for_changes" | "reject" | "withdraw";
+export type ReviewAction = "claim" | "pass_precheck" | "approve" | "return_for_changes" | "reject" | "withdraw";
 export type AuthState = "guest" | "authenticated";
 export type SettingsLanguage = "auto" | "zh-CN" | "en-US";
 export type SettingsTheme = "classic" | "fresh" | "contrast";
@@ -126,6 +139,7 @@ export interface LocalBootstrap {
   installs: LocalSkillInstall[];
   tools: ToolConfig[];
   projects: ProjectConfig[];
+  notifications: LocalNotification[];
   offlineEvents: LocalEvent[];
   pendingOfflineEventCount: number;
   unreadLocalNotificationCount: number;
@@ -227,6 +241,25 @@ export interface ScanTargetSummary {
   lastError?: string | null;
 }
 
+export interface DiscoveredLocalSkillTarget {
+  targetType: TargetType;
+  targetID: string;
+  targetName: string;
+  targetPath: string;
+  relativePath: string;
+  findingKind: Exclude<ScanFindingKind, "managed">;
+  message: string;
+}
+
+export interface DiscoveredLocalSkill {
+  skillID: string;
+  displayName: string;
+  description: string;
+  sourceLabel: string;
+  matchedMarketSkill: boolean;
+  targets: DiscoveredLocalSkillTarget[];
+}
+
 export interface ValidateTargetPathResult {
   valid: boolean;
   writable: boolean;
@@ -249,19 +282,27 @@ export interface LocalNotification {
 
 export interface PublishDraftFile {
   name: string;
+  relativePath: string;
   size: number;
   mimeType: string;
 }
 
 export interface PublishDraft {
+  submissionType: SubmissionType;
   uploadMode: "none" | "zip" | "folder";
   packageName: string;
   skillID: string;
   displayName: string;
+  description: string;
   version: string;
-  scope: "current_department" | "department_tree" | "selected_departments" | "all_employees";
+  scope: PublishScopeType;
+  selectedDepartmentIDs: string[];
   visibility: VisibilityLevel;
   changelog: string;
+  category: string;
+  tags: string[];
+  compatibleTools: string[];
+  compatibleSystems: string[];
   files: PublishDraftFile[];
 }
 
@@ -307,6 +348,10 @@ export interface ProjectDraft {
   enabled: boolean;
 }
 
+export interface ProjectDirectorySelection {
+  projectPath: string;
+}
+
 export interface ActionAvailability {
   kind: "live" | PendingActionCode;
   label: string;
@@ -347,6 +392,9 @@ export type DesktopModalState =
     }
   | {
       type: "connection_status";
+    }
+  | {
+      type: "settings";
     };
 
 export interface LocalEvent {
@@ -379,7 +427,10 @@ export interface MarketFilters {
   installed: "all" | "installed" | "not_installed";
   enabled: "all" | "enabled" | "not_enabled";
   accessScope: "include_public" | "authorized_only";
+  category: string;
   riskLevel: "all" | RiskLevel;
+  publishedWithin: "all" | "7d" | "30d" | "90d";
+  updatedWithin: "all" | "7d" | "30d" | "90d";
   sort: "composite" | "latest_published" | "recently_updated" | "download_count" | "star_count" | "relevance";
 }
 
@@ -430,10 +481,17 @@ export interface ReviewItem {
   submitterDepartmentName: string;
   reviewType: ReviewType;
   reviewStatus: ReviewStatus;
+  workflowState: WorkflowState;
   riskLevel: RiskLevel;
   summary: string;
   lockState: "unlocked" | "locked";
+  lockOwnerID?: string;
   currentReviewerName?: string;
+  requestedVersion?: string;
+  requestedVisibilityLevel?: VisibilityLevel;
+  requestedScopeType?: PublishScopeType;
+  decision?: ReviewDecision;
+  availableActions: ReviewAction[];
   submittedAt: string;
   updatedAt: string;
 }
@@ -446,9 +504,78 @@ export interface ReviewHistory {
   createdAt: string;
 }
 
+export interface ReviewPrecheckItem {
+  id: string;
+  label: string;
+  status: "pass" | "warn";
+  message: string;
+}
+
 export interface ReviewDetail extends ReviewItem {
   description: string;
   reviewSummary?: string;
+  currentVersion?: string;
+  currentVisibilityLevel?: VisibilityLevel;
+  currentScopeType?: PublishScopeType;
+  requestedDepartmentIDs: string[];
+  precheckResults: ReviewPrecheckItem[];
+  packageRef?: string;
+  packageURL?: string;
+  packageHash?: string;
+  packageSize?: number;
+  packageFileCount?: number;
+  history: ReviewHistory[];
+}
+
+export interface PublisherSkillSummary {
+  skillID: string;
+  displayName: string;
+  publishedSkillExists: boolean;
+  currentVersion?: string | null;
+  currentStatus?: SkillStatus | null;
+  currentVisibilityLevel?: VisibilityLevel | null;
+  currentScopeType?: PublishScopeType | null;
+  latestSubmissionID?: string | null;
+  latestSubmissionType?: SubmissionType | null;
+  latestWorkflowState?: WorkflowState | null;
+  latestReviewStatus?: ReviewStatus | null;
+  latestDecision?: ReviewDecision | null;
+  latestRequestedVersion?: string | null;
+  latestRequestedVisibilityLevel?: VisibilityLevel | null;
+  latestRequestedScopeType?: PublishScopeType | null;
+  latestReviewSummary?: string | null;
+  submittedAt?: string | null;
+  updatedAt: string;
+  canWithdraw: boolean;
+}
+
+export interface PublisherSubmissionDetail {
+  submissionID: string;
+  submissionType: SubmissionType;
+  workflowState: WorkflowState;
+  reviewStatus: ReviewStatus;
+  decision?: ReviewDecision;
+  skillID: string;
+  displayName: string;
+  description: string;
+  changelog: string;
+  version: string;
+  currentVersion?: string | null;
+  visibilityLevel: VisibilityLevel;
+  currentVisibilityLevel?: VisibilityLevel | null;
+  scopeType: PublishScopeType;
+  currentScopeType?: PublishScopeType | null;
+  selectedDepartmentIDs: string[];
+  reviewSummary?: string;
+  precheckResults: ReviewPrecheckItem[];
+  packageRef?: string;
+  packageURL?: string;
+  packageHash?: string;
+  packageSize?: number;
+  packageFileCount?: number;
+  submittedAt: string;
+  updatedAt: string;
+  canWithdraw: boolean;
   history: ReviewHistory[];
 }
 

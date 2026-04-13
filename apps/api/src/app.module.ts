@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { DesktopModule } from './desktop/desktop.module';
 import { HealthModule } from './health/health.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { PublishingModule } from './publishing/publishing.module';
 import { SkillsModule } from './skills/skills.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { SkillsModule } from './skills/skills.module';
     AdminModule,
     DesktopModule,
     SkillsModule,
+    PublishingModule,
     NotificationsModule,
     HealthModule,
   ],

@@ -14,6 +14,8 @@ test('buildSkillListQueryPlan pushes search, filters, sort, and pagination into 
     compatibleTool: 'codex',
     category: 'engineering',
     riskLevel: 'low',
+    publishedSince: '2026-04-01T00:00:00.000Z',
+    updatedSince: '2026-04-10T00:00:00.000Z',
     accessScope: 'authorized_only',
     sort: 'download_count',
     page: '2',
@@ -29,11 +31,24 @@ test('buildSkillListQueryPlan pushes search, filters, sort, and pagination into 
   assert.match(plan.text, /d\.name = \$2/);
   assert.match(plan.text, /s\.category = \$4/);
   assert.match(plan.text, /v\.risk_level = \$5/);
+  assert.match(plan.text, /v\.published_at >= \$6/);
+  assert.match(plan.text, /s\.updated_at >= \$7/);
   assert.match(plan.text, /base\.download_count::bigint DESC/);
-  assert.doesNotMatch(plan.text, /installState/);
+  assert.doesNotMatch(plan.text, /installed/i);
+  assert.doesNotMatch(plan.text, /enabled/i);
   assert.equal(plan.page, 2);
   assert.equal(plan.pageSize, 10);
-  assert.deepEqual(plan.values, ['review helper', '前端组', 'codex', 'engineering', 'low', 10, 10]);
+  assert.deepEqual(plan.values, [
+    'review helper',
+    '前端组',
+    'codex',
+    'engineering',
+    'low',
+    '2026-04-01T00:00:00.000Z',
+    '2026-04-10T00:00:00.000Z',
+    10,
+    10,
+  ]);
 });
 
 test('SkillsService.list executes the database plan and maps paged rows to summaries', async () => {

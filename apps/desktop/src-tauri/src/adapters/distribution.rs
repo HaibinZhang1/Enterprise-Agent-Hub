@@ -170,7 +170,10 @@ fn remove_existing_target(path: &Path) -> AdapterResult<()> {
             .map_err(|error| AdapterError::io(format!("remove target {}", path.display()), error)),
         Ok(_) => fs::remove_file(path)
             .map_err(|error| AdapterError::io(format!("remove file {}", path.display()), error)),
-        Err(error) => Err(AdapterError::io(format!("stat target {}", path.display()), error)),
+        Err(error) => Err(AdapterError::io(
+            format!("stat target {}", path.display()),
+            error,
+        )),
     }
 }
 

@@ -20,6 +20,10 @@ const domainTypes = readFileSync('apps/desktop/src/domain/p1.ts', 'utf8');
 const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
 const liveSmokeScript = readFileSync('scripts/verification/p1-live-smoke.mjs', 'utf8');
 const liveSmokeLauncher = readFileSync('scripts/verification/p1-source-api-live-smoke.sh', 'utf8');
+const fullClosureScript = readFileSync('scripts/full-closure/run.mjs', 'utf8');
+const uiClosureScript = readFileSync('scripts/full-closure/run-ui-smoke.mjs', 'utf8');
+const nativeClosureScript = readFileSync('scripts/full-closure/run-native-smoke.mjs', 'utf8');
+const nativeClosureTest = readFileSync('apps/desktop/src-tauri/tests/full_closure.rs', 'utf8');
 
 test('Desktop client defaults to the real API surface and does not auto-fallback to seed data', () => {
   assert.doesNotMatch(p1Client, /\/api\/v1/);
@@ -77,11 +81,12 @@ test('React desktop app is split into shell, pages, modals, and UI placeholder c
   assert.match(desktopPagesTsx, /ReviewPage/);
   assert.match(desktopPagesTsx, /ManagePage/);
   assert.match(desktopPagesTsx, /MyInstalledPage/);
-  assert.doesNotMatch(desktopPagesTsx, /PublishPage/);
-  assert.doesNotMatch(desktopPagesTsx, /开始审核/);
-  assert.doesNotMatch(desktopPagesTsx, /同意/);
-  assert.doesNotMatch(desktopPagesTsx, /退回/);
-  assert.doesNotMatch(desktopPagesTsx, /拒绝/);
+  assert.match(desktopPagesTsx, /发布 Skill/);
+  assert.match(desktopPagesTsx, /开始审核/);
+  assert.match(desktopPagesTsx, /approveReview/);
+  assert.match(desktopPagesTsx, /returnReview/);
+  assert.match(desktopPagesTsx, /rejectReview/);
+  assert.match(desktopPagesTsx, /reviewActionLabel/);
   assert.match(desktopModalsTsx, /TargetsModal/);
   assert.match(desktopModalsTsx, /ConnectionStatusModal/);
   assert.match(desktopModalsTsx, /ToolEditorModal/);
@@ -109,8 +114,11 @@ test('API production image uses compiled migrate and seed scripts instead of ts-
 test('Live smoke scripts exist for real source-start API verification', () => {
   assert.equal(rootPackage.scripts['p1:live-smoke'], 'node scripts/verification/p1-live-smoke.mjs');
   assert.equal(rootPackage.scripts['p1:source-live-smoke'], 'bash scripts/verification/p1-source-api-live-smoke.sh');
+  assert.equal(rootPackage.scripts['p1:ui-closure'], 'node scripts/full-closure/run-ui-smoke.mjs');
+  assert.equal(rootPackage.scripts['p1:native-closure'], 'node scripts/full-closure/run-native-smoke.mjs');
+  assert.equal(rootPackage.scripts['p1:full-closure'], 'node scripts/full-closure/run.mjs');
 
-  for (const fragment of ['/health', '/auth/login', '/desktop/bootstrap', '/skills', '/notifications', '/admin/users']) {
+  for (const fragment of ['/health', '/auth/login', '/desktop/bootstrap', '/skills', '/notifications', '/publisher/skills', '/admin/users', '/admin/reviews']) {
     assert.match(liveSmokeScript, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 
@@ -118,6 +126,35 @@ test('Live smoke scripts exist for real source-start API verification', () => {
   assert.match(liveSmokeLauncher, /npm run seed:dev --workspace @enterprise-agent-hub\/api/);
   assert.match(liveSmokeLauncher, /npm run start:dev --workspace @enterprise-agent-hub\/api/);
   assert.match(liveSmokeLauncher, /node "\$ROOT_DIR\/scripts\/verification\/p1-live-smoke\.mjs"/);
+  assert.match(fullClosureScript, /MINIO_SKILL_PACKAGE_BUCKET/);
+  assert.match(fullClosureScript, /"start:dev"/);
+  assert.match(fullClosureScript, /"@enterprise-agent-hub\/api"/);
+  assert.match(fullClosureScript, /"dev"/);
+  assert.match(fullClosureScript, /"@enterprise-agent-hub\/desktop"/);
+  assert.match(uiClosureScript, /"playwright", "test"/);
+  assert.match(nativeClosureScript, /"cargo",\s*\[/);
+  assert.match(nativeClosureScript, /"--test",\s*"full_closure"/);
+  assert.match(nativeClosureTest, /download_ticket/);
+  assert.match(nativeClosureTest, /enable_skill/);
+  assert.match(nativeClosureTest, /uninstall_skill/);
+});
+
+test('Publishing and review client routes are wired to the live API', () => {
+  for (const fragment of [
+    '/publisher/skills',
+    '/publisher/submissions',
+    '/admin/reviews',
+    '/pass-precheck',
+    '/approve',
+    '/return',
+    '/reject',
+    '/claim'
+  ]) {
+    assert.match(p1Client, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.match(domainTypes, /export type WorkflowState =/);
+  assert.match(domainTypes, /export interface PublisherSkillSummary/);
+  assert.match(domainTypes, /export interface ReviewPrecheckItem/);
 });
 
 test('Desktop runtime does not import ui-prototype as executable code', () => {

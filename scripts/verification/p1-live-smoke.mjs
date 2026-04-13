@@ -32,6 +32,7 @@ async function main() {
   assert.ok(bootstrap.navigation.includes("market"), "bootstrap missing market");
   assert.ok(!bootstrap.navigation.includes("manage"), "normal user should not have manage navigation");
   assert.ok(!bootstrap.navigation.includes("review"), "normal user should not have review navigation");
+  assert.equal(bootstrap.features.publishSkill, true, "normal user should have publishSkill enabled");
 
   const skills = await requestJSON("/skills", { headers: userHeaders });
   assert.ok(Array.isArray(skills.items), "skills.items missing");
@@ -39,6 +40,8 @@ async function main() {
 
   const notifications = await requestJSON("/notifications", { headers: userHeaders });
   assert.ok(Array.isArray(notifications.items), "notifications.items missing");
+  const publisherSkills = await requestJSON("/publisher/skills", { headers: userHeaders });
+  assert.ok(Array.isArray(publisherSkills), "publisher skills payload must be an array");
 
   const adminSession = await login(adminCredentials);
   const adminHeaders = authHeaders(adminSession.accessToken);
@@ -49,6 +52,8 @@ async function main() {
   const adminUsers = await requestJSON("/admin/users", { headers: adminHeaders });
   assert.ok(Array.isArray(adminUsers), "admin users payload must be an array");
   assert.ok(adminUsers.length > 0, "admin users should not be empty");
+  const adminReviews = await requestJSON("/admin/reviews", { headers: adminHeaders });
+  assert.ok(Array.isArray(adminReviews), "admin reviews payload must be an array");
 
   console.log(`P1 live smoke PASS (${baseURL})`);
   console.log(`- health: ${health.status}`);
@@ -56,7 +61,9 @@ async function main() {
   console.log(`- admin user: ${adminCredentials.username}`);
   console.log(`- skills: ${skills.items.length}`);
   console.log(`- notifications: ${notifications.items.length}`);
+  console.log(`- publisher skills: ${publisherSkills.length}`);
   console.log(`- admin users: ${adminUsers.length}`);
+  console.log(`- admin reviews: ${adminReviews.length}`);
 }
 
 async function login(credentials) {

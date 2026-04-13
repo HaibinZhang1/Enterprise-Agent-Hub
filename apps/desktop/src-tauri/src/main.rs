@@ -1,16 +1,18 @@
 use enterprise_agent_hub_desktop::commands::local_state::{
     DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, LocalBootstrapPayload,
-    LocalSkillInstallPayload, OfflineSyncAckPayload, P1LocalState, ProjectConfigInputPayload,
-    ProjectConfigPayload, ScanTargetSummaryPayload, ToolConfigInputPayload, ToolConfigPayload,
+    LocalNotificationPayload, LocalSkillInstallPayload, OfflineSyncAckPayload, P1LocalState,
+    ProjectConfigInputPayload, ProjectConfigPayload,
+    ScanTargetSummaryPayload, ToolConfigInputPayload, ToolConfigPayload,
     UninstallSkillPayload, ValidateTargetPathPayload,
+};
+use enterprise_agent_hub_desktop::commands::project_directory::{
+    pick_project_directory as pick_project_directory_command, ProjectDirectorySelectionPayload,
 };
 use serde_json::json;
 use tauri::{Manager, State};
 
 #[tauri::command]
-fn get_local_bootstrap(
-    state: State<'_, P1LocalState>,
-) -> Result<LocalBootstrapPayload, String> {
+fn get_local_bootstrap(state: State<'_, P1LocalState>) -> Result<LocalBootstrapPayload, String> {
     state.get_local_bootstrap()
 }
 
@@ -108,6 +110,25 @@ fn mark_offline_events_synced(
 
 #[allow(non_snake_case)]
 #[tauri::command]
+fn upsert_local_notifications(
+    state: State<'_, P1LocalState>,
+    notifications: Vec<LocalNotificationPayload>,
+) -> Result<(), String> {
+    state.upsert_local_notifications(notifications)
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn mark_local_notifications_read(
+    state: State<'_, P1LocalState>,
+    notificationIDs: Vec<String>,
+    all: bool,
+) -> Result<(), String> {
+    state.mark_local_notifications_read(notificationIDs, all)
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
 fn validate_target_path(
     state: State<'_, P1LocalState>,
     targetPath: String,
@@ -129,13 +150,17 @@ fn list_local_installs(
     state.list_local_installs()
 }
 
+#[tauri::command]
+fn pick_project_directory() -> Result<Option<ProjectDirectorySelectionPayload>, String> {
+    pick_project_directory_command()
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
-            let state = P1LocalState::initialize(app_data_dir).map_err(|message| {
-                std::io::Error::new(std::io::ErrorKind::Other, message)
-            })?;
+            let state = P1LocalState::initialize(app_data_dir)
+                .map_err(|message| std::io::Error::new(std::io::ErrorKind::Other, message))?;
             app.manage(state);
             Ok(())
         })
@@ -149,11 +174,19 @@ fn main() {
             uninstall_skill,
             enable_skill,
             disable_skill,
+            upsert_local_notifications,
+            mark_local_notifications_read,
             mark_offline_events_synced,
             validate_target_path,
             scan_local_targets,
-            list_local_installs
+            list_local_installs,
+            pick_project_directory
         ])
         .run(tauri::generate_context!())
-        .unwrap_or_else(|error| panic!("failed to run EnterpriseAgentHub Desktop: {}", json!(error.to_string())));
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to run EnterpriseAgentHub Desktop: {}",
+                json!(error.to_string())
+            )
+        });
 }

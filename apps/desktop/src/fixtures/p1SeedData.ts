@@ -64,7 +64,7 @@ export const seedBootstrap: BootstrapContext = {
   },
   features: {
     p1Desktop: true,
-    publishSkill: false,
+    publishSkill: true,
     reviewWorkbench: false,
     adminManage: false,
     mcpManage: false,
@@ -97,7 +97,7 @@ export const seedAdminBootstrap: BootstrapContext = {
   },
   features: {
     p1Desktop: true,
-    publishSkill: false,
+    publishSkill: true,
     reviewWorkbench: true,
     adminManage: true,
     mcpManage: false,
@@ -512,9 +512,11 @@ export const seedReviews: ReviewItem[] = [
     submitterDepartmentName: "前端组",
     reviewType: "publish",
     reviewStatus: "pending",
+    workflowState: "manual_precheck",
     riskLevel: "low",
     summary: "等待审核：代码审查辅助 Skill 首次发布。",
     lockState: "unlocked",
+    availableActions: ["claim"],
     submittedAt: "2026-04-09T09:00:00Z",
     updatedAt: "2026-04-09T09:00:00Z"
   },
@@ -526,10 +528,13 @@ export const seedReviews: ReviewItem[] = [
     submitterDepartmentName: "设计平台组",
     reviewType: "permission_change",
     reviewStatus: "in_review",
+    workflowState: "pending_review",
     riskLevel: "unknown",
     summary: "正在复核：公开范围由摘要公开调整为详情公开。",
     lockState: "locked",
+    lockOwnerID: "u_admin_l1",
     currentReviewerName: "系统管理员",
+    availableActions: ["approve", "return_for_changes", "reject"],
     submittedAt: "2026-04-10T09:00:00Z",
     updatedAt: "2026-04-10T21:00:00Z"
   }
@@ -538,6 +543,19 @@ export const seedReviews: ReviewItem[] = [
 export const seedReviewDetail: ReviewDetail = {
   ...seedReviews[1],
   description: "涉及设计规范细则的详情可见范围调整，需确认部门授权策略。",
+  currentVersion: "0.9.0",
+  currentVisibilityLevel: "summary_visible",
+  currentScopeType: "current_department",
+  requestedDepartmentIDs: [],
+  precheckResults: [
+    { id: "scope", label: "授权范围有效", status: "pass", message: "本次仅调整公开级别，不改包内容。" },
+    { id: "visibility", label: "公开级别有效", status: "warn", message: "公开级别扩大，需正式审核。" }
+  ],
+  packageRef: "pkg_design-guideline-lite_0_9_0",
+  packageURL: "/skill-packages/pkg_design-guideline-lite_0_9_0/download?ticket=p1-dev-ticket",
+  packageHash: "sha256:mock",
+  packageSize: 1024,
+  packageFileCount: 2,
   reviewSummary: "当前由系统管理员查看授权范围变更影响。",
   history: [
     { historyID: "rvh_001", action: "submitted", actorName: "王五", comment: "提交权限变更申请。", createdAt: "2026-04-10T09:00:00Z" },

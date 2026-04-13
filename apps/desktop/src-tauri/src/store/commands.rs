@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use super::central_store::{
     install_or_replace_package, uninstall_central_store_package, InstalledPackage, StoreError,
 };
-use super::models::{EnabledTarget, EnabledTargetStatus, LocalSkillInstall, LocalStatus, UninstallResult};
+use super::models::{
+    EnabledTarget, EnabledTargetStatus, LocalSkillInstall, LocalStatus, UninstallResult,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallSkillPackageRequest {
@@ -12,7 +14,7 @@ pub struct InstallSkillPackageRequest {
     pub version: String,
     pub downloaded_package_dir: PathBuf,
     pub central_store_root: PathBuf,
-    pub expected_package_hash: Option<String>,
+    pub source_package_hash: String,
     pub installed_at: String,
 }
 
@@ -23,7 +25,7 @@ pub struct UpdateSkillPackageRequest {
     pub version: String,
     pub downloaded_package_dir: PathBuf,
     pub central_store_root: PathBuf,
-    pub expected_package_hash: Option<String>,
+    pub source_package_hash: String,
     pub updated_at: String,
 }
 
@@ -44,12 +46,13 @@ pub fn install_skill_package(
         &request.central_store_root,
         &request.skill_id,
         &request.version,
-        request.expected_package_hash.as_deref(),
+        None,
     )?;
 
     Ok(local_install_from_package(
         installed,
         request.display_name,
+        request.source_package_hash,
         request.installed_at,
     ))
 }
@@ -62,12 +65,13 @@ pub fn update_skill_package(
         &request.central_store_root,
         &request.skill_id,
         &request.version,
-        request.expected_package_hash.as_deref(),
+        None,
     )?;
 
     Ok(local_install_from_package(
         installed,
         request.display_name,
+        request.source_package_hash,
         request.updated_at,
     ))
 }
@@ -109,14 +113,14 @@ pub fn flush_offline_events() -> Result<(), StoreError> {
 fn local_install_from_package(
     installed: InstalledPackage,
     display_name: String,
+    source_package_hash: String,
     timestamp: String,
 ) -> LocalSkillInstall {
-    let source_package_hash = format!("sha256:{}", installed.package_hash);
     LocalSkillInstall {
         skill_id: installed.skill_id,
         display_name,
         local_version: installed.version,
-        local_hash: installed.package_hash.clone(),
+        local_hash: format!("sha256:{}", installed.package_hash),
         source_package_hash,
         installed_at: timestamp.clone(),
         updated_at: timestamp,

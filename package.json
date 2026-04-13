@@ -12,12 +12,16 @@
     "build": "npm run build --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "p1:full-closure": "node scripts/full-closure/run.mjs",
     "p1:live-smoke": "node scripts/verification/p1-live-smoke.mjs",
+    "p1:native-closure": "node scripts/full-closure/run-native-smoke.mjs",
     "p1:source-live-smoke": "bash scripts/verification/p1-source-api-live-smoke.sh",
+    "p1:ui-closure": "node scripts/full-closure/run-ui-smoke.mjs",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "typescript": "^5.9.3"
   },
   "engines": {

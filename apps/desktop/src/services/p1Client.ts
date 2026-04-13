@@ -9,6 +9,8 @@ import type {
   MarketFilters,
   MenuPermission,
   PageID,
+  PublisherSkillSummary,
+  PublisherSubmissionDetail,
   ReviewDetail,
   ReviewItem,
   SkillSummary
@@ -16,7 +18,9 @@ import type {
 
 const API_BASE_STORAGE_KEY = "enterprise-agent-hub:p1-api-base";
 const TOKEN_STORAGE_KEY = "enterprise-agent-hub:p1-token";
-const DEFAULT_API_BASE = import.meta.env.VITE_DESKTOP_API_BASE_URL ?? "http://127.0.0.1:3000";
+const DEFAULT_API_BASE =
+  (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_DESKTOP_API_BASE_URL ??
+  "http://127.0.0.1:3000";
 
 interface ApiPage<T> {
   items: T[];
@@ -179,16 +183,27 @@ function normalizeSkill(skill: ApiSkill): SkillSummary {
   };
 }
 
-function filtersToQuery(filters: MarketFilters): URLSearchParams {
+function sinceISOString(within: MarketFilters["publishedWithin"] | MarketFilters["updatedWithin"], now: Date): string | null {
+  const days = within === "7d" ? 7 : within === "30d" ? 30 : within === "90d" ? 90 : 0;
+  if (days === 0) {
+    return null;
+  }
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+export function buildSkillListQuery(filters: MarketFilters, now = new Date()): URLSearchParams {
   const params = new URLSearchParams();
   if (filters.query.trim()) params.set("q", filters.query.trim());
   if (filters.department !== "all") params.set("departmentID", filters.department);
   if (filters.compatibleTool !== "all") params.set("compatibleTool", filters.compatibleTool);
   if (filters.accessScope !== "include_public") params.set("accessScope", filters.accessScope);
+  if (filters.category !== "all") params.set("category", filters.category);
   if (filters.riskLevel !== "all") params.set("riskLevel", filters.riskLevel);
+  const publishedSince = sinceISOString(filters.publishedWithin, now);
+  if (publishedSince) params.set("publishedSince", publishedSince);
+  const updatedSince = sinceISOString(filters.updatedWithin, now);
+  if (updatedSince) params.set("updatedSince", updatedSince);
   if (filters.sort) params.set("sort", filters.sort);
-  if (filters.installed !== "all") params.set("installed", String(filters.installed === "installed"));
-  if (filters.enabled !== "all") params.set("enabled", String(filters.enabled === "enabled"));
   return params;
 }
 
@@ -202,6 +217,36 @@ export function isUnauthenticatedError(error: unknown): boolean {
 
 export function isPermissionError(error: unknown): boolean {
   return isApiError(error) && (error.status === 403 || error.code === "permission_denied");
+}
+
+export async function downloadAuthenticatedFile(url: string, suggestedName = "package.zip"): Promise<void> {
+  const token = getToken();
+  const headers = new Headers();
+  if (token) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+  const response = await fetch(url.startsWith("http") ? url : resolveAPIURL(url), { headers });
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new P1ApiError({
+      status: response.status,
+      code: errorBody?.error?.code,
+      message: errorBody?.error?.message ?? `${response.status} ${response.statusText}`,
+      retryable: errorBody?.error?.retryable ?? false
+    });
+  }
+  const blob = await response.blob();
+  const contentDisposition = response.headers.get("content-disposition") ?? "";
+  const fileNameMatch = contentDisposition.match(/filename=\"([^\"]+)\"/);
+  const fileName = fileNameMatch?.[1] ?? suggestedName;
+  const objectURL = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectURL;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectURL);
 }
 
 export interface P1Client {
@@ -232,8 +277,17 @@ export interface P1Client {
   delistAdminSkill(skillID: string): Promise<AdminSkill[]>;
   relistAdminSkill(skillID: string): Promise<AdminSkill[]>;
   archiveAdminSkill(skillID: string): Promise<void>;
+  listPublisherSkills(): Promise<PublisherSkillSummary[]>;
+  getPublisherSubmission(submissionID: string): Promise<PublisherSubmissionDetail>;
+  submitPublisherSubmission(formData: FormData): Promise<PublisherSubmissionDetail>;
+  withdrawPublisherSubmission(submissionID: string): Promise<PublisherSubmissionDetail>;
   listReviews(): Promise<ReviewItem[]>;
   getReview(reviewID: string): Promise<ReviewDetail>;
+  claimReview(reviewID: string): Promise<ReviewDetail>;
+  passPrecheck(reviewID: string, comment: string): Promise<ReviewDetail>;
+  approveReview(reviewID: string, comment: string): Promise<ReviewDetail>;
+  returnReview(reviewID: string, comment: string): Promise<ReviewDetail>;
+  rejectReview(reviewID: string, comment: string): Promise<ReviewDetail>;
 }
 
 export const p1Client: P1Client = {
@@ -278,7 +332,7 @@ export const p1Client: P1Client = {
   },
 
   async listSkills(filters) {
-    const response = await requestJSON<ApiPage<ApiSkill>>(`/skills?${filtersToQuery(filters).toString()}`);
+    const response = await requestJSON<ApiPage<ApiSkill>>(`/skills?${buildSkillListQuery(filters).toString()}`);
     return response.items.map(normalizeSkill);
   },
 
@@ -406,11 +460,66 @@ export const p1Client: P1Client = {
     });
   },
 
+  async listPublisherSkills() {
+    return requestJSON<PublisherSkillSummary[]>("/publisher/skills");
+  },
+
+  async getPublisherSubmission(submissionID) {
+    return requestJSON<PublisherSubmissionDetail>(`/publisher/submissions/${encodeURIComponent(submissionID)}`);
+  },
+
+  async submitPublisherSubmission(formData) {
+    return requestJSON<PublisherSubmissionDetail>("/publisher/submissions", {
+      method: "POST",
+      body: formData
+    });
+  },
+
+  async withdrawPublisherSubmission(submissionID) {
+    return requestJSON<PublisherSubmissionDetail>(`/publisher/submissions/${encodeURIComponent(submissionID)}/withdraw`, {
+      method: "POST"
+    });
+  },
+
   async listReviews() {
     return requestJSON<ReviewItem[]>("/admin/reviews");
   },
 
   async getReview(reviewID) {
     return requestJSON<ReviewDetail>(`/admin/reviews/${encodeURIComponent(reviewID)}`);
+  },
+
+  async claimReview(reviewID) {
+    return requestJSON<ReviewDetail>(`/admin/reviews/${encodeURIComponent(reviewID)}/claim`, {
+      method: "POST"
+    });
+  },
+
+  async passPrecheck(reviewID, comment) {
+    return requestJSON<ReviewDetail>(`/admin/reviews/${encodeURIComponent(reviewID)}/pass-precheck`, {
+      method: "POST",
+      body: JSON.stringify({ comment })
+    });
+  },
+
+  async approveReview(reviewID, comment) {
+    return requestJSON<ReviewDetail>(`/admin/reviews/${encodeURIComponent(reviewID)}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ comment })
+    });
+  },
+
+  async returnReview(reviewID, comment) {
+    return requestJSON<ReviewDetail>(`/admin/reviews/${encodeURIComponent(reviewID)}/return`, {
+      method: "POST",
+      body: JSON.stringify({ comment })
+    });
+  },
+
+  async rejectReview(reviewID, comment) {
+    return requestJSON<ReviewDetail>(`/admin/reviews/${encodeURIComponent(reviewID)}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ comment })
+    });
   }
 };

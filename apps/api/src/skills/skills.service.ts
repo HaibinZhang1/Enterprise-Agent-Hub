@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createReadStream, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,6 +25,8 @@ export interface SkillListQuery {
   accessScope?: string;
   category?: string;
   riskLevel?: string;
+  publishedSince?: string;
+  updatedSince?: string;
   sort?: string;
   page?: string;
   pageSize?: string;
@@ -54,6 +57,9 @@ interface SkillRow {
   tags: string[] | null;
   compatible_tools: string[] | null;
   compatible_systems: string[] | null;
+  scope_type: 'current_department' | 'department_tree' | 'selected_departments' | 'all_employees' | null;
+  scope_department_ids: string[] | null;
+  scope_department_paths: string[] | null;
   star_count: string;
   download_count: string;
 }
@@ -81,6 +87,21 @@ export interface DownloadablePackage {
   fileName: string;
 }
 
+interface RequesterScope {
+  user_id: string;
+  department_id: string;
+  department_path: string;
+}
+
+interface PackageDownloadTicketRow {
+  ticket: string;
+  package_ref: string;
+  user_id: string | null;
+  purpose: 'published' | 'staged';
+  requires_auth: boolean;
+  expires_at: Date;
+}
+
 export interface SkillListQueryPlan {
   page: number;
   pageSize: number;
@@ -92,7 +113,10 @@ export interface SkillListQueryPlan {
 export class SkillsService {
   constructor(private readonly database: DatabaseService) {}
 
-  async list(query: SkillListQuery): Promise<PageResponse<SkillSummary>> {
+  async list(query: SkillListQuery, userID?: string): Promise<PageResponse<SkillSummary>> {
+    if (userID) {
+      return this.listForUser(query, userID);
+    }
     const plan = buildSkillListQueryPlan(query);
     const result = await this.database.query<ListedSkillRow>(plan.text, plan.values);
     const rows = result.rows;
@@ -101,9 +125,10 @@ export class SkillsService {
     return pageOf(items, plan.page, plan.pageSize, total);
   }
 
-  async detail(skillID: string): Promise<SkillDetail | SkillSummary> {
+  async detail(skillID: string, userID?: string): Promise<SkillDetail | SkillSummary> {
     const row = await this.find(skillID);
-    const skill = this.toDetail(row);
+    const requester = userID ? await this.loadRequesterScope(userID) : null;
+    const skill = this.toDetail(row, requester ?? undefined);
     if (skill.detailAccess === 'none') {
       throw new ForbiddenException('permission_denied');
     }
@@ -115,9 +140,10 @@ export class SkillsService {
     return skill;
   }
 
-  async downloadTicket(skillID: string, request: DownloadTicketRequest): Promise<DownloadTicketResponse> {
+  async downloadTicket(skillID: string, request: DownloadTicketRequest, userID?: string): Promise<DownloadTicketResponse> {
     const row = await this.find(skillID);
-    const skill = this.toSummary(row);
+    const requester = userID ? await this.loadRequesterScope(userID) : null;
+    const skill = this.toSummary(row, requester ?? undefined);
     if (!skill.canInstall && !this.canUpdate(row)) {
       throw new ForbiddenException(skill.cannotInstallReason ?? '当前用户无权安装该 Skill');
     }
@@ -140,11 +166,17 @@ export class SkillsService {
       throw new ForbiddenException('package_unavailable');
     }
 
+    const ticket = await this.issuePackageDownloadTicket({
+      packageRef: packageRow.id,
+      userID: userID ?? null,
+      purpose: 'published',
+      requiresAuth: false,
+    });
     return {
       skillID: packageRow.skill_id,
       version: packageRow.version,
       packageRef: packageRow.id,
-      packageURL: `/skill-packages/${encodeURIComponent(packageRow.id)}/download?ticket=p1-dev-ticket`,
+      packageURL: `/skill-packages/${encodeURIComponent(packageRow.id)}/download?ticket=${encodeURIComponent(ticket)}`,
       packageHash: packageRow.sha256,
       packageSize: Number(packageRow.size_bytes),
       packageFileCount: Number(packageRow.file_count),
@@ -152,21 +184,13 @@ export class SkillsService {
     };
   }
 
-  async downloadPackage(packageRef: string, ticket?: string): Promise<DownloadablePackage> {
-    if (ticket !== 'p1-dev-ticket') {
+  async downloadPackage(packageRef: string, ticket?: string, requesterUserID?: string | null): Promise<DownloadablePackage> {
+    const ticketRow = await this.validatePackageDownloadTicket(packageRef, ticket, requesterUserID ?? null);
+    if (!ticketRow) {
       throw new ForbiddenException('permission_denied');
     }
 
-    const packageRow = await this.database.one<PackageRow>(
-      `
-      SELECT p.id, s.skill_id, v.version, p.bucket, p.sha256, p.size_bytes, p.file_count, p.object_key, p.content_type
-      FROM skill_packages p
-      JOIN skill_versions v ON v.id = p.skill_version_id
-      JOIN skills s ON s.id = v.skill_id
-      WHERE p.id = $1
-      `,
-      [packageRef],
-    );
+    const packageRow = await this.loadPackageRow(packageRef);
     if (!packageRow) {
       throw new NotFoundException('package_unavailable');
     }
@@ -184,6 +208,44 @@ export class SkillsService {
     throw new NotFoundException('package_unavailable');
   }
 
+  private async loadPackageRow(packageRef: string): Promise<PackageRow | null> {
+    const publishedPackage = await this.database.one<PackageRow>(
+      `
+      SELECT p.id, s.skill_id, v.version, p.bucket, p.sha256, p.size_bytes, p.file_count, p.object_key, p.content_type
+      FROM skill_packages p
+      JOIN skill_versions v ON v.id = p.skill_version_id
+      JOIN skills s ON s.id = v.skill_id
+      WHERE p.id = $1
+      `,
+      [packageRef],
+    );
+    if (publishedPackage) {
+      return publishedPackage;
+    }
+
+    return this.database.one<PackageRow>(
+      `
+      SELECT
+        r.id,
+        r.skill_id,
+        COALESCE(r.requested_version, current_version.version, '0.0.0') AS version,
+        r.staged_package_bucket AS bucket,
+        r.staged_package_sha256 AS sha256,
+        COALESCE(r.staged_package_size_bytes, 0) AS size_bytes,
+        COALESCE(r.staged_package_file_count, 0) AS file_count,
+        r.staged_package_object_key AS object_key,
+        'application/zip' AS content_type
+      FROM review_items r
+      LEFT JOIN skills s ON s.skill_id = r.skill_id
+      LEFT JOIN skill_versions current_version ON current_version.id = s.current_version_id
+      WHERE r.id = $1
+        AND r.staged_package_bucket IS NOT NULL
+        AND r.staged_package_object_key IS NOT NULL
+      `,
+      [packageRef],
+    );
+  }
+
   async star(userID: string, skillID: string, starred: boolean): Promise<{ skillID: string; starred: boolean; starCount: number }> {
     const row = await this.find(skillID);
     if (starred) {
@@ -197,6 +259,16 @@ export class SkillsService {
 
     const count = await this.database.one<{ count: string }>('SELECT count(*) FROM skill_stars WHERE skill_id = $1', [row.id]);
     return { skillID: row.skill_id, starred, starCount: Number(count?.count ?? 0) };
+  }
+
+  async issuePackageDownloadUrl(packageRef: string, userID: string, requiresAuth: boolean): Promise<string> {
+    const ticket = await this.issuePackageDownloadTicket({
+      packageRef,
+      userID,
+      purpose: requiresAuth ? 'staged' : 'published',
+      requiresAuth,
+    });
+    return `/skill-packages/${encodeURIComponent(packageRef)}/download?ticket=${encodeURIComponent(ticket)}`;
   }
 
   private async find(skillID: string): Promise<SkillRow> {
@@ -230,6 +302,9 @@ export class SkillsService {
         COALESCE(array_agg(DISTINCT st.tag) FILTER (WHERE st.tag IS NOT NULL), '{}') AS tags,
         COALESCE(array_agg(DISTINCT tc.tool_id) FILTER (WHERE tc.tool_id IS NOT NULL), '{}') AS compatible_tools,
         COALESCE(array_agg(DISTINCT tc.system) FILTER (WHERE tc.system IS NOT NULL), '{}') AS compatible_systems,
+        auth.scope_type,
+        auth.scope_department_ids,
+        auth.scope_department_paths,
         (SELECT count(*) FROM skill_stars stars WHERE stars.skill_id = s.id) AS star_count,
         (SELECT count(*) FROM download_events downloads WHERE downloads.skill_id = s.id) AS download_count
       FROM skills s
@@ -238,13 +313,135 @@ export class SkillsService {
       LEFT JOIN departments d ON d.id = s.department_id
       LEFT JOIN skill_tags st ON st.skill_id = s.id
       LEFT JOIN skill_tool_compatibilities tc ON tc.skill_id = s.id
+      LEFT JOIN LATERAL (
+        SELECT
+          sa.scope_type,
+          array_remove(array_agg(sa.department_id ORDER BY sa.department_id), NULL) AS scope_department_ids,
+          array_remove(array_agg(scope_department.path ORDER BY scope_department.path), NULL) AS scope_department_paths
+        FROM skill_authorizations sa
+        LEFT JOIN departments scope_department ON scope_department.id = sa.department_id
+        WHERE sa.skill_id = s.id
+        GROUP BY sa.scope_type
+        ORDER BY count(*) DESC, sa.scope_type ASC
+        LIMIT 1
+      ) auth ON true
       ${skillID ? 'WHERE s.skill_id = $1' : ''}
-      GROUP BY s.id, v.id, u.display_name, d.name
+      GROUP BY s.id, v.id, u.display_name, d.name, auth.scope_type, auth.scope_department_ids, auth.scope_department_paths
       ORDER BY s.updated_at DESC
       `,
       values,
     );
     return result.rows;
+  }
+
+  private async listForUser(query: SkillListQuery, userID: string): Promise<PageResponse<SkillSummary>> {
+    const requester = await this.loadRequesterScope(userID);
+    const page = positiveInt(query.page, 1);
+    const pageSize = positiveInt(query.pageSize, 20, 100);
+    const unpagedPlan = buildSkillListQueryPlan({ ...query, page: '1', pageSize: '5000' });
+    const result = await this.database.query<ListedSkillRow>(unpagedPlan.text, unpagedPlan.values);
+    const visibleRows = result.rows.filter((row) => {
+      const auth = this.authorizationFor(row, requester);
+      if (auth.detailAccess === 'none') {
+        return false;
+      }
+      if (query.accessScope === 'authorized_only' && !auth.isAuthorized) {
+        return false;
+      }
+      return true;
+    });
+    const start = (page - 1) * pageSize;
+    const items = visibleRows.slice(start, start + pageSize).map((row) => this.toSummary(row, requester));
+    return pageOf(items, page, pageSize, visibleRows.length);
+  }
+
+  private async loadRequesterScope(userID: string): Promise<RequesterScope> {
+    const requester = await this.database.one<RequesterScope>(
+      `
+      SELECT u.id AS user_id, u.department_id, d.path AS department_path
+      FROM users u
+      JOIN departments d ON d.id = u.department_id
+      WHERE u.id = $1
+      `,
+      [userID],
+    );
+    if (!requester) {
+      throw new ForbiddenException('permission_denied');
+    }
+    return requester;
+  }
+
+  private authorizationFor(row: SkillRow, requester?: RequesterScope): { isAuthorized: boolean; detailAccess: DetailAccess } {
+    if (!requester) {
+      const detailAccess = this.detailAccess(row.visibility_level);
+      return {
+        isAuthorized: row.visibility_level === 'public_installable',
+        detailAccess,
+      };
+    }
+
+    const scopeType = row.scope_type;
+    let isAuthorized = false;
+    if (!scopeType) {
+      isAuthorized = row.visibility_level === 'public_installable';
+    } else if (scopeType === 'all_employees') {
+      isAuthorized = true;
+    } else if (scopeType === 'current_department') {
+      isAuthorized = (row.scope_department_ids ?? []).includes(requester.department_id);
+    } else if (scopeType === 'selected_departments') {
+      isAuthorized = (row.scope_department_ids ?? []).includes(requester.department_id);
+    } else if (scopeType === 'department_tree') {
+      isAuthorized = (row.scope_department_paths ?? []).some((path) => requester.department_path === path || requester.department_path.startsWith(`${path}/`));
+    }
+
+    if (isAuthorized) {
+      return { isAuthorized, detailAccess: 'full' };
+    }
+    return { isAuthorized, detailAccess: this.detailAccess(row.visibility_level) };
+  }
+
+  private async issuePackageDownloadTicket(input: {
+    packageRef: string;
+    userID: string | null;
+    purpose: 'published' | 'staged';
+    requiresAuth: boolean;
+  }): Promise<string> {
+    const ticket = randomBytes(24).toString('hex');
+    await this.database.query(
+      `
+      INSERT INTO package_download_tickets (ticket, package_ref, user_id, purpose, requires_auth, expires_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [ticket, input.packageRef, input.userID, input.purpose, input.requiresAuth, new Date(Date.now() + 10 * 60 * 1000).toISOString()],
+    );
+    return ticket;
+  }
+
+  private async validatePackageDownloadTicket(
+    packageRef: string,
+    ticket: string | undefined,
+    requesterUserID: string | null,
+  ): Promise<PackageDownloadTicketRow | null> {
+    if (!ticket) {
+      return null;
+    }
+    const row = await this.database.one<PackageDownloadTicketRow>(
+      `
+      SELECT ticket, package_ref, user_id, purpose, requires_auth, expires_at
+      FROM package_download_tickets
+      WHERE ticket = $1
+        AND package_ref = $2
+        AND expires_at > now()
+      `,
+      [ticket, packageRef],
+    );
+    if (!row) {
+      return null;
+    }
+    if (row.requires_auth && (!requesterUserID || requesterUserID !== row.user_id)) {
+      return null;
+    }
+    return row;
   }
 
   private async tryReadMinioObject(packageRow: PackageRow): Promise<Readable | null> {
@@ -272,6 +469,7 @@ export class SkillsService {
     const candidates = [
       join(__dirname, '..', 'database', 'seeds', 'packages', relativeObjectPath),
       join(__dirname, '..', '..', 'src', 'database', 'seeds', 'packages', relativeObjectPath),
+      join(process.env.LOCAL_PACKAGE_STORAGE_DIR ?? join(process.cwd(), '.runtime-package-storage'), objectKey),
     ];
     return candidates.find((candidate) => existsSync(candidate)) ?? null;
   }
@@ -285,9 +483,9 @@ export class SkillsService {
     };
   }
 
-  private toSummary(row: SkillRow): SkillSummary {
-    const detailAccess = this.detailAccess(row.visibility_level);
-    const installable = row.status === 'published' && row.visibility_level === 'public_installable';
+  private toSummary(row: SkillRow, requester?: RequesterScope): SkillSummary {
+    const authorization = this.authorizationFor(row, requester);
+    const installable = row.status === 'published' && authorization.isAuthorized;
     return {
       skillID: row.skill_id,
       displayName: row.display_name,
@@ -295,7 +493,7 @@ export class SkillsService {
       version: row.version,
       status: row.status,
       visibilityLevel: row.visibility_level,
-      detailAccess,
+      detailAccess: authorization.detailAccess,
       canInstall: installable,
       cannotInstallReason: installable ? undefined : row.status === 'delisted' ? 'skill_delisted' : 'permission_denied',
       installState: installable ? 'not_installed' : 'blocked',
@@ -312,9 +510,9 @@ export class SkillsService {
     };
   }
 
-  private toDetail(row: SkillRow): SkillDetail {
+  private toDetail(row: SkillRow, requester?: RequesterScope): SkillDetail {
     return {
-      ...this.toSummary(row),
+      ...this.toSummary(row, requester),
       readme: '安装后通过 Desktop 选择目标工具启用，默认 symlink，失败时 copy 降级。',
       usage: '下载并写入 Central Store 后，可启用到内置工具或项目目录。',
       screenshots: [],
@@ -324,7 +522,7 @@ export class SkillsService {
       enabledTargets: [],
       latestVersion: row.version,
       hasUpdate: false,
-      canUpdate: this.canUpdate(row),
+      canUpdate: this.canUpdate(row, requester),
     };
   }
 
@@ -341,8 +539,8 @@ export class SkillsService {
     }
   }
 
-  private canUpdate(row: SkillRow): boolean {
-    return row.status === 'published' && row.visibility_level === 'public_installable';
+  private canUpdate(row: SkillRow, requester?: RequesterScope): boolean {
+    return row.status === 'published' && this.authorizationFor(row, requester).isAuthorized;
   }
 }
 
@@ -397,6 +595,14 @@ export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPl
     conditions.push(`v.risk_level = ${push(query.riskLevel)}`);
   }
 
+  if (query.publishedSince) {
+    conditions.push(`v.published_at >= ${push(query.publishedSince)}`);
+  }
+
+  if (query.updatedSince) {
+    conditions.push(`s.updated_at >= ${push(query.updatedSince)}`);
+  }
+
   if (query.accessScope === 'authorized_only') {
     conditions.push(`s.visibility_level <> 'private'`);
   }
@@ -441,6 +647,9 @@ export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPl
           COALESCE(array_agg(DISTINCT st.tag) FILTER (WHERE st.tag IS NOT NULL), '{}') AS tags,
           COALESCE(array_agg(DISTINCT tc.tool_id) FILTER (WHERE tc.tool_id IS NOT NULL), '{}') AS compatible_tools,
           COALESCE(array_agg(DISTINCT tc.system) FILTER (WHERE tc.system IS NOT NULL), '{}') AS compatible_systems,
+          auth.scope_type,
+          auth.scope_department_ids,
+          auth.scope_department_paths,
           COALESCE(stars.star_count, 0)::text AS star_count,
           COALESCE(downloads.download_count, 0)::text AS download_count,
           doc.document,
@@ -451,6 +660,18 @@ export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPl
         LEFT JOIN departments d ON d.id = s.department_id
         LEFT JOIN skill_tags st ON st.skill_id = s.id
         LEFT JOIN skill_tool_compatibilities tc ON tc.skill_id = s.id
+        LEFT JOIN LATERAL (
+          SELECT
+            sa.scope_type,
+            array_remove(array_agg(sa.department_id ORDER BY sa.department_id), NULL) AS scope_department_ids,
+            array_remove(array_agg(scope_department.path ORDER BY scope_department.path), NULL) AS scope_department_paths
+          FROM skill_authorizations sa
+          LEFT JOIN departments scope_department ON scope_department.id = sa.department_id
+          WHERE sa.skill_id = s.id
+          GROUP BY sa.scope_type
+          ORDER BY count(*) DESC, sa.scope_type ASC
+          LIMIT 1
+        ) auth ON true
         LEFT JOIN skill_search_documents doc ON doc.skill_id = s.id
         LEFT JOIN star_counts stars ON stars.skill_id = s.id
         LEFT JOIN download_counts downloads ON downloads.skill_id = s.id
@@ -460,6 +681,9 @@ export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPl
           v.id,
           u.display_name,
           d.name,
+          auth.scope_type,
+          auth.scope_department_ids,
+          auth.scope_department_paths,
           doc.document,
           doc.search_vector,
           stars.star_count,
@@ -484,6 +708,9 @@ export function buildSkillListQueryPlan(query: SkillListQuery): SkillListQueryPl
         base.tags,
         base.compatible_tools,
         base.compatible_systems,
+        base.scope_type,
+        base.scope_department_ids,
+        base.scope_department_paths,
         base.star_count,
         base.download_count,
         count(*) OVER()::text AS total_count

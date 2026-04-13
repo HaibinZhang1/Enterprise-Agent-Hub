@@ -5,21 +5,29 @@ mod errors;
 mod path_validation;
 mod transform;
 
+#[allow(unused_imports)]
 pub use self::config::{
     builtin_adapters, AdapterConfig, AdapterID, DetectionConfig, DetectionMethod, InstallConfig,
-    InstallMode, LayoutConfig, Platform, TargetConfig, TransformStrategy,
+    InstallMode, LayoutConfig, Platform, PlatformPathTable, PlatformValueTable,
+    ResolvedAdapterConfig, ResolvedDetectionConfig, ResolvedTargetConfig, TargetConfig,
+    TransformStrategy,
 };
+#[allow(unused_imports)]
 pub use self::detection::{
-    detect_adapter, expand_windows_user_profile, AdapterStatus, DetectionResult,
+    detect_adapter, detect_adapter_for_platform, expand_platform_path, AdapterStatus,
+    DetectionPathState, DetectionResult,
 };
+#[allow(unused_imports)]
 pub use self::distribution::{
     disable_managed_target, enable_artifact, enable_artifact_with_options, is_managed_target,
     DistributionOptions, DistributionOutcome, MANAGED_MARKER_FILE,
 };
 pub use self::errors::{AdapterError, AdapterResult};
+#[allow(unused_imports)]
 pub use self::path_validation::{
     ensure_target_root, reject_ambiguous_path, validate_target_path, PathValidation,
 };
+#[allow(unused_imports)]
 pub use self::transform::{transform_skill, validate_skill_id, DerivedArtifact};
 
 #[cfg(test)]
@@ -48,6 +56,8 @@ mod tests {
             ]
         );
         for adapter in adapters {
+            assert!(adapter.supports_platform(Platform::Windows));
+            assert!(adapter.supports_platform(Platform::Macos));
             assert!(adapter
                 .install
                 .supported_modes

@@ -39,6 +39,14 @@ If the API is already running, you can run the smoke checks alone:
 npm run p1:live-smoke
 ```
 
+For the real publish-review-market-install closure, use the repo-root harness instead of the source-start smoke:
+
+```bash
+npm run p1:full-closure
+```
+
+That path bootstraps isolated PostgreSQL/Redis/MinIO/API/Desktop services, runs browser publish/review/market automation, and then runs the native Tauri install/enable smoke against the same newly published skill.
+
 ## P1 endpoints
 
 - `POST /auth/login`

@@ -2,24 +2,27 @@ import type { FormEvent } from "react";
 import { AlertTriangle, CheckCircle2, FolderPlus, Plus, RefreshCw, Sparkles, WifiOff, X } from "lucide-react";
 import type { P1WorkspaceState } from "../state/useP1Workspace";
 import type { DesktopUIState } from "../state/useDesktopUIState";
-import { formatDate } from "./desktopShared";
+import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath, previewCentralStorePath } from "../utils/platformPaths";
+import { formatDate, localize, settingsLanguageLabel, themeLabel } from "./desktopShared";
 
 function ModalFrame({
   title,
   eyebrow,
   children,
   onClose,
-  narrow = false
+  narrow = false,
+  className = ""
 }: {
   title: string;
   eyebrow: string;
   children: React.ReactNode;
   onClose: () => void;
   narrow?: boolean;
+  className?: string;
 }) {
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
-      <section className={narrow ? "modal-panel narrow" : "modal-panel"} role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
+      <section className={narrow ? `modal-panel narrow ${className}`.trim() : `modal-panel ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <div>
             <div className="eyebrow">{eyebrow}</div>
@@ -32,6 +35,31 @@ function ModalFrame({
         <div className="modal-body">{children}</div>
       </section>
     </div>
+  );
+}
+
+function SettingsOptionField({
+  label,
+  value,
+  onChange,
+  options
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -140,6 +168,9 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
     ui.toolDraft.configPath.trim().length > 0 ||
     ui.toolDraft.skillsPath.trim().length > 0;
   const customDirectory = ui.toolDraft.toolID === "custom_directory";
+  const draftToolID = ui.toolDraft.toolID ?? "custom_directory";
+  const configPlaceholder = customDirectory ? "例如 ~/ai-skills/shared/config.json" : defaultToolConfigPath(draftToolID);
+  const skillsPlaceholder = customDirectory ? "例如 ~/ai-skills/shared/skills" : defaultToolSkillsPath(draftToolID);
 
   return (
     <ModalFrame title={editing ? `编辑 ${ui.toolDraft.name}` : "添加自定义工具"} eyebrow="工具路径" onClose={ui.closeModal} narrow>
@@ -152,11 +183,11 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
         ) : null}
         <label className="field">
           <span>配置路径</span>
-          <input value={ui.toolDraft.configPath} onChange={(event) => ui.setToolDraft((current) => ({ ...current, configPath: event.target.value }))} placeholder="例如 %USERPROFILE%\\.cursor\\settings.json" />
+          <input value={ui.toolDraft.configPath} onChange={(event) => ui.setToolDraft((current) => ({ ...current, configPath: event.target.value }))} placeholder={configPlaceholder} />
         </label>
         <label className="field">
           <span>skills 安装路径</span>
-          <input value={ui.toolDraft.skillsPath} onChange={(event) => ui.setToolDraft((current) => ({ ...current, skillsPath: event.target.value }))} />
+          <input value={ui.toolDraft.skillsPath} onChange={(event) => ui.setToolDraft((current) => ({ ...current, skillsPath: event.target.value }))} placeholder={skillsPlaceholder} />
         </label>
         <label className="toggle-row">
           <span>启用当前工具配置</span>
@@ -184,6 +215,7 @@ function ProjectEditorModal({ ui }: { ui: DesktopUIState }) {
   }
 
   const editing = Boolean(ui.projectDraft.projectID);
+  const skillsPlaceholder = defaultProjectSkillsPath(ui.projectDraft.projectPath);
 
   return (
     <ModalFrame title={editing ? `编辑 ${ui.projectDraft.name}` : "添加项目"} eyebrow="项目配置" onClose={ui.closeModal} narrow>
@@ -196,9 +228,15 @@ function ProjectEditorModal({ ui }: { ui: DesktopUIState }) {
           <span>项目路径</span>
           <input value={ui.projectDraft.projectPath} onChange={(event) => ui.setProjectDraft((current) => ({ ...current, projectPath: event.target.value }))} />
         </label>
+        <div className="inline-actions wrap">
+          <button className="btn btn-small" type="button" onClick={() => void ui.pickProjectDirectoryForDraft()}>
+            <FolderPlus size={15} />
+            选择文件夹
+          </button>
+        </div>
         <label className="field">
           <span>skills 安装路径</span>
-          <input value={ui.projectDraft.skillsPath} onChange={(event) => ui.setProjectDraft((current) => ({ ...current, skillsPath: event.target.value }))} />
+          <input value={ui.projectDraft.skillsPath} onChange={(event) => ui.setProjectDraft((current) => ({ ...current, skillsPath: event.target.value }))} placeholder={skillsPlaceholder} />
         </label>
         <label className="toggle-row">
           <span>启用项目级配置</span>
@@ -263,6 +301,108 @@ function ConnectionStatusModal({ workspace, ui }: { workspace: P1WorkspaceState;
   );
 }
 
+function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: DesktopUIState }) {
+  if (ui.modal.type !== "settings") return null;
+
+  return (
+    <ModalFrame
+      title={localize(ui.language, "设置", "Settings")}
+      eyebrow={localize(ui.language, "基础偏好", "Preferences")}
+      onClose={ui.closeModal}
+      className="settings-modal-shell"
+    >
+      <div className="settings-stack">
+        <section className="settings-section">
+          <h3>{localize(ui.language, "语言", "Language")}</h3>
+          <SettingsOptionField
+            label={localize(ui.language, "显示语言", "Display Language")}
+            value={ui.preferences.language}
+            onChange={(value) =>
+              ui.setPreferences((current) => ({
+                ...current,
+                language: value as typeof current.language,
+                autoDetectLanguage: value === "auto"
+              }))
+            }
+            options={[
+              { value: "auto", label: settingsLanguageLabel("auto", ui.language) },
+              { value: "zh-CN", label: settingsLanguageLabel("zh-CN", ui.language) },
+              { value: "en-US", label: settingsLanguageLabel("en-US", ui.language) }
+            ]}
+          />
+          <label className="toggle-row compact">
+            <span>{localize(ui.language, "按系统地区自动识别", "Follow System Language")}</span>
+            <input
+              type="checkbox"
+              checked={ui.preferences.autoDetectLanguage}
+              onChange={(event) =>
+                ui.setPreferences((current) => ({
+                  ...current,
+                  autoDetectLanguage: event.target.checked,
+                  language: event.target.checked ? "auto" : current.language === "auto" ? ui.language : current.language
+                }))
+              }
+            />
+          </label>
+        </section>
+
+        <section className="settings-section">
+          <h3>{localize(ui.language, "主题", "Theme")}</h3>
+          <SettingsOptionField
+            label={localize(ui.language, "主题样式", "Theme")}
+            value={ui.preferences.theme}
+            onChange={(value) => ui.setPreferences((current) => ({ ...current, theme: value as typeof current.theme }))}
+            options={[
+              { value: "classic", label: themeLabel("classic", ui.language) },
+              { value: "fresh", label: themeLabel("fresh", ui.language) },
+              { value: "contrast", label: themeLabel("contrast", ui.language) }
+            ]}
+          />
+          <div className="pill-row">
+            <Tag tone="info">{themeLabel("classic", ui.language)}</Tag>
+            <Tag tone="info">{themeLabel("fresh", ui.language)}</Tag>
+            <Tag tone="info">{themeLabel("contrast", ui.language)}</Tag>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h3>Central Store</h3>
+          <p className="settings-path">{workspace.localCentralStorePath || previewCentralStorePath()}</p>
+          <small>{localize(ui.language, "这里只展示当前路径，真实文件写入仍通过桌面命令处理。", "This only shows the current path. Real file writes still go through desktop commands.")}</small>
+        </section>
+
+        <section className="settings-section">
+          <h3>{localize(ui.language, "同步", "Sync")}</h3>
+          <label className="toggle-row compact">
+            <span>{localize(ui.language, "显示安装/更新结果", "Show Install and Update Results")}</span>
+            <input type="checkbox" checked={ui.preferences.showInstallResults} onChange={(event) => ui.setPreferences((current) => ({ ...current, showInstallResults: event.target.checked }))} />
+          </label>
+          <label className="toggle-row compact">
+            <span>{localize(ui.language, "联网后同步本地事件", "Sync Local Events After Reconnect")}</span>
+            <input type="checkbox" checked={ui.preferences.syncLocalEvents} onChange={(event) => ui.setPreferences((current) => ({ ...current, syncLocalEvents: event.target.checked }))} />
+          </label>
+          <div className="inline-actions wrap modal-actions start">
+            <button className="btn" onClick={() => void workspace.refreshBootstrap()}>
+              <RefreshCw size={15} />
+              {localize(ui.language, "刷新启动上下文", "Refresh Bootstrap")}
+            </button>
+          </div>
+        </section>
+
+        <div className="inline-actions wrap modal-actions">
+          <button className="btn btn-primary" onClick={ui.closeModal}>
+            {localize(ui.language, "完成", "Done")}
+          </button>
+        </div>
+      </div>
+    </ModalFrame>
+  );
+}
+
+function Tag({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "success" | "warning" | "danger" | "info" }) {
+  return <span className={`pill tone-${tone}`}>{children}</span>;
+}
+
 export function FlashToast({ ui }: { ui: DesktopUIState }) {
   if (!ui.flash) return null;
   return (
@@ -282,6 +422,7 @@ export function DesktopModals({ workspace, ui }: { workspace: P1WorkspaceState; 
       <ToolEditorModal ui={ui} />
       <ProjectEditorModal ui={ui} />
       <ConnectionStatusModal workspace={workspace} ui={ui} />
+      <SettingsModal workspace={workspace} ui={ui} />
     </>
   );
 }

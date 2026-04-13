@@ -1,14 +1,14 @@
-# P1 Desktop 数据契约
+# 当前版本 Desktop 数据契约
 
 ## 1. 文档信息
 
 | 字段 | 内容 |
 |------|------|
-| 文档名称 | P1 Desktop 数据契约 |
+| 文档名称 | 当前版本 Desktop 数据契约 |
 | 版本 | V1.1 |
-| 状态 | P1 定稿 |
+| 状态 | 当前版本 定稿 |
 | 日期 | 2026-04-11 |
-| 关联 PRD | [P1 Desktop 使用闭环 PRD](20_p1_desktop_prd.md) |
+| 关联 PRD | [当前版本 Desktop 使用闭环 PRD](20_p1_desktop_prd.md) |
 
 ## 2. 契约原则
 
@@ -89,7 +89,7 @@
 
 ### 5.1 `GET /desktop/bootstrap`
 
-用于客户端启动后获取 P1 必要上下文。
+用于客户端启动后获取 当前版本 必要上下文。
 
 响应字段：
 
@@ -97,7 +97,7 @@
 |------|------|------|
 | user | 是 | 当前用户 |
 | connection | 是 | 服务连接信息 |
-| features | 是 | P1/P2/P3 功能开关 |
+| features | 是 | 当前版本 / 后续版本 功能开关 |
 | counts | 是 | 首页计数 |
 | navigation | 是 | 当前应展示的导航 |
 | menuPermissions | 是 | 当前账号具备的菜单权限集合 |
@@ -122,7 +122,7 @@
   },
   "features": {
     "p1Desktop": true,
-    "publishSkill": false,
+    "publishSkill": true,
     "reviewWorkbench": false,
     "adminManage": false,
     "mcpManage": false,
@@ -182,11 +182,11 @@
 | q | 否 | 搜索关键字 |
 | departmentID | 否 | 部门筛选 |
 | compatibleTool | 否 | 工具兼容性筛选 |
-| installed | 否 | `true` / `false` |
-| enabled | 否 | `true` / `false` |
 | accessScope | 否 | `authorized_only` / `include_public` |
-| category | 否 | 分类筛选，P1 仅消费服务端已有值 |
+| category | 否 | 分类筛选，消费服务端已有值 |
 | riskLevel | 否 | 风险等级筛选 |
+| publishedSince | 否 | 发布时间下界，ISO 8601 字符串 |
+| updatedSince | 否 | 更新时间下界，ISO 8601 字符串 |
 | sort | 否 | `composite` / `latest_published` / `recently_updated` / `download_count` / `star_count` / `relevance` |
 | page | 否 | 默认 1 |
 | pageSize | 否 | 默认 20 |
@@ -288,7 +288,7 @@
 
 ### 5.9 管理端接口
 
-当前阶段新增以下管理员接口：
+当前版本新增以下管理员接口：
 
 - `GET /admin/departments`
 - `POST /admin/departments`
@@ -311,7 +311,8 @@
 
 - 所有 `/admin/*` 接口都要求登录且具备对应 `menuPermissions`。
 - 管理写操作额外受部门路径与 `adminLevel` 约束。
-- `reviews` 当前阶段只读，不提供锁单、同意、拒绝、退回接口。
+- `publisher/*` 接口要求登录；发布上传统一使用 `multipart/form-data`。
+- `reviews` 当前版本提供锁单、通过初审、同意、拒绝、退回接口，并继续受菜单权限、部门路径和管理员等级约束。
 
 请求：
 
@@ -393,7 +394,7 @@
 | screenshots | 否 | 截图资源地址列表 |
 | reviewSummary | 否 | 审核摘要，仅展示 |
 | riskDescription | 否 | 风险说明 |
-| versions | 否 | 历史版本摘要，仅展示；P1 不支持安装历史版本 |
+| versions | 否 | 历史版本摘要，仅展示；当前版本 不支持安装历史版本 |
 | enabledTargets | 是 | 当前设备已启用位置 |
 | latestVersion | 是 | 市场最新版本 |
 | hasUpdate | 是 | 当前设备是否有更新 |
@@ -441,7 +442,7 @@
 | targetID | 是 | 工具或项目 ID |
 | targetName | 是 | 展示名 |
 | targetPath | 是 | skills 落地路径 |
-| installMode | 是 | 兼容字段，表示实际落地模式；P1 可为 `symlink` / `copy` |
+| installMode | 是 | 兼容字段，表示实际落地模式；当前版本 可为 `symlink` / `copy` |
 | requestedMode | 是 | 用户或系统请求模式，默认 `symlink` |
 | resolvedMode | 是 | 实际落地模式；symlink 成功为 `symlink`，降级为 `copy` |
 | fallbackReason | 否 | symlink 失败并降级 copy 时的结构化原因 |
@@ -478,7 +479,7 @@
 
 ## 8. 接口验收
 
-- 所有 P1 市场列表项必须返回 `skillID`、`displayName`、`version`、`status`、`detailAccess`、`canInstall`、`installState`。
+- 所有 当前版本 市场列表项必须返回 `skillID`、`displayName`、`version`、`status`、`detailAccess`、`canInstall`、`installState`。
 - 可安装或可更新时，`download-ticket` 必须返回 `packageURL`、`packageHash`、`packageSize`、`packageFileCount` 和 `expiresAt`。
 - 无权限、下架、归档、权限收缩场景必须返回稳定错误码，不允许只返回文案。
 - 受限详情不得返回 README、审核摘要、包地址或包标识。

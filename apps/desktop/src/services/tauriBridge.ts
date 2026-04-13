@@ -1,5 +1,6 @@
-import { PendingLocalCommandError, type DownloadTicket, type EnabledTarget, type LocalBootstrap, type LocalEvent, type LocalSkillInstall, type ProjectConfig, type RequestedMode, type ScanTargetSummary, type SkillSummary, type TargetType, type ToolConfig, type ValidateTargetPathResult } from "../domain/p1";
+import { PendingLocalCommandError, type DownloadTicket, type EnabledTarget, type LocalBootstrap, type LocalEvent, type LocalNotification, type LocalSkillInstall, type ProjectConfig, type ProjectDirectorySelection, type RequestedMode, type ScanTargetSummary, type SkillSummary, type TargetType, type ToolConfig, type ValidateTargetPathResult } from "../domain/p1";
 import { seedProjects, seedSkills, seedTools } from "../fixtures/p1SeedData";
+import { appendSkillPath, defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsCandidates, defaultToolSkillsPath, detectDesktopPlatform, previewCentralStorePath, type DesktopPlatform } from "../utils/platformPaths";
 
 type TauriInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 
@@ -39,14 +40,16 @@ function isBrowserPreviewMode(): boolean {
 }
 
 function browserPreviewBootstrap(): LocalBootstrap {
+  const platform = detectDesktopPlatform();
   return {
     installs: [],
     tools: [],
     projects: [],
+    notifications: [],
     offlineEvents: [],
     pendingOfflineEventCount: 0,
     unreadLocalNotificationCount: 0,
-    centralStorePath: "Browser preview: Tauri desktop app required for local state"
+    centralStorePath: `Browser preview: Tauri desktop app required for local state (${previewCentralStorePath(platform)})`
   };
 }
 
@@ -58,17 +61,20 @@ function pendingLocalCommand(action: string): PendingLocalCommandError {
 }
 
 function buildTarget(skill: SkillSummary, targetType: TargetType, targetID: string, requestedMode: RequestedMode): EnabledTarget {
+  const platform = detectDesktopPlatform();
   const tool = seedTools.find((item) => item.toolID === targetID);
   const project = seedProjects.find((item) => item.projectID === targetID);
-  const targetPath = targetType === "tool" ? tool?.skillsPath : project?.skillsPath;
-  const targetName = targetType === "tool" ? tool?.name : project?.name;
+  const previewTool = tool ? mapPreviewTool(tool, platform) : null;
+  const previewProject = project ? mapPreviewProject(project, platform) : null;
+  const targetPath = targetType === "tool" ? previewTool?.skillsPath : previewProject?.skillsPath;
+  const targetName = targetType === "tool" ? previewTool?.name : previewProject?.name;
   const shouldFallback = targetID === "enterprise-agent-hub" || targetID === "opencode";
 
   return {
     targetType,
     targetID,
     targetName: targetName ?? targetID,
-    targetPath: `${targetPath ?? "manual-target"}\\${skill.skillID}`,
+    targetPath: appendSkillPath(targetPath ?? "manual-target", skill.skillID, platform),
     requestedMode,
     resolvedMode: shouldFallback ? "copy" : requestedMode,
     fallbackReason: shouldFallback ? "symlink_permission_denied" : null,
@@ -104,7 +110,42 @@ function buildLocalEvent(input: {
   };
 }
 
+function mapPreviewTool(tool: ToolConfig, platform: DesktopPlatform): ToolConfig {
+  if (tool.toolID === "custom_directory") {
+    return {
+      ...tool,
+      configuredPath: platform === "windows" ? tool.configuredPath : "~/ai-skills/shared",
+      skillsPath: platform === "windows" ? tool.skillsPath : "~/ai-skills/shared",
+      configPath: "手动维护"
+    };
+  }
+  const detectedPath = defaultToolSkillsCandidates(tool.toolID, platform)[0] ?? null;
+  const configuredPath = platform === "windows" ? tool.configuredPath : null;
+  return {
+    ...tool,
+    configPath: defaultToolConfigPath(tool.toolID, platform),
+    detectedPath,
+    configuredPath,
+    skillsPath: configuredPath ?? detectedPath ?? defaultToolSkillsPath(tool.toolID, platform)
+  };
+}
+
+function mapPreviewProject(project: ProjectConfig, platform: DesktopPlatform): ProjectConfig {
+  const macProjectPath = project.projectPath
+    .replaceAll("\\", "/")
+    .replace(/^D:\/workspace/i, "~/workspace");
+  const macSkillsPath = project.skillsPath
+    .replaceAll("\\", "/")
+    .replace(/^D:\/workspace/i, "~/workspace");
+  return {
+    ...project,
+    projectPath: platform === "windows" ? project.projectPath : macProjectPath,
+    skillsPath: platform === "windows" ? project.skillsPath : macSkillsPath
+  };
+}
+
 function seedLocalInstalls(): LocalSkillInstall[] {
+  const platform = detectDesktopPlatform();
   return seedSkills
     .filter((skill) => skill.localVersion !== null)
     .map((skill) => ({
@@ -116,8 +157,24 @@ function seedLocalInstalls(): LocalSkillInstall[] {
       installedAt: skill.lastEnabledAt ?? skill.publishedAt,
       updatedAt: skill.currentVersionUpdatedAt,
       localStatus: skill.enabledTargets.length > 0 ? "enabled" : "installed",
-      centralStorePath: `%APPDATA%\\EnterpriseAgentHub\\CentralStore\\${skill.skillID}\\${skill.localVersion ?? skill.version}`,
-      enabledTargets: skill.enabledTargets,
+      centralStorePath: appendSkillPath(
+        appendSkillPath(previewCentralStorePath(platform), skill.skillID, platform),
+        skill.localVersion ?? skill.version,
+        platform
+      ),
+      enabledTargets: skill.enabledTargets.map((target) => ({
+        ...target,
+        targetPath: target.targetType === "tool"
+          ? appendSkillPath(defaultToolSkillsPath(target.targetID, platform) || "manual-target", skill.skillID, platform)
+          : appendSkillPath(
+              defaultProjectSkillsPath(
+                platform === "windows" ? "D:\\workspace\\EnterpriseAgentHub" : "~/workspace/EnterpriseAgentHub",
+                platform
+              ),
+              skill.skillID,
+              platform
+            )
+      })),
       hasUpdate: skill.installState === "update_available",
       isScopeRestricted: skill.isScopeRestricted,
       canUpdate: skill.canUpdate
@@ -125,13 +182,17 @@ function seedLocalInstalls(): LocalSkillInstall[] {
 }
 
 function mockScanSummaries(): ScanTargetSummary[] {
+  const platform = detectDesktopPlatform();
+  const codexSkillsPath = defaultToolSkillsPath("codex", platform);
+  const projectRoot = platform === "windows" ? "D:\\workspace\\EnterpriseAgentHub" : "~/workspace/EnterpriseAgentHub";
+  const projectSkillsPath = defaultProjectSkillsPath(projectRoot, platform);
   return [
     {
       id: "tool:codex",
       targetType: "tool",
       targetID: "codex",
       targetName: "Codex",
-      targetPath: "%USERPROFILE%\\.codex\\skills",
+      targetPath: codexSkillsPath,
       transformStrategy: "codex_skill",
       scannedAt: new Date().toISOString(),
       counts: { managed: 1, unmanaged: 0, conflict: 1, orphan: 0 },
@@ -143,7 +204,7 @@ function mockScanSummaries(): ScanTargetSummary[] {
           targetType: "tool",
           targetID: "codex",
           targetName: "Codex",
-          targetPath: "%USERPROFILE%\\.codex\\skills\\context-router",
+          targetPath: appendSkillPath(codexSkillsPath, "context-router", platform),
           relativePath: "context-router",
           checksum: "mock-managed",
           message: "目标内容与本地登记一致，处于托管状态。"
@@ -155,7 +216,7 @@ function mockScanSummaries(): ScanTargetSummary[] {
           targetType: "tool",
           targetID: "codex",
           targetName: "Codex",
-          targetPath: "%USERPROFILE%\\.codex\\skills\\manual-note",
+          targetPath: appendSkillPath(codexSkillsPath, "manual-note", platform),
           relativePath: "manual-note",
           checksum: "mock-conflict",
           message: "发现未托管目录，启用时不会在未确认前覆盖。"
@@ -168,7 +229,7 @@ function mockScanSummaries(): ScanTargetSummary[] {
       targetType: "project",
       targetID: "enterprise-agent-hub",
       targetName: "Enterprise Agent Hub",
-      targetPath: "D:\\workspace\\EnterpriseAgentHub\\.codex\\skills",
+      targetPath: projectSkillsPath,
       transformStrategy: "codex_skill",
       scannedAt: new Date().toISOString(),
       counts: { managed: 1, unmanaged: 0, conflict: 0, orphan: 0 },
@@ -180,7 +241,7 @@ function mockScanSummaries(): ScanTargetSummary[] {
           targetType: "project",
           targetID: "enterprise-agent-hub",
           targetName: "Enterprise Agent Hub",
-          targetPath: "D:\\workspace\\EnterpriseAgentHub\\.codex\\skills\\context-router",
+          targetPath: appendSkillPath(projectSkillsPath, "context-router", platform),
           relativePath: "context-router",
           checksum: "mock-managed-project",
           message: "目标内容与本地登记一致，处于托管状态。"
@@ -200,11 +261,14 @@ export interface DesktopBridge {
   uninstallSkill(skillID: string): Promise<{ removedTargetIDs: string[]; failedTargetIDs: string[]; event: LocalEvent }>;
   enableSkill(input: { skill: SkillSummary; targetType: TargetType; targetID: string; requestedMode: RequestedMode; allowOverwrite?: boolean }): Promise<{ target: EnabledTarget; event: LocalEvent }>;
   disableSkill(input: { skill: SkillSummary; targetID: string; targetType?: TargetType }): Promise<{ event: LocalEvent }>;
+  upsertLocalNotifications(notifications: LocalNotification[]): Promise<void>;
+  markLocalNotificationsRead(notificationIDs: string[] | "all"): Promise<void>;
   markOfflineEventsSynced(eventIDs: string[]): Promise<string[]>;
   listLocalInstalls(): Promise<LocalSkillInstall[]>;
   refreshToolDetection(): Promise<ToolConfig[]>;
   scanLocalTargets(): Promise<ScanTargetSummary[]>;
   validateTargetPath(targetPath: string): Promise<ValidateTargetPathResult>;
+  pickProjectDirectory(): Promise<ProjectDirectorySelection | null>;
 }
 
 export const desktopBridge: DesktopBridge = {
@@ -222,12 +286,13 @@ export const desktopBridge: DesktopBridge = {
     await mockWait();
     return {
       installs: seedLocalInstalls(),
-      tools: seedTools,
-      projects: seedProjects,
+      tools: seedTools.map((tool) => mapPreviewTool(tool, detectDesktopPlatform())),
+      projects: seedProjects.map((project) => mapPreviewProject(project, detectDesktopPlatform())),
+      notifications: [],
       offlineEvents: [],
       pendingOfflineEventCount: 0,
-      unreadLocalNotificationCount: 1,
-      centralStorePath: "%APPDATA%\\EnterpriseAgentHub\\CentralStore"
+      unreadLocalNotificationCount: 0,
+      centralStorePath: previewCentralStorePath()
     };
   },
 
@@ -302,20 +367,22 @@ export const desktopBridge: DesktopBridge = {
     }
     await mockWait(180);
     const base = seedTools.find((item) => item.toolID === tool.toolID);
+    const platform = detectDesktopPlatform();
+    const baseTool = base ? mapPreviewTool(base, platform) : null;
     return {
       toolID: tool.toolID,
       name: tool.name ?? base?.name ?? tool.toolID,
       displayName: tool.name ?? base?.displayName ?? tool.toolID,
-      configPath: tool.configPath || base?.configPath || "手动维护",
-      detectedPath: base?.detectedPath ?? null,
+      configPath: tool.configPath || baseTool?.configPath || defaultToolConfigPath(tool.toolID, platform),
+      detectedPath: baseTool?.detectedPath ?? defaultToolSkillsCandidates(tool.toolID, platform)[0] ?? null,
       configuredPath: tool.configPath || null,
       skillsPath: tool.skillsPath,
       enabled: tool.enabled ?? true,
       status: "manual",
       adapterStatus: "manual",
       detectionMethod: "manual",
-      transform: base?.transform ?? "generic_directory",
-      transformStrategy: base?.transformStrategy ?? "generic_directory",
+      transform: baseTool?.transform ?? "generic_directory",
+      transformStrategy: baseTool?.transformStrategy ?? "generic_directory",
       enabledSkillCount: 0,
       lastScannedAt: null
     };
@@ -333,12 +400,13 @@ export const desktopBridge: DesktopBridge = {
       await requireInvoke();
     }
     await mockWait(200);
+    const platform = detectDesktopPlatform();
     return {
       projectID: project.projectID ?? project.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-"),
       name: project.name,
       displayName: project.name,
       projectPath: project.projectPath,
-      skillsPath: project.skillsPath || `${project.projectPath}\\.codex\\skills`,
+      skillsPath: project.skillsPath || defaultProjectSkillsPath(project.projectPath, platform),
       enabled: project.enabled ?? true,
       enabledSkillCount: 0,
       createdAt: new Date().toISOString(),
@@ -393,7 +461,7 @@ export const desktopBridge: DesktopBridge = {
         },
         targetType: "tool",
         targetID: "local_install",
-        targetPath: `%APPDATA%\\EnterpriseAgentHub\\CentralStore\\${skillID}`,
+        targetPath: appendSkillPath(previewCentralStorePath(), skillID, detectDesktopPlatform()),
         requestedMode: "copy",
         resolvedMode: "copy",
         fallbackReason: null,
@@ -486,6 +554,42 @@ export const desktopBridge: DesktopBridge = {
     };
   },
 
+  async upsertLocalNotifications(notifications) {
+    if (notifications.length === 0) {
+      return;
+    }
+    const invoke = getInvoke();
+    if (invoke) {
+      await invoke("upsert_local_notifications", { notifications });
+      return;
+    }
+    if (isBrowserPreviewMode()) {
+      return;
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
+    await mockWait(80);
+  },
+
+  async markLocalNotificationsRead(notificationIDs) {
+    const invoke = getInvoke();
+    if (invoke) {
+      await invoke("mark_local_notifications_read", {
+        notificationIDs: notificationIDs === "all" ? [] : notificationIDs,
+        all: notificationIDs === "all"
+      });
+      return;
+    }
+    if (isBrowserPreviewMode()) {
+      return;
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
+    await mockWait(80);
+  },
+
   async markOfflineEventsSynced(eventIDs) {
     const invoke = getInvoke();
     if (invoke) {
@@ -529,7 +633,9 @@ export const desktopBridge: DesktopBridge = {
       await requireInvoke();
     }
     await mockWait(240);
-    return seedTools.map((tool) => (tool.toolID === "windsurf" ? { ...tool, status: "missing" } : tool));
+    return seedTools
+      .map((tool) => mapPreviewTool(tool, detectDesktopPlatform()))
+      .map((tool) => (tool.toolID === "windsurf" ? { ...tool, status: "missing" } : tool));
   },
 
   async scanLocalTargets() {
@@ -571,6 +677,23 @@ export const desktopBridge: DesktopBridge = {
       exists: false,
       canCreate: targetPath.trim().length > 0,
       reason: targetPath.trim().length > 0 ? null : "路径不能为空"
+    };
+  },
+
+  async pickProjectDirectory() {
+    const invoke = getInvoke();
+    if (invoke) {
+      return invoke("pick_project_directory");
+    }
+    if (isBrowserPreviewMode()) {
+      return null;
+    }
+    if (!allowTauriMocks) {
+      await requireInvoke();
+    }
+    await mockWait(120);
+    return {
+      projectPath: detectDesktopPlatform() === "windows" ? "D:\\workspace\\selected-project" : "~/workspace/selected-project"
     };
   }
 };
