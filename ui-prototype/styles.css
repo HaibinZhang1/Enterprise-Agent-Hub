@@ -539,21 +539,40 @@ h4 {
   gap: 14px;
 }
 
-.home-grid {
+.home-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 1.35fr) minmax(260px, 0.85fr) minmax(260px, 0.85fr);
   gap: 18px;
   align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+}
+
+.home-main,
+.home-recommendations,
+.home-recommendation-list,
+.home-notice-list {
+  display: grid;
+  gap: 14px;
+}
+
+.home-focus-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 0.7fr);
+  gap: 14px;
 }
 
 .home-status-panel {
   display: grid;
   gap: 18px;
-  min-height: 520px;
+}
+
+.home-next-action {
+  display: grid;
+  align-content: space-between;
+  gap: 14px;
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: #fff;
 }
 
 .home-status-panel h2 {
@@ -656,10 +675,73 @@ h4 {
   background: #fbfffd;
 }
 
-.home-expanded {
+.home-recommendations {
+  position: sticky;
+  top: 92px;
+  align-content: start;
+}
+
+.home-recommendation-list {
+  gap: 10px;
+}
+
+.home-recommendation-item,
+.home-notice-row {
   display: grid;
   gap: 8px;
-  grid-column: 1 / -1;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.home-recommendation-trigger {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.home-recommendation-item:hover,
+.home-recommendation-item.expanded,
+.home-notice-row:hover {
+  border-color: rgba(0, 124, 104, 0.5);
+  background: #fbfffd;
+}
+
+.home-recommendation-main,
+.market-summary-head,
+.home-recommendation-summary,
+.home-notice-row span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.home-recommendation-summary {
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.market-summary-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.summary-actions {
+  justify-content: flex-end;
+}
+
+.home-notice-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
 
 .skill-card {
@@ -908,6 +990,38 @@ h4 {
   gap: 18px;
 }
 
+.skill-detail-page {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.skill-detail-page.narrow-detail {
+  max-width: 720px;
+}
+
+.skill-detail-section {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 18px;
+  align-items: start;
+}
+
+.detail-action-panel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .detail-visual {
   height: 210px;
   overflow: hidden;
@@ -1030,16 +1144,18 @@ h4 {
   .skill-layout,
   .dashboard-grid,
   .detail-grid,
-  .home-grid {
+  .detail-info-grid,
+  .home-focus-grid,
+  .home-layout {
     grid-template-columns: 1fr;
+  }
+
+  .home-recommendations {
+    position: static;
   }
 
   .stats-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
-  }
-
-  .home-status-panel {
-    min-height: auto;
   }
 }
 
@@ -1094,8 +1210,14 @@ h4 {
 
   .tool-row,
   .project-row,
-  .notice-row {
+  .notice-row,
+  .home-notice-row,
+  .market-summary-head {
     grid-template-columns: 1fr;
+  }
+
+  .detail-action-panel {
+    justify-content: flex-start;
   }
 
   .filter-grid,

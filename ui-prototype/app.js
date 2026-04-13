@@ -431,6 +431,7 @@ const state = {
   reviewTab: "pending",
   manageTab: "departments",
   homeExpanded: null,
+  detailSkillID: null,
   modal: null,
   userMenuOpen: false,
   connectionOpen: false,
@@ -718,6 +719,7 @@ function renderPage() {
   const pages = {
     home: renderHome,
     market: renderMarket,
+    detail: renderSkillDetailPage,
     my: renderMySkills,
     tools: renderTools,
     projects: renderProjects,
@@ -733,87 +735,338 @@ function renderPage() {
 
 function renderHome() {
   const counts = getCounts();
-  const recent = [...state.skills]
-    .sort((a, b) => b.currentVersionUpdatedAt.localeCompare(a.currentVersionUpdatedAt))
-    .slice(0, 4);
-  const recommended = [...state.skills].sort((a, b) => b.starCount - a.starCount).slice(0, 4);
+  const recommended = [...state.skills].sort((a, b) => b.starCount - a.starCount).slice(0, 6);
+  const signals = getHomeSkillSignals();
+  const notices = state.notifications.filter((notice) => notice.unread).slice(0, 3);
   const connection = connectionMeta();
+  const focus = getHomeFocus(counts);
   return `
     <section class="page-head">
       <div>
         <p class="eyebrow">首页</p>
-        <h1 class="page-title">使用状态</h1>
-        <p class="muted">在这里确认连接、安装、更新和通知状态，快速进入日常使用路径。</p>
+        <h1 class="page-title">${state.connection === "connected" ? "本机 Skill 状态正常" : "本机 Skill 可继续使用"}</h1>
+        <p class="muted">${connection.description}</p>
       </div>
       <div class="inline-list">
-        <button class="btn btn-primary" data-action="set-page" data-page="market">进入市场</button>
-        <button class="btn" data-action="set-page" data-page="my">查看我的 Skill</button>
+        <span class="pill ${connection.className}">${connection.label}</span>
+        ${state.connection === "connected" ? "" : `<button class="btn" data-action="retry-connection">重试连接</button>`}
       </div>
     </section>
     ${isOffline() ? renderOfflineBanner() : ""}
-    <section class="home-grid">
-      <section class="home-status-panel">
+    <section class="home-layout">
+      <div class="home-main">
+        <section class="home-focus-grid">
+          <article class="home-status-panel">
+            <div>
+              <p class="eyebrow">安装摘要</p>
+              <h2>我的 Skill</h2>
+            </div>
+            <div class="home-status-metrics">
+              <article class="stat-card">
+                <span class="muted">已安装</span>
+                <strong>${counts.installed}</strong>
+                <button class="btn btn-small" data-action="set-page" data-page="my">查看列表</button>
+              </article>
+              <article class="stat-card">
+                <span class="muted">已启用</span>
+                <strong>${counts.enabled}</strong>
+                <button class="btn btn-small" data-action="set-page" data-page="tools">查看工具</button>
+              </article>
+              <article class="stat-card">
+                <span class="muted">可更新</span>
+                <strong>${counts.updates}</strong>
+                <button class="btn btn-small" data-action="set-page" data-page="my" data-filter="updates">处理更新</button>
+              </article>
+            </div>
+          </article>
+          <article class="home-next-action">
+            <p class="eyebrow">当前动作</p>
+            <h2>${escapeHtml(focus.title)}</h2>
+            <p class="muted">${escapeHtml(focus.body)}</p>
+            <button class="btn btn-primary" data-action="${focus.action}" data-page="${focus.page || ""}" data-filter="${focus.filter || ""}" data-skill-id="${focus.skillID || ""}">${escapeHtml(focus.label)}</button>
+          </article>
+        </section>
+        <section>
+          <div class="section-head">
+            <h2>Skill 动态</h2>
+            <button class="btn btn-small" data-action="set-page" data-page="my">查看我的 Skill</button>
+          </div>
+          <div class="home-compact-grid">
+            ${signals.length ? signals.map(renderHomeSignalTile).join("") : renderEmpty("暂无动态", "安装或启用 Skill 后会在这里看到本机状态。")}
+          </div>
+        </section>
+        <section>
+          <div class="section-head">
+            <h2>通知摘要</h2>
+            <button class="btn btn-small" data-action="set-page" data-page="notifications">查看通知</button>
+          </div>
+          <div class="home-notice-list">
+            ${notices.length ? notices.map(renderHomeNoticeRow).join("") : renderEmpty("暂无通知", "新的安装、更新、路径异常或连接状态会出现在这里。")}
+          </div>
+        </section>
+      </div>
+      <aside class="home-recommendations" aria-labelledby="home-recommendations-title">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">推荐</p>
+            <h2 id="home-recommendations-title">热门推荐</h2>
+          </div>
+          <button class="btn btn-small" data-action="set-page" data-page="market">市场</button>
+        </div>
+        <div class="home-recommendation-list">
+          ${recommended.map(renderHomeRecommendationItem).join("")}
+        </div>
+      </aside>
+    </section>
+  `;
+}
+
+function getHomeFocus(counts) {
+  const update = state.skills.find((skill) => hasUpdate(skill) && skill.canUpdate);
+  const restricted = state.skills.find((skill) => skill.isScopeRestricted && isInstalled(skill));
+  const invalidTool = state.tools.find((tool) => tool.status === "invalid" || tool.status === "missing");
+  if (isOffline()) {
+    return {
+      title: "恢复服务连接",
+      body: "市场搜索、安装和更新暂不可用，已安装 Skill 仍可本地启用或停用。",
+      label: "重试连接",
+      action: "retry-connection",
+    };
+  }
+  if (update) {
+    return {
+      title: `${update.displayName} 可更新`,
+      body: `本地版本 v${update.localVersion}，市场版本 v${update.version}。`,
+      label: "处理更新",
+      action: "set-page",
+      page: "my",
+      filter: "updates",
+    };
+  }
+  if (restricted) {
+    return {
+      title: "有 Skill 权限已收缩",
+      body: `${restricted.displayName} 可继续使用当前版本，但不可更新或新增启用位置。`,
+      label: "查看详情",
+      action: "open-detail",
+      skillID: restricted.skillID,
+    };
+  }
+  if (invalidTool) {
+    return {
+      title: "修复工具路径",
+      body: `${invalidTool.name} 的路径需要手动确认后再启用 Skill。`,
+      label: "查看工具",
+      action: "set-page",
+      page: "tools",
+    };
+  }
+  if (!counts.installed) {
+    return {
+      title: "先安装一个 Skill",
+      body: "从市场选择适合当前工具或项目的 Skill。",
+      label: "进入市场",
+      action: "set-page",
+      page: "market",
+    };
+  }
+  if (!counts.enabled) {
+    return {
+      title: "把 Skill 启用到工具或项目",
+      body: "已安装的 Skill 需要写入目标目录后才会在工具中生效。",
+      label: "配置启用范围",
+      action: "set-page",
+      page: "my",
+    };
+  }
+  return {
+    title: "继续管理本机 Skill",
+    body: "安装、启用和通知状态都已就绪。",
+    label: "查看我的 Skill",
+    action: "set-page",
+    page: "my",
+  };
+}
+
+function getHomeSkillSignals() {
+  const important = state.skills.filter(
+    (skill) => (hasUpdate(skill) && skill.canUpdate) || skill.isScopeRestricted || isEnabled(skill)
+  );
+  return important.slice(0, 4);
+}
+
+function renderHomeSignalTile(skill) {
+  const [statusLabel, statusClass] = statusMeta(skill);
+  return `
+    <button class="home-skill-compact" data-action="open-detail" data-skill-id="${skill.skillID}">
+      <strong>${escapeHtml(skill.displayName)}</strong>
+      <span class="skill-id">${escapeHtml(skill.skillID)}</span>
+      <span class="meta-line">${escapeHtml(skill.authorDepartment)} · ${escapeHtml(skill.category)}</span>
+      <span class="pill ${statusClass}">${statusLabel}</span>
+    </button>
+  `;
+}
+
+function renderHomeRecommendationItem(skill) {
+  const expanded = state.homeExpanded?.section === "recommended" && state.homeExpanded?.skillID === skill.skillID;
+  const [riskLabel, riskClass] = riskMeta(skill.riskLevel);
+  const [statusLabel, statusClass] = statusMeta(skill);
+  return `
+    <article class="home-recommendation-item ${expanded ? "expanded" : ""}">
+      <button class="home-recommendation-trigger" data-action="toggle-home-recommendation" data-skill-id="${skill.skillID}">
+        <span class="home-recommendation-main">
+          <strong>${escapeHtml(skill.displayName)}</strong>
+          <span class="skill-id">${escapeHtml(skill.skillID)}</span>
+        </span>
+        <span class="meta-line">
+          <span>${escapeHtml(skill.authorDepartment)}</span>
+          <span>${skill.starCount} Star</span>
+        </span>
+        <span class="inline-list">
+          <span class="pill ${statusClass}">${statusLabel}</span>
+          <span class="pill ${riskClass}">${riskLabel}</span>
+        </span>
+      </button>
+      ${
+        expanded
+          ? `<div class="home-recommendation-summary">
+              <div class="market-summary-head">
+                <div>
+                  <strong>${escapeHtml(skill.displayName)}</strong>
+                  <span class="skill-id">${escapeHtml(skill.skillID)}</span>
+                </div>
+                ${renderStarButton(skill)}
+              </div>
+              <p class="muted">${escapeHtml(skill.description)}</p>
+              <div class="meta-line">
+                <span>${escapeHtml(skill.authorName)} / ${escapeHtml(skill.authorDepartment)}</span>
+                <span>v${escapeHtml(skill.version)}</span>
+                <span>${skill.downloadCount} 下载</span>
+              </div>
+              <div class="inline-list">
+                <span class="pill">${escapeHtml(skill.category)}</span>
+                <span class="pill ${riskClass}">${riskLabel}</span>
+                ${skill.compatibleTools.map((tool) => `<span class="pill">${escapeHtml(tool)}</span>`).join("")}
+              </div>
+              <div class="card-actions summary-actions">
+                ${renderPrimarySkillAction(skill)}
+                <button class="btn btn-small" data-action="open-detail" data-skill-id="${skill.skillID}">${
+                  skill.detailAccess === "summary" ? "受限详情" : "详情"
+                }</button>
+              </div>
+            </div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderSkillDetailPage() {
+  const skill = getSkill(state.detailSkillID);
+  if (!skill) {
+    return `
+      <section class="page-head">
         <div>
-          <span class="pill ${connection.className}">${connection.label}</span>
-          <h2>${state.connection === "connected" ? "服务可同步，本地已就绪" : "本地可用，等待恢复同步"}</h2>
-          <p class="muted">${connection.description}</p>
+          <p class="eyebrow">Skill 详情</p>
+          <h1 class="page-title">没有找到这个 Skill</h1>
+          <p class="muted">返回市场后可以重新选择。</p>
         </div>
-        <div class="home-status-metrics">
-          <article class="stat-card">
-            <span class="muted">已安装</span>
-            <strong>${counts.installed}</strong>
-            <button class="btn btn-small" data-action="set-page" data-page="my">查看列表</button>
-          </article>
-          <article class="stat-card">
-            <span class="muted">已启用</span>
-            <strong>${counts.enabled}</strong>
-            <button class="btn btn-small" data-action="set-page" data-page="tools">查看工具</button>
-          </article>
-          <article class="stat-card">
-            <span class="muted">可更新</span>
-            <strong>${counts.updates}</strong>
-            <button class="btn btn-small" data-action="set-page" data-page="my" data-filter="updates">处理更新</button>
-          </article>
+        <button class="btn btn-primary" data-action="set-page" data-page="market">返回市场</button>
+      </section>
+    `;
+  }
+  const [riskLabel, riskClass] = riskMeta(skill.riskLevel);
+  const [statusLabel, statusClass] = statusMeta(skill);
+  if (skill.detailAccess === "summary") {
+    return `
+      <section class="page-head">
+        <div>
+          <p class="eyebrow">受限详情</p>
+          <h1 class="page-title">${escapeHtml(skill.displayName)}</h1>
+          <p class="muted">该 Skill 暂未向你开放详情。</p>
+        </div>
+        <button class="btn" data-action="set-page" data-page="market">返回市场</button>
+      </section>
+      <section class="skill-detail-page narrow-detail">
+        <dl class="definition-list">
+          <dt>发布人</dt><dd>${escapeHtml(skill.authorName)}</dd>
+          <dt>部门</dt><dd>${escapeHtml(skill.authorDepartment)}</dd>
+          <dt>Star</dt><dd>${skill.starCount}</dd>
+          <dt>下载</dt><dd>${skill.downloadCount}</dd>
+          <dt>分类</dt><dd>${escapeHtml(skill.category)}</dd>
+        </dl>
+        <div class="banner">申请访问与申请使用将在后续版本开放。</div>
+      </section>
+    `;
+  }
+  return `
+    <section class="page-head">
+      <div>
+        <p class="eyebrow">Skill 详情</p>
+        <h1 class="page-title">${escapeHtml(skill.displayName)}</h1>
+        <p class="muted">${escapeHtml(skill.description)}</p>
+      </div>
+      <div class="inline-list">
+        <button class="btn" data-action="set-page" data-page="market">返回市场</button>
+        ${renderStarButton(skill)}
+      </div>
+    </section>
+    <section class="skill-detail-page">
+      <section class="skill-detail-section">
+        <div class="section-head">
+          <h2>基础信息</h2>
+          <span class="pill ${statusClass}">${statusLabel}</span>
+        </div>
+        <div class="detail-info-grid">
+          <dl class="definition-list">
+            <dt>skillID</dt><dd>${escapeHtml(skill.skillID)}</dd>
+            <dt>作者</dt><dd>${escapeHtml(skill.authorName)} / ${escapeHtml(skill.authorDepartment)}</dd>
+            <dt>当前版本</dt><dd>v${escapeHtml(skill.version)}</dd>
+            <dt>本地版本</dt><dd>${skill.localVersion ? `v${escapeHtml(skill.localVersion)}` : "未安装"}</dd>
+            <dt>更新时间</dt><dd>${escapeHtml(skill.currentVersionUpdatedAt)}</dd>
+            <dt>包大小</dt><dd>${formatFileSize(skill.packageSize)}</dd>
+            <dt>文件数</dt><dd>${skill.packageFileCount || "无"}</dd>
+            <dt>适用工具</dt><dd>${skill.compatibleTools.map(escapeHtml).join("、")}</dd>
+            <dt>适用系统</dt><dd>${skill.compatibleSystems.map(escapeHtml).join("、")}</dd>
+          </dl>
+          <div class="detail-action-panel">
+            ${renderPrimarySkillAction(skill)}
+            ${
+              isInstalled(skill)
+                ? `<button class="btn btn-small" data-action="open-targets" data-skill-id="${skill.skillID}" ${
+                    skill.isScopeRestricted ? "disabled" : ""
+                  }>启用到工具或项目</button>
+                   <button class="btn btn-danger btn-small" data-action="uninstall-skill" data-skill-id="${skill.skillID}">卸载</button>`
+                : ""
+            }
+          </div>
         </div>
       </section>
-      <section>
-        <div class="section-head">
-          <h2>最近更新</h2>
-          <button class="btn btn-small" data-action="set-page" data-page="market">查看全部</button>
-        </div>
-        <div class="home-compact-grid">
-          ${recent.map((skill) => renderHomeSkillTile(skill, "recent")).join("")}
+      <section class="skill-detail-section">
+        <h2>审核与安全信息</h2>
+        <p class="muted">${escapeHtml(skill.reviewSummary)}</p>
+        <div class="inline-list">
+          <span class="pill ${riskClass}">${riskLabel}</span>
+          <span class="pill ${statusClass}">${statusLabel}</span>
+          <span class="pill">Hash ${escapeHtml(skill.packageHash || "无")}</span>
         </div>
       </section>
-      <section>
-        <div class="section-head">
-          <h2>热门推荐</h2>
-        </div>
-        <div class="home-compact-grid">
-          ${recommended.map((skill) => renderHomeSkillTile(skill, "recommended")).join("")}
-        </div>
+      <section class="skill-detail-section">
+        <h2>README / 使用说明</h2>
+        <p class="muted">${escapeHtml(skill.readme)}</p>
       </section>
     </section>
   `;
 }
 
-function renderHomeSkillTile(skill, section) {
-  const expanded = state.homeExpanded?.section === section && state.homeExpanded?.skillID === skill.skillID;
-  if (expanded) {
-    return `
-      <div class="home-expanded">
-        ${renderSkillCard(skill)}
-        <button class="btn btn-small" data-action="toggle-home-skill" data-home-section="${section}" data-skill-id="${skill.skillID}">收起</button>
-      </div>
-    `;
-  }
-  const [statusLabel, statusClass] = statusMeta(skill);
+function renderHomeNoticeRow(notice) {
   return `
-    <button class="home-skill-compact" data-action="toggle-home-skill" data-home-section="${section}" data-skill-id="${skill.skillID}">
-      <strong>${escapeHtml(skill.displayName)}</strong>
-      <span class="skill-id">${escapeHtml(skill.skillID)}</span>
-      <span class="meta-line"><span class="star-icon">⭐️</span> ${skill.starCount} · ${escapeHtml(skill.category)}</span>
-      <span class="pill ${statusClass}">${statusLabel}</span>
+    <button class="home-notice-row" data-action="set-page" data-page="notifications">
+      <span>
+        <strong>${escapeHtml(notice.title)}</strong>
+        <span class="muted">${escapeHtml(notice.summary)}</span>
+      </span>
+      <span class="pill">${escapeHtml(notice.time)}</span>
     </button>
   `;
 }
@@ -1660,99 +1913,12 @@ function renderEmpty(title, body) {
 function renderModal() {
   if (!state.modal) return "";
   const modal = state.modal;
-  if (modal.type === "detail") return renderDetailModal(getSkill(modal.skillID));
   if (modal.type === "confirm") return renderConfirmModal(modal);
   if (modal.type === "progress") return renderProgressModal(modal);
   if (modal.type === "targets") return renderTargetsModal(getSkill(modal.skillID));
   if (modal.type === "add-tool") return renderAddToolModal();
   if (modal.type === "add-project") return renderAddProjectModal();
   return "";
-}
-
-function renderDetailModal(skill) {
-  if (!skill) return "";
-  const [riskLabel, riskClass] = riskMeta(skill.riskLevel);
-  const [statusLabel, statusClass] = statusMeta(skill);
-  if (skill.detailAccess === "summary") {
-    return `
-      <div class="detail-modal" role="dialog" aria-modal="true" aria-label="受限详情">
-        <section class="modal-panel narrow">
-          <div class="modal-head">
-            <div>
-              <p class="eyebrow">受限详情</p>
-              <h2>${escapeHtml(skill.displayName)}</h2>
-            </div>
-            <button class="btn btn-small" data-action="close-modal">关闭</button>
-          </div>
-          <div class="modal-body">
-            <div class="detail-visual"><img src="${skill.image}" alt="${escapeHtml(skill.displayName)} 摘要图" /></div>
-            <dl class="definition-list">
-              <dt>发布人</dt><dd>${escapeHtml(skill.authorName)}</dd>
-              <dt>部门</dt><dd>${escapeHtml(skill.authorDepartment)}</dd>
-              <dt>⭐️</dt><dd>${skill.starCount}</dd>
-              <dt>下载</dt><dd>${skill.downloadCount}</dd>
-              <dt>分类</dt><dd>${escapeHtml(skill.category)}</dd>
-            </dl>
-            <div class="banner">该 Skill 暂未向你开放详情。申请访问与申请使用将在后续版本开放。</div>
-          </div>
-        </section>
-      </div>
-    `;
-  }
-  return `
-    <div class="detail-modal" role="dialog" aria-modal="true" aria-label="Skill 详情">
-      <section class="modal-panel">
-        <div class="modal-head">
-          <div>
-            <p class="eyebrow">Skill 详情</p>
-            <h2>${escapeHtml(skill.displayName)}</h2>
-          </div>
-          <button class="btn btn-small" data-action="close-modal">关闭</button>
-        </div>
-        <div class="modal-body">
-          <div class="detail-grid">
-            <div>
-              <div class="detail-visual"><img src="${skill.image}" alt="${escapeHtml(skill.displayName)} 详情图" /></div>
-              <h3>README / 使用说明</h3>
-              <p class="muted">${escapeHtml(skill.readme)}</p>
-              <h3>审核与安全信息</h3>
-              <p class="muted">${escapeHtml(skill.reviewSummary)}</p>
-              <div class="inline-list">
-                <span class="pill ${riskClass}">${riskLabel}</span>
-                <span class="pill ${statusClass}">${statusLabel}</span>
-                <span class="pill">Hash ${escapeHtml(skill.packageHash || "无")}</span>
-              </div>
-            </div>
-            <aside>
-              <dl class="definition-list">
-                <dt>skillID</dt><dd>${escapeHtml(skill.skillID)}</dd>
-                <dt>作者</dt><dd>${escapeHtml(skill.authorName)} / ${escapeHtml(skill.authorDepartment)}</dd>
-                <dt>当前版本</dt><dd>v${escapeHtml(skill.version)}</dd>
-                <dt>本地版本</dt><dd>${skill.localVersion ? `v${escapeHtml(skill.localVersion)}` : "未安装"}</dd>
-                <dt>更新时间</dt><dd>${escapeHtml(skill.currentVersionUpdatedAt)}</dd>
-                <dt>包大小</dt><dd>${formatFileSize(skill.packageSize)}</dd>
-                <dt>文件数</dt><dd>${skill.packageFileCount || "无"}</dd>
-                <dt>适用工具</dt><dd>${skill.compatibleTools.map(escapeHtml).join("、")}</dd>
-                <dt>适用系统</dt><dd>${skill.compatibleSystems.map(escapeHtml).join("、")}</dd>
-              </dl>
-              <div class="modal-actions section">
-                ${renderPrimarySkillAction(skill)}
-                ${
-                  isInstalled(skill)
-                    ? `<button class="btn btn-small" data-action="open-targets" data-skill-id="${skill.skillID}" ${
-                        skill.isScopeRestricted ? "disabled" : ""
-                      }>启用到工具或项目</button>
-                       <button class="btn btn-danger btn-small" data-action="uninstall-skill" data-skill-id="${skill.skillID}">卸载</button>`
-                    : ""
-                }
-                ${renderStarButton(skill)}
-              </div>
-            </aside>
-          </div>
-        </div>
-      </section>
-    </div>
-  `;
 }
 
 function renderConfirmModal(modal) {
@@ -2178,7 +2344,9 @@ function handleAction(target) {
     render();
   }
   if (action === "open-detail") {
-    state.modal = { type: "detail", skillID: target.dataset.skillId };
+    state.detailSkillID = target.dataset.skillId;
+    state.page = "detail";
+    state.modal = null;
     render();
   }
   if (action === "close-modal") {
@@ -2227,14 +2395,15 @@ function handleAction(target) {
     state.myFilter = target.dataset.filter;
     render();
   }
-  if (action === "toggle-home-skill") {
-    const next = {
-      section: target.dataset.homeSection,
-      skillID: target.dataset.skillId,
-    };
+  if (action === "toggle-home-recommendation") {
+    const skillID = target.dataset.skillId;
     const isSame =
-      state.homeExpanded?.section === next.section && state.homeExpanded?.skillID === next.skillID;
-    state.homeExpanded = isSame ? null : next;
+      state.homeExpanded?.section === "recommended" && state.homeExpanded?.skillID === skillID;
+    if (isSame) {
+      state.homeExpanded = null;
+    } else {
+      state.homeExpanded = { section: "recommended", skillID };
+    }
     render();
   }
   if (action === "set-review-tab") {
