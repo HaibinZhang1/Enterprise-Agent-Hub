@@ -4,6 +4,7 @@ import {
   ApiErrorCode,
   InstallMode,
   LOCAL_COMMAND_NAMES,
+  P1_LOCAL_COMMANDS,
   NotificationType,
   P1_API_ROUTES,
   SkillStatus
@@ -25,7 +26,9 @@ test("cut-slice route and Tauri command names are centralized", () => {
   assert.equal(P1_API_ROUTES.skillDownloadTicket, "/skills/:skillID/download-ticket");
   assert.equal(P1_API_ROUTES.adminDepartments, "/admin/departments");
   assert.equal(P1_API_ROUTES.adminReviews, "/admin/reviews");
+  assert.equal(P1_API_ROUTES.publisherSkills, "/publisher/skills");
+  assert.equal(P1_LOCAL_COMMANDS.detectTools, "detect_tools");
   assert.ok(LOCAL_COMMAND_NAMES.includes("install_skill_package"));
   assert.ok(LOCAL_COMMAND_NAMES.includes("enable_skill"));
-  assert.ok(LOCAL_COMMAND_NAMES.includes("flush_offline_events"));
+  assert.ok(LOCAL_COMMAND_NAMES.includes("mark_offline_events_synced"));
 });

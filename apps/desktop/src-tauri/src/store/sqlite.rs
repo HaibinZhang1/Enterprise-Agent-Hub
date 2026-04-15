@@ -115,9 +115,7 @@ pub fn ordered_migrations() -> [(&'static str, &'static str); 1] {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        statements, LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL, P1_INITIAL_MIGRATION_SQL,
-    };
+    use super::{statements, LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL, P1_INITIAL_MIGRATION_SQL};
 
     #[test]
     fn migration_contains_store_owned_tables() {

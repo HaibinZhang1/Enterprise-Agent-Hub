@@ -18,6 +18,13 @@ function defaultLoginForm(apiBaseURL: string) {
 
 function LoginModal({ workspace, language }: { workspace: ReturnType<typeof useP1Workspace>; language: DisplayLanguage }) {
   const [form, setForm] = useState(() => defaultLoginForm(workspace.apiBaseURL));
+  const [submitting, setSubmitting] = useState(false);
+  const localDevSuggestion = "http://127.0.0.1:3001";
+  const authErrorMessage = workspace.authError ?? "";
+  const shouldSuggestLocalDevPort =
+    Boolean(workspace.authError) &&
+    form.serverURL.trim() !== localDevSuggestion &&
+    (authErrorMessage.includes("请求超时") || authErrorMessage.includes("无法连接服务"));
 
   useEffect(() => {
     if (!workspace.loginModalOpen) return;
@@ -25,6 +32,7 @@ function LoginModal({ workspace, language }: { workspace: ReturnType<typeof useP
       ...current,
       serverURL: workspace.apiBaseURL
     }));
+    setSubmitting(false);
   }, [workspace.apiBaseURL, workspace.loginModalOpen]);
 
   if (!workspace.loginModalOpen) return null;
@@ -33,9 +41,15 @@ function LoginModal({ workspace, language }: { workspace: ReturnType<typeof useP
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void workspace.login(form);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await workspace.login(form);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -60,10 +74,37 @@ function LoginModal({ workspace, language }: { workspace: ReturnType<typeof useP
                 <span>{localize(language, "密码", "Password")}</span>
                 <input name="password" type="password" value={form.password} onChange={updateField} data-testid="login-password" />
               </label>
-              {workspace.authError ? <div className="callout warning"><WifiOff size={16} /> {workspace.authError}</div> : null}
+              {workspace.authError ? (
+                <div className="callout warning">
+                  <WifiOff size={16} />
+                  <span>
+                    <strong>{workspace.authError}</strong>
+                    {shouldSuggestLocalDevPort ? (
+                      <small>
+                        {localize(language, "当前本机开发环境可改用", "For this local dev setup, try")} {localDevSuggestion}
+                      </small>
+                    ) : null}
+                  </span>
+                </div>
+              ) : null}
+              {shouldSuggestLocalDevPort ? (
+                <div className="inline-actions wrap">
+                  <button
+                    className="btn"
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, serverURL: localDevSuggestion }))}
+                    disabled={submitting}
+                  >
+                    {localize(language, "改用本机 3001", "Use Local 3001")}
+                  </button>
+                </div>
+              ) : null}
               <div className="inline-actions wrap">
-                <button className="btn btn-primary" type="submit" data-testid="login-submit"><LogIn size={15} />{localize(language, "登录", "Sign In")}</button>
-                <button className="btn" type="button" onClick={() => workspace.setLoginModalOpen(false)}>{localize(language, "取消", "Cancel")}</button>
+                <button className="btn btn-primary" type="submit" data-testid="login-submit" disabled={submitting}>
+                  <LogIn size={15} />
+                  {submitting ? localize(language, "正在连接...", "Connecting...") : localize(language, "登录", "Sign In")}
+                </button>
+                <button className="btn" type="button" onClick={() => workspace.setLoginModalOpen(false)} disabled={submitting}>{localize(language, "取消", "Cancel")}</button>
               </div>
             </form>
           </div>

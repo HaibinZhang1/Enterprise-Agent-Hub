@@ -1,9 +1,8 @@
 use enterprise_agent_hub_desktop::commands::local_state::{
     DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, LocalBootstrapPayload,
     LocalNotificationPayload, LocalSkillInstallPayload, OfflineSyncAckPayload, P1LocalState,
-    ProjectConfigInputPayload, ProjectConfigPayload,
-    ScanTargetSummaryPayload, ToolConfigInputPayload, ToolConfigPayload,
-    UninstallSkillPayload, ValidateTargetPathPayload,
+    ProjectConfigInputPayload, ProjectConfigPayload, ScanTargetSummaryPayload,
+    ToolConfigInputPayload, ToolConfigPayload, UninstallSkillPayload, ValidateTargetPathPayload,
 };
 use enterprise_agent_hub_desktop::commands::project_directory::{
     pick_project_directory as pick_project_directory_command, ProjectDirectorySelectionPayload,

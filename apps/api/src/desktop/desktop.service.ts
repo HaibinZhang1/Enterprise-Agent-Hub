@@ -134,15 +134,7 @@ export class DesktopService {
       acceptedEventIDs,
       rejectedEvents,
       serverStateChanged: acceptedEventIDs.length > 0,
-      remoteNotices: acceptedEventIDs.length
-        ? [
-            {
-              skillID: 'codex-review-helper',
-              noticeType: 'skill_update_available',
-              message: '该 Skill 有新版本可更新',
-            },
-          ]
-        : [],
+      remoteNotices: [],
     };
   }
 }

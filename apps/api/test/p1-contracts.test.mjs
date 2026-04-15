@@ -11,7 +11,7 @@ const migration = readFileSync(new URL('../src/database/migrations/001_p1_base.s
 const publishingMigration = readFileSync(new URL('../src/database/migrations/002_publishing_workflow.sql', import.meta.url), 'utf8');
 const packageDownloadService = readFileSync(new URL('../src/skills/package-download.service.ts', import.meta.url), 'utf8');
 const packageDownloadController = readFileSync(new URL('../src/skills/package-download.controller.ts', import.meta.url), 'utf8');
-const publishingService = readFileSync(new URL('../src/publishing/publishing.service.ts', import.meta.url), 'utf8');
+const publishingService = readFileSync(new URL('../src/publishing/publishing-publication.service.ts', import.meta.url), 'utf8');
 const seedPackage = new URL('../src/database/seeds/packages/codex-review-helper/1.2.0/package.zip', import.meta.url);
 const seedPackageHash = `sha256:${createHash('sha256').update(readFileSync(seedPackage)).digest('hex')}`;
 

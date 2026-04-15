@@ -13,6 +13,7 @@ import type {
   EnabledTarget as SharedEnabledTarget,
   InstallState as SharedInstallState,
   LocalBootstrapResponse as SharedLocalBootstrapResponse,
+  LocalNotification as SharedLocalNotification,
   LocalEvent as SharedLocalEvent,
   LocalSkillInstall as SharedLocalSkillInstall,
   NavigationItem as SharedMenuPermission,
@@ -40,6 +41,7 @@ import type {
   SubmissionType as SharedSubmissionType,
   TargetType as SharedTargetType,
   VisibilityLevel as SharedVisibilityLevel,
+  ProjectDirectorySelection as SharedProjectDirectorySelection,
   WorkflowState as SharedWorkflowState
 } from "@enterprise-agent-hub/shared-contracts";
 
@@ -100,7 +102,7 @@ export interface LocalSkillInstall extends Omit<SharedLocalSkillInstall, "enable
   enabledTargets: EnabledTarget[];
 }
 
-export interface LocalBootstrap extends Omit<SharedLocalBootstrapResponse, "installs" | "tools" | "projects"> {
+export interface LocalBootstrap extends Omit<SharedLocalBootstrapResponse, "installs" | "tools" | "projects" | "notifications" | "offlineEvents"> {
   installs: LocalSkillInstall[];
   tools: ToolConfig[];
   projects: ProjectConfig[];
@@ -214,17 +216,7 @@ export interface ValidateTargetPathResult {
   reason?: string | null;
 }
 
-export interface LocalNotification {
-  notificationID: string;
-  type: NotificationType;
-  title: string;
-  summary: string;
-  relatedSkillID: string | null;
-  targetPage: PageID;
-  occurredAt: string;
-  unread: boolean;
-  source: "server" | "local" | "sync";
-}
+export type LocalNotification = MutableDeep<SharedLocalNotification>;
 
 export interface PublishDraftFile {
   name: string;
@@ -294,9 +286,7 @@ export interface ProjectDraft {
   enabled: boolean;
 }
 
-export interface ProjectDirectorySelection {
-  projectPath: string;
-}
+export type ProjectDirectorySelection = MutableDeep<SharedProjectDirectorySelection>;
 
 export interface ActionAvailability {
   kind: "live" | PendingActionCode;

@@ -16,6 +16,7 @@ pub mod adapters;
 pub mod commands {
     pub mod distribution;
     pub mod local_state;
+    pub mod local_state_types;
     pub mod path_validation;
     pub mod project_directory;
     pub mod tool_detection;

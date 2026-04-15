@@ -1,11 +1,14 @@
 import type {
   PackageFileEntryDto,
   PublisherSubmissionDetailDto,
+  PublisherSkillSummaryDto,
   ReviewDetailDto,
   ReviewHistoryDto,
   ReviewItemDto
 } from "../common/p1-contracts";
 import { buildAvailableActions, effectiveReviewStatus, isLockActive } from "./publishing-review-policy";
+import { publisherStatusActions } from "./publishing-review-policy";
+import type { ReviewRecord, SkillRecord } from "./publishing.types";
 
 export interface ReviewItemSource {
   review_id: string;
@@ -52,6 +55,74 @@ export interface PublisherSubmissionSource extends ReviewDetailSource {
     description?: string;
     changelog?: string;
   };
+}
+
+export function buildPublisherSkillSummaries(
+  skillRows: SkillRecord[],
+  submissionRows: ReviewRecord[],
+  input: {
+    userID: string;
+    canWithdraw: (userID: string, review: ReviewRecord) => boolean;
+  }
+): PublisherSkillSummaryDto[] {
+  const submissionsBySkillID = new Map(submissionRows.map((row) => [row.skill_id, row]));
+  const summaries = new Map<string, PublisherSkillSummaryDto>();
+
+  for (const row of skillRows) {
+    const latest = submissionsBySkillID.get(row.skill_id);
+    summaries.set(row.skill_id, {
+      skillID: row.skill_id,
+      displayName: row.display_name,
+      publishedSkillExists: true,
+      currentVersion: row.version,
+      currentStatus: row.status,
+      currentVisibilityLevel: row.visibility_level,
+      currentScopeType: row.scope_type,
+      latestSubmissionID: latest?.review_id ?? null,
+      latestSubmissionType: latest?.review_type ?? null,
+      latestWorkflowState: latest?.workflow_state ?? null,
+      latestReviewStatus: latest ? effectiveReviewStatus(latest) : null,
+      latestDecision: latest?.decision ?? null,
+      latestRequestedVersion: latest?.requested_version ?? null,
+      latestRequestedVisibilityLevel: latest?.requested_visibility_level ?? null,
+      latestRequestedScopeType: latest?.requested_scope_type ?? null,
+      latestReviewSummary: latest?.review_summary ?? null,
+      submittedAt: latest?.submitted_at?.toISOString() ?? null,
+      updatedAt: (latest?.updated_at ?? new Date()).toISOString(),
+      canWithdraw: latest ? input.canWithdraw(input.userID, latest) : false,
+      availableStatusActions: publisherStatusActions(row.status),
+    });
+  }
+
+  for (const row of submissionRows) {
+    if (summaries.has(row.skill_id)) {
+      continue;
+    }
+    summaries.set(row.skill_id, {
+      skillID: row.skill_id,
+      displayName: row.skill_display_name,
+      publishedSkillExists: false,
+      currentVersion: row.current_version,
+      currentStatus: row.current_status,
+      currentVisibilityLevel: row.current_visibility_level,
+      currentScopeType: row.current_scope_type,
+      latestSubmissionID: row.review_id,
+      latestSubmissionType: row.review_type,
+      latestWorkflowState: row.workflow_state,
+      latestReviewStatus: effectiveReviewStatus(row),
+      latestDecision: row.decision ?? null,
+      latestRequestedVersion: row.requested_version ?? null,
+      latestRequestedVisibilityLevel: row.requested_visibility_level ?? null,
+      latestRequestedScopeType: row.requested_scope_type ?? null,
+      latestReviewSummary: row.review_summary ?? null,
+      submittedAt: row.submitted_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+      canWithdraw: input.canWithdraw(input.userID, row),
+      availableStatusActions: [],
+    });
+  }
+
+  return [...summaries.values()].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 export function mapReviewItem(review: ReviewItemSource, actorUserID: string): ReviewItemDto {

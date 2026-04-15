@@ -151,12 +151,15 @@ body,
 #root {
   min-width: 320px;
   min-height: 100vh;
+  height: 100%;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 img {
@@ -259,9 +262,10 @@ code {
 }
 
 .desktop-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 268px minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .sidebar {
@@ -367,8 +371,10 @@ code {
 
 .main-shell {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
@@ -385,7 +391,11 @@ code {
 }
 
 .page-shell {
+  flex: 1;
+  min-height: 0;
   padding: 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .page-stack {

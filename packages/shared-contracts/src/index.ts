@@ -372,8 +372,8 @@ export interface SkillDetail extends SkillSummary {
   readonly versions?: readonly SkillVersionSummary[];
   readonly enabledTargets: readonly EnabledTarget[];
   readonly latestVersion: SemVerString;
-  readonly hasUpdate: boolean;
-  readonly canUpdate: boolean;
+  readonly hasUpdate?: boolean;
+  readonly canUpdate?: boolean;
 }
 
 export interface ListSkillsQuery extends PaginationQuery {
@@ -421,6 +421,18 @@ export interface Notification {
   readonly createdAt: ISODateTimeString;
   readonly read: boolean;
   readonly action?: string;
+}
+
+export interface LocalNotification {
+  readonly notificationID: string;
+  readonly type: NotificationType;
+  readonly title: string;
+  readonly summary: string;
+  readonly relatedSkillID: SkillID | null;
+  readonly targetPage: NavigationItem | "detail";
+  readonly occurredAt: ISODateTimeString;
+  readonly unread: boolean;
+  readonly source: "server" | "local" | "sync";
 }
 
 export interface ListNotificationsQuery extends PaginationQuery {
@@ -714,6 +726,8 @@ export interface LocalBootstrapResponse {
   readonly installs: readonly LocalSkillInstall[];
   readonly tools: readonly ToolConfig[];
   readonly projects: readonly ProjectConfig[];
+  readonly notifications: readonly LocalNotification[];
+  readonly offlineEvents: readonly LocalEvent[];
   readonly pendingOfflineEventCount: number;
   readonly unreadLocalNotificationCount: number;
   readonly centralStorePath: string;
@@ -721,6 +735,22 @@ export interface LocalBootstrapResponse {
 
 export interface ScanToolsRequest {
   readonly toolIDs?: readonly string[];
+}
+
+export interface SaveToolConfigRequest {
+  readonly toolID: string;
+  readonly name?: string;
+  readonly configPath: string;
+  readonly skillsPath: string;
+  readonly enabled?: boolean;
+}
+
+export interface SaveProjectConfigRequest {
+  readonly projectID?: string;
+  readonly name: string;
+  readonly projectPath: string;
+  readonly skillsPath: string;
+  readonly enabled?: boolean;
 }
 
 export interface ValidateTargetPathRequest {
@@ -768,53 +798,83 @@ export interface UninstallSkillResponse {
   readonly failedTargets: readonly EnabledTarget[];
 }
 
-export interface FlushOfflineEventsRequest {
-  readonly serverBaseURL: string;
-  readonly accessToken: string;
-  readonly deviceID: DeviceID;
+export interface MarkOfflineEventsSyncedRequest {
+  readonly eventIDs: readonly string[];
 }
 
-export interface FlushOfflineEventsResponse extends LocalEventsResponse {
-  readonly remainingQueuedEventCount: number;
+export interface MarkOfflineEventsSyncedResponse {
+  readonly syncedEventIDs: readonly string[];
+}
+
+export interface ProjectDirectorySelection {
+  readonly projectPath: string;
 }
 
 export interface LocalCommandRequestMap {
   readonly get_local_bootstrap: undefined;
-  readonly scan_tools: ScanToolsRequest;
+  readonly detect_tools: ScanToolsRequest;
+  readonly save_tool_config: SaveToolConfigRequest;
+  readonly save_project_config: SaveProjectConfigRequest;
   readonly validate_target_path: ValidateTargetPathRequest;
   readonly install_skill_package: InstallSkillPackageRequest;
   readonly update_skill_package: UpdateSkillPackageRequest;
   readonly enable_skill: EnableSkillRequest;
   readonly disable_skill: DisableSkillRequest;
   readonly uninstall_skill: UninstallSkillRequest;
-  readonly flush_offline_events: FlushOfflineEventsRequest;
+  readonly upsert_local_notifications: {
+    readonly notifications: readonly LocalNotification[];
+  };
+  readonly mark_local_notifications_read: {
+    readonly notificationIDs: readonly string[];
+    readonly all: boolean;
+  };
+  readonly mark_offline_events_synced: MarkOfflineEventsSyncedRequest;
+  readonly scan_local_targets: undefined;
+  readonly list_local_installs: undefined;
+  readonly pick_project_directory: undefined;
 }
 
 export interface LocalCommandResponseMap {
   readonly get_local_bootstrap: LocalBootstrapResponse;
-  readonly scan_tools: readonly ToolConfig[];
+  readonly detect_tools: readonly ToolConfig[];
+  readonly save_tool_config: ToolConfig;
+  readonly save_project_config: ProjectConfig;
   readonly validate_target_path: ValidateTargetPathResponse;
   readonly install_skill_package: LocalSkillInstall;
   readonly update_skill_package: LocalSkillInstall;
   readonly enable_skill: EnabledTarget;
   readonly disable_skill: EnabledTarget;
   readonly uninstall_skill: UninstallSkillResponse;
-  readonly flush_offline_events: FlushOfflineEventsResponse;
+  readonly upsert_local_notifications: void;
+  readonly mark_local_notifications_read: void;
+  readonly mark_offline_events_synced: MarkOfflineEventsSyncedResponse;
+  readonly scan_local_targets: readonly ScanTargetSummary[];
+  readonly list_local_installs: readonly LocalSkillInstall[];
+  readonly pick_project_directory: ProjectDirectorySelection | null;
 }
 
 export type LocalCommandName = keyof LocalCommandRequestMap;
 
-export const LOCAL_COMMAND_NAMES = [
-  "get_local_bootstrap",
-  "scan_tools",
-  "validate_target_path",
-  "install_skill_package",
-  "update_skill_package",
-  "enable_skill",
-  "disable_skill",
-  "uninstall_skill",
-  "flush_offline_events"
-] as const satisfies readonly LocalCommandName[];
+export const P1_LOCAL_COMMANDS = {
+  getLocalBootstrap: "get_local_bootstrap",
+  detectTools: "detect_tools",
+  saveToolConfig: "save_tool_config",
+  saveProjectConfig: "save_project_config",
+  validateTargetPath: "validate_target_path",
+  installSkillPackage: "install_skill_package",
+  updateSkillPackage: "update_skill_package",
+  enableSkill: "enable_skill",
+  disableSkill: "disable_skill",
+  uninstallSkill: "uninstall_skill",
+  upsertLocalNotifications: "upsert_local_notifications",
+  markLocalNotificationsRead: "mark_local_notifications_read",
+  markOfflineEventsSynced: "mark_offline_events_synced",
+  scanLocalTargets: "scan_local_targets",
+  listLocalInstalls: "list_local_installs",
+  pickProjectDirectory: "pick_project_directory",
+} as const satisfies Record<string, LocalCommandName>;
+
+export const LOCAL_COMMAND_NAMES = Object.values(P1_LOCAL_COMMANDS) as readonly LocalCommandName[];
 
 export const P1_API_ROUTES = {
   authLogin: "/auth/login",
@@ -825,12 +885,37 @@ export const P1_API_ROUTES = {
   skillDetail: "/skills/:skillID",
   skillDownloadTicket: "/skills/:skillID/download-ticket",
   skillStar: "/skills/:skillID/star",
+  skillPackageDownload: "/skill-packages/:packageRef/download",
   notifications: "/notifications",
   notificationsMarkRead: "/notifications/mark-read",
   adminDepartments: "/admin/departments",
+  adminDepartmentDetail: "/admin/departments/:departmentID",
   adminUsers: "/admin/users",
+  adminUserDetail: "/admin/users/:targetUserID",
+  adminUserFreeze: "/admin/users/:targetUserID/freeze",
+  adminUserUnfreeze: "/admin/users/:targetUserID/unfreeze",
   adminSkills: "/admin/skills",
-  adminReviews: "/admin/reviews"
+  adminSkillDelist: "/admin/skills/:skillID/delist",
+  adminSkillRelist: "/admin/skills/:skillID/relist",
+  adminSkillArchive: "/admin/skills/:skillID",
+  adminReviews: "/admin/reviews",
+  adminReviewDetail: "/admin/reviews/:reviewID",
+  adminReviewFiles: "/admin/reviews/:reviewID/files",
+  adminReviewFileContent: "/admin/reviews/:reviewID/file-content",
+  adminReviewClaim: "/admin/reviews/:reviewID/claim",
+  adminReviewPassPrecheck: "/admin/reviews/:reviewID/pass-precheck",
+  adminReviewApprove: "/admin/reviews/:reviewID/approve",
+  adminReviewReturn: "/admin/reviews/:reviewID/return",
+  adminReviewReject: "/admin/reviews/:reviewID/reject",
+  publisherSkills: "/publisher/skills",
+  publisherSkillDelist: "/publisher/skills/:skillID/delist",
+  publisherSkillRelist: "/publisher/skills/:skillID/relist",
+  publisherSkillArchive: "/publisher/skills/:skillID/archive",
+  publisherSubmissions: "/publisher/submissions",
+  publisherSubmissionDetail: "/publisher/submissions/:submissionID",
+  publisherSubmissionFiles: "/publisher/submissions/:submissionID/files",
+  publisherSubmissionFileContent: "/publisher/submissions/:submissionID/file-content",
+  publisherSubmissionWithdraw: "/publisher/submissions/:submissionID/withdraw",
 } as const;
 
 export type P1ApiRouteName = keyof typeof P1_API_ROUTES;

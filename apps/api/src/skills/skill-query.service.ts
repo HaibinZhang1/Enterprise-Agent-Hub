@@ -31,7 +31,7 @@ export class SkillQueryService {
     }
 
     if (skill.detailAccess === 'summary') {
-      return this.toSummary(row);
+      return this.toSummary(row, requester);
     }
 
     return skill;
@@ -67,15 +67,13 @@ export class SkillQueryService {
   toDetail(row: SkillRow, requester?: RequesterScope): SkillDetail {
     return {
       ...this.toSummary(row, requester),
-      readme: '安装后通过 Desktop 选择目标工具启用，默认 symlink，失败时 copy 降级。',
-      usage: '下载并写入 Central Store 后，可启用到内置工具或项目目录。',
-      screenshots: [],
       reviewSummary: row.review_summary ?? undefined,
       riskDescription: row.risk_description ?? undefined,
-      versions: [{ version: row.version, publishedAt: toIsoString(row.published_at) }],
+      versions: row.published_at
+        ? [{ version: row.version, publishedAt: toIsoString(row.published_at) }]
+        : undefined,
       enabledTargets: [],
       latestVersion: row.version,
-      hasUpdate: false,
       canUpdate: this.authorization.canUpdate(row, requester),
     };
   }

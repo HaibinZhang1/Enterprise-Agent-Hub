@@ -51,10 +51,9 @@ fn installs_enables_restarts_and_uninstalls_the_same_published_skill() {
         eprintln!("skipping full_closure.rs because EAH_FULL_CLOSURE_ARTIFACT is not set");
         return;
     };
-    let artifact: FullClosureArtifact = serde_json::from_slice(
-        &fs::read(&artifact_path).expect("read full closure artifact"),
-    )
-    .expect("parse full closure artifact");
+    let artifact: FullClosureArtifact =
+        serde_json::from_slice(&fs::read(&artifact_path).expect("read full closure artifact"))
+            .expect("parse full closure artifact");
 
     let client = Client::new();
     let access_token = login(&client, &artifact);
@@ -143,7 +142,9 @@ fn installs_enables_restarts_and_uninstalls_the_same_published_skill() {
         .expect("uninstall skill");
     assert!(uninstall.failed_target_ids.is_empty());
     assert!(!uninstall.removed_target_ids.is_empty());
-    let after_uninstall = reopened.get_local_bootstrap().expect("bootstrap after uninstall");
+    let after_uninstall = reopened
+        .get_local_bootstrap()
+        .expect("bootstrap after uninstall");
     assert!(after_uninstall.installs.is_empty());
 
     let _ = fs::remove_dir_all(root);
