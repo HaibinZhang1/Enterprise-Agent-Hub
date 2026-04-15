@@ -6,7 +6,6 @@ This document records the **currently verifiable** P1 evidence for deployment re
 
 Primary evidence sources:
 
-- `verification/reports/p1-verification-report.md`
 - `infra/docker-compose.prod.yml`
 - `infra/docker-compose.legacy.yml`
 - `deploy/server-up.sh`, `deploy/server-down.sh`, `deploy/server-check.sh`, `deploy/load-offline-images.sh`
@@ -15,7 +14,7 @@ Primary evidence sources:
 
 ## Verified Commands
 
-The latest strict verification record is `verification/reports/p1-verification-report.md` generated on **2026-04-13** with overall status **PASS**.
+Strict verification reports are generated on demand by `node scripts/verification/p1-verify.mjs --strict` and now default to the local ignored directory `test-results/verification/`. They are runtime artifacts rather than repository evidence files.
 
 | Area | Command | Result |
 | --- | --- | --- |
@@ -42,7 +41,7 @@ The latest strict verification record is `verification/reports/p1-verification-r
 - Production Compose and legacy Compose files both parse successfully.
 - Deployment scripts exist and pass shell syntax validation.
 - Production deployment assets cover PostgreSQL, Redis, MinIO, API, migration, seed, and object-storage initialization paths.
-- The repository contains a strict verification path (`node scripts/verification/p1-verify.mjs --strict`) and its latest recorded run passed.
+- The repository contains a strict verification path (`node scripts/verification/p1-verify.mjs --strict`) that regenerates the full release-gate report locally.
 
 ### Desktop/API connectivity
 

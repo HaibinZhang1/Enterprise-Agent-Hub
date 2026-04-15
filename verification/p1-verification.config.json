@@ -4,7 +4,7 @@
   "mode": "release-gate-strictable",
   "description": "Command and artifact gates for the P1 基础闭环 team implementation. Missing product-lane artifacts are pending during parallel development and fail only with --strict.",
   "reportDefaults": {
-    "directory": "verification/reports",
+    "directory": "test-results/verification",
     "markdownFile": "p1-verification-report.md",
     "jsonFile": "p1-verification-report.json"
   },

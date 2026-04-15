@@ -230,12 +230,12 @@ if (!existsSync(configPath)) {
 }
 
 const config = readJson(configPath);
-const reportDir = path.resolve(
-  repoRoot,
-  reportDirArgIndex >= 0 && args[reportDirArgIndex + 1]
-    ? args[reportDirArgIndex + 1]
-    : config.reportDefaults?.directory ?? 'verification/reports',
-);
+  const reportDir = path.resolve(
+    repoRoot,
+    reportDirArgIndex >= 0 && args[reportDirArgIndex + 1]
+      ? args[reportDirArgIndex + 1]
+    : config.reportDefaults?.directory ?? 'test-results/verification',
+  );
 const smokeSpecPath = path.resolve(repoRoot, 'tests/smoke/p1-e2e-smoke-spec.json');
 const smokeSpec = existsSync(smokeSpecPath) ? readJson(smokeSpecPath) : { scenarios: [] };
 const smokeScenarioIds = new Set((smokeSpec.scenarios ?? []).map((scenario) => scenario.id));

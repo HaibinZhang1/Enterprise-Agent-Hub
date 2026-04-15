@@ -13,7 +13,6 @@ import type {
 } from "../domain/p1";
 
 const baseNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "tools", "projects", "notifications", "settings"];
-const adminNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "review", "manage", "tools", "projects", "notifications", "settings"];
 
 export const guestBootstrap: BootstrapContext = {
   user: {
@@ -46,71 +45,6 @@ export const guestBootstrap: BootstrapContext = {
   },
   navigation: baseNavigation,
   menuPermissions: []
-};
-
-export const seedBootstrap: BootstrapContext = {
-  user: {
-    userID: "u_001",
-    displayName: "张三",
-    role: "normal_user",
-    departmentID: "dept_frontend",
-    departmentName: "前端组",
-    locale: "zh-CN"
-  },
-  connection: {
-    status: "connected",
-    serverTime: "2026-04-11T02:30:00Z",
-    apiVersion: "p1.0"
-  },
-  features: {
-    p1Desktop: true,
-    publishSkill: true,
-    reviewWorkbench: false,
-    adminManage: false,
-    mcpManage: false,
-    pluginManage: false
-  },
-  counts: {
-    installedCount: 4,
-    enabledCount: 2,
-    updateAvailableCount: 1,
-    unreadNotificationCount: 2
-  },
-  navigation: baseNavigation,
-  menuPermissions: baseNavigation
-};
-
-export const seedAdminBootstrap: BootstrapContext = {
-  user: {
-    userID: "u_admin_l1",
-    displayName: "系统管理员",
-    role: "admin",
-    adminLevel: 1,
-    departmentID: "dept_company",
-    departmentName: "集团",
-    locale: "zh-CN"
-  },
-  connection: {
-    status: "connected",
-    serverTime: "2026-04-11T02:30:00Z",
-    apiVersion: "p1.0"
-  },
-  features: {
-    p1Desktop: true,
-    publishSkill: true,
-    reviewWorkbench: true,
-    adminManage: true,
-    mcpManage: false,
-    pluginManage: false
-  },
-  counts: {
-    installedCount: 4,
-    enabledCount: 2,
-    updateAvailableCount: 1,
-    unreadNotificationCount: 3
-  },
-  navigation: adminNavigation,
-  menuPermissions: adminNavigation
 };
 
 export const seedSkills: SkillSummary[] = [

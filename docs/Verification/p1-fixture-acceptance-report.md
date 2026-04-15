@@ -25,7 +25,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 node --test tests/smoke/p1-real-delivery-static.test.mjs
 ```
 
-Current result: all pass on 2026-04-13, aligned with `verification/reports/p1-verification-report.md`.
+Current result should be regenerated with `node scripts/verification/p1-verify.mjs --strict`; the verification report now lands in local ignored output under `test-results/verification/`.
 
 ## Evidence Checklist
 

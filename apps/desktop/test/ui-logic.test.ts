@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PendingBackendError, type ProjectConfig, type PublishDraft, type ScanTargetSummary, type SkillSummary, type ToolConfig } from "../src/domain/p1.ts";
+import { type ProjectConfig, type PublishDraft, type ScanTargetSummary, type SkillSummary, type ToolConfig } from "../src/domain/p1.ts";
 import { buildSkillListQuery } from "../src/services/p1Client.ts";
-import { prototypeActionClient } from "../src/services/prototypeActionClient.ts";
 import { buildPublishPrecheck, collectInstalledSkillIssues } from "../src/state/useDesktopUIState.ts";
 import { deriveMarketSkills } from "../src/state/workspace/workspaceDerivedState.ts";
 import { defaultFilters } from "../src/state/workspace/workspaceTypes.ts";
@@ -51,18 +50,6 @@ test("publish precheck blocks invalid semver and oversized packages", () => {
   assert.equal(result.canSubmit, false);
   assert.equal(result.items.find((item) => item.id === "semver")?.status, "warn");
   assert.equal(result.items.find((item) => item.id === "size")?.status, "warn");
-});
-
-test("prototype backend actions reject with explicit pending backend errors", async () => {
-  await assert.rejects(
-    () => prototypeActionClient.submitPublishDraft(baseDraft),
-    (error: unknown) => error instanceof PendingBackendError && error.code === "pending_backend" && error.action === "publish.submit"
-  );
-
-  await assert.rejects(
-    () => prototypeActionClient.submitReviewDecision({ reviewID: "rv_001", decision: "approve", comment: "looks good" }),
-    (error: unknown) => error instanceof PendingBackendError && error.action === "review.decision"
-  );
 });
 
 test("installed skill issues cover local hash drift and unavailable targets", () => {

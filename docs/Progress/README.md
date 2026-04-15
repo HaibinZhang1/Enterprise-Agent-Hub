@@ -6,4 +6,4 @@
 
 - 过程性进度快照已清理，避免与当前版 PRD 和验证证据发生口径冲突。
 - 当前项目完成度请以 `docs/RequirementDocument/20_p1_desktop_prd.md`、`21_p1_data_contract.md`、`22_p1_tool_adapter_contract.md`、`23_p1_interaction_spec.md` 作为规范源。
-- 当前验证结论请以 `docs/Verification/` 与 `verification/reports/p1-verification-report.md` 为准。
+- 当前验证结论请以 `docs/Verification/` 里的说明和 `node scripts/verification/p1-verify.mjs --strict` 的最新结果为准；验证报告默认输出到本地 `test-results/verification/`，不再作为入库证据。

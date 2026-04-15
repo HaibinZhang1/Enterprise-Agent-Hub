@@ -3,7 +3,18 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const p1Client = readFileSync('apps/desktop/src/services/p1Client.ts', 'utf8');
-const tauriBridge = readFileSync('apps/desktop/src/services/tauriBridge.ts', 'utf8');
+const p1ClientCore = readFileSync('apps/desktop/src/services/p1Client/core.ts', 'utf8');
+const p1ClientAuth = readFileSync('apps/desktop/src/services/p1Client/auth.ts', 'utf8');
+const p1ClientMarket = readFileSync('apps/desktop/src/services/p1Client/market.ts', 'utf8');
+const p1ClientPublisher = readFileSync('apps/desktop/src/services/p1Client/publisher.ts', 'utf8');
+const p1ClientReview = readFileSync('apps/desktop/src/services/p1Client/review.ts', 'utf8');
+const p1ClientAdmin = readFileSync('apps/desktop/src/services/p1Client/admin.ts', 'utf8');
+const tauriRuntime = readFileSync('apps/desktop/src/services/tauriBridge/runtime.ts', 'utf8');
+const tauriPackageOps = readFileSync('apps/desktop/src/services/tauriBridge/packageOps.ts', 'utf8');
+const tauriConfigOps = readFileSync('apps/desktop/src/services/tauriBridge/configOps.ts', 'utf8');
+const tauriNotificationOps = readFileSync('apps/desktop/src/services/tauriBridge/notificationOps.ts', 'utf8');
+const tauriBootstrap = readFileSync('apps/desktop/src/services/tauriBridge/bootstrap.ts', 'utf8');
+const sharedContracts = readFileSync('packages/shared-contracts/src/index.ts', 'utf8');
 const desktopPackage = JSON.parse(readFileSync('apps/desktop/package.json', 'utf8'));
 const tauriConfig = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
 const cargoToml = readFileSync('apps/desktop/src-tauri/Cargo.toml', 'utf8');
@@ -14,8 +25,12 @@ const appTsx = readFileSync('apps/desktop/src/App.tsx', 'utf8');
 const desktopShellTsx = readFileSync('apps/desktop/src/ui/DesktopApp.tsx', 'utf8');
 const desktopPagesTsx = readFileSync('apps/desktop/src/ui/desktopPages.tsx', 'utf8');
 const desktopModalsTsx = readFileSync('apps/desktop/src/ui/desktopModals.tsx', 'utf8');
+const myInstalledPage = readFileSync('apps/desktop/src/ui/pages/MyInstalledPage.tsx', 'utf8');
+const reviewPage = readFileSync('apps/desktop/src/ui/pages/ReviewPage.tsx', 'utf8');
+const pageCommon = readFileSync('apps/desktop/src/ui/pages/pageCommon.tsx', 'utf8');
+const desktopShared = readFileSync('apps/desktop/src/ui/desktopShared.tsx', 'utf8');
 const desktopUiState = readFileSync('apps/desktop/src/state/useDesktopUIState.ts', 'utf8');
-const prototypeActionClient = readFileSync('apps/desktop/src/services/prototypeActionClient.ts', 'utf8');
+const workspaceBootstrap = readFileSync('apps/desktop/src/state/workspace/facade/useWorkspaceBootstrap.ts', 'utf8');
 const domainTypes = readFileSync('apps/desktop/src/domain/p1.ts', 'utf8');
 const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
 const liveSmokeScript = readFileSync('scripts/verification/p1-live-smoke.mjs', 'utf8');
@@ -28,16 +43,20 @@ const nativeClosureTest = readFileSync('apps/desktop/src-tauri/tests/full_closur
 test('Desktop client defaults to the real API surface and does not auto-fallback to seed data', () => {
   assert.doesNotMatch(p1Client, /\/api\/v1/);
   assert.doesNotMatch(p1Client, /fixtures\/p1SeedData/);
-  assert.match(p1Client, /VITE_DESKTOP_API_BASE_URL/);
-  assert.match(p1Client, /http:\/\/127\.0\.0\.1:3000/);
-  assert.match(p1Client, /authorization/);
+  assert.match(p1ClientCore, /VITE_DESKTOP_API_BASE_URL/);
+  assert.match(p1ClientCore, /http:\/\/127\.0\.0\.1:3000/);
+  assert.match(p1ClientCore, /authorization/);
+  assert.match(p1ClientAuth, /P1_API_ROUTES\.authLogin/);
+  assert.match(p1ClientAuth, /P1_API_ROUTES\.desktopBootstrap/);
 });
 
 test('Tauri bridge only permits local command mocks behind an explicit env flag', () => {
-  assert.match(tauriBridge, /VITE_P1_ALLOW_TAURI_MOCKS/);
-  assert.match(tauriBridge, /import\.meta\.env\.DEV && import\.meta\.env\.VITE_P1_ALLOW_TAURI_MOCKS === "true"/);
-  assert.match(tauriBridge, /Tauri runtime is unavailable/);
-  assert.match(tauriBridge, /if \(!allowTauriMocks\) \{\n\s+await requireInvoke\(\);/);
+  assert.match(tauriRuntime, /VITE_P1_ALLOW_TAURI_MOCKS/);
+  assert.match(tauriRuntime, /import\.meta\.env\.DEV && import\.meta\.env\.VITE_P1_ALLOW_TAURI_MOCKS === "true"/);
+  assert.match(tauriRuntime, /Tauri runtime is unavailable/);
+  assert.match(tauriRuntime, /if \(allowTauriMocks\) \{/);
+  assert.match(tauriRuntime, /throw new Error\("Tauri mock dispatcher must be handled by the caller"\)/);
+  assert.match(tauriRuntime, /return getInvoke\(\) === null && !allowTauriMocks;/);
 });
 
 test('Desktop login defaults do not hardcode demo credentials in the product UI', () => {
@@ -64,40 +83,38 @@ test('Tauri packaging config exposes Windows installer intent and command regist
 
 test('Desktop install flow passes download-ticket into Tauri and restores local state from SQLite bootstrap', () => {
   assert.ok(p1Client.includes('downloadTicket(skill'));
-  assert.match(p1Client, /download-ticket/);
-  assert.match(p1Client, /packageURL: resolveAPIURL/);
-  assert.ok(tauriBridge.includes('install_skill_package", { downloadTicket }'));
-  assert.ok(tauriBridge.includes('update_skill_package", { downloadTicket }'));
-  assert.match(tauriBridge, /preferredMode: input\.requestedMode/);
-  assert.ok(tauriBridge.includes('save_project_config", { project }'));
-  assert.ok(tauriBridge.includes('mark_offline_events_synced", { eventIDs }'));
-  assert.match(tauriBridge, /offlineEvents: \[\]/);
-  assert.match(readFileSync('apps/desktop/src/state/useP1Workspace.ts', 'utf8'), /mergeLocalInstalls\(remoteSkills,\s*[A-Za-z]+LocalBootstrap\)/);
+  assert.match(sharedContracts, /skillDownloadTicket: "\/skills\/:skillID\/download-ticket"/);
+  assert.match(p1ClientMarket, /packageURL: resolveAPIURL/);
+  assert.ok(tauriPackageOps.includes('install_skill_package'));
+  assert.ok(tauriPackageOps.includes('update_skill_package'));
+  assert.match(tauriPackageOps, /preferredMode: input\.requestedMode/);
+  assert.ok(tauriConfigOps.includes('save_project_config'));
+  assert.ok(tauriNotificationOps.includes('mark_offline_events_synced'));
+  assert.match(tauriBootstrap, /offlineEvents: \[\]/);
+  assert.match(workspaceBootstrap, /mergeLocalInstalls\(remoteSkills,\s*currentLocalBootstrap\)/);
 });
 
-test('React desktop app is split into shell, pages, modals, and UI placeholder contracts', () => {
+test('React desktop app is split into shell, pages, modals, and UI state contracts', () => {
   assert.match(appTsx, /DesktopApp/);
   assert.match(desktopShellTsx, /useDesktopUIState/);
   assert.match(desktopPagesTsx, /ReviewPage/);
   assert.match(desktopPagesTsx, /ManagePage/);
   assert.match(desktopPagesTsx, /MyInstalledPage/);
-  assert.match(desktopPagesTsx, /发布 Skill/);
-  assert.match(desktopPagesTsx, /开始审核/);
-  assert.match(desktopPagesTsx, /approveReview/);
-  assert.match(desktopPagesTsx, /returnReview/);
-  assert.match(desktopPagesTsx, /rejectReview/);
-  assert.match(desktopPagesTsx, /PackagePreviewPanel/);
-  assert.match(desktopPagesTsx, /下载提交包/);
-  assert.match(desktopPagesTsx, /下架/);
-  assert.match(desktopPagesTsx, /上架/);
-  assert.match(desktopPagesTsx, /归档/);
-  assert.match(desktopPagesTsx, /reviewActionLabel/);
+  assert.match(myInstalledPage, /发布 Skill/);
+  assert.match(reviewPage, /开始审核/);
+  assert.match(reviewPage, /approveReview/);
+  assert.match(reviewPage, /returnReview/);
+  assert.match(reviewPage, /rejectReview/);
+  assert.match(pageCommon, /PackagePreviewPanel/);
+  assert.match(pageCommon, /下载提交包/);
+  assert.match(myInstalledPage, /下架/);
+  assert.match(myInstalledPage, /上架/);
+  assert.match(myInstalledPage, /归档/);
+  assert.match(desktopShared, /reviewActionLabel/);
   assert.match(desktopModalsTsx, /TargetsModal/);
   assert.match(desktopModalsTsx, /ConnectionStatusModal/);
   assert.match(desktopModalsTsx, /ToolEditorModal/);
   assert.match(desktopUiState, /buildPublishPrecheck/);
-  assert.match(prototypeActionClient, /PendingBackendError/);
-  assert.match(prototypeActionClient, /PendingLocalCommandError/);
 });
 
 test('Domain types now support prototype pages, modal state, preferences, and pending action errors', () => {
@@ -163,15 +180,21 @@ test('Publishing and review client routes are wired to the live API', () => {
     '/file-content',
     '/claim'
   ]) {
-    assert.match(p1Client, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(sharedContracts, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+  assert.match(p1ClientPublisher, /P1_API_ROUTES\.publisherSkills/);
+  assert.match(p1ClientPublisher, /P1_API_ROUTES\.publisherSubmissionDetail/);
+  assert.match(p1ClientReview, /P1_API_ROUTES\.adminReviews/);
+  assert.match(p1ClientReview, /P1_API_ROUTES\.adminReviewApprove/);
+  assert.match(p1ClientAdmin, /P1_API_ROUTES\.adminUsers/);
+  assert.match(p1ClientAdmin, /P1_API_ROUTES\.adminSkillArchive/);
   assert.match(domainTypes, /export type WorkflowState =/);
-  assert.match(domainTypes, /export interface PublisherSkillSummary/);
-  assert.match(domainTypes, /export interface ReviewPrecheckItem/);
+  assert.match(domainTypes, /export type PublisherSkillSummary =/);
+  assert.match(domainTypes, /export type ReviewPrecheckItem =/);
 });
 
 test('Desktop runtime does not import ui-prototype as executable code', () => {
-  for (const source of [appTsx, desktopShellTsx, desktopPagesTsx, desktopModalsTsx, desktopUiState, prototypeActionClient]) {
+  for (const source of [appTsx, desktopShellTsx, desktopPagesTsx, desktopModalsTsx, desktopUiState]) {
     assert.doesNotMatch(source, /ui-prototype/);
   }
 });
