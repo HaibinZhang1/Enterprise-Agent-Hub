@@ -43,7 +43,7 @@ function HomeRecommendation({ skill, ui }: Pick<PageProps, "ui"> & { skill: Page
 }
 
 function HomeSignalCard({ skill, workspace, ui }: PageProps & { skill: PageProps["workspace"]["installedSkills"][number] }) {
-  const action = !skill.localVersion ? "install" : skill.installState === "update_available" ? "update" : "detail";
+  const action = !skill.localVersion ? "install" : skill.installState === "update_available" ? "update" : "view";
   return (
     <article className="signal-card no-art">
       <div className="signal-mark">{categoryIcon(skill)}</div>
@@ -60,7 +60,7 @@ function HomeSignalCard({ skill, workspace, ui }: PageProps & { skill: PageProps
           {action === "update" ? (
             <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "update")}>{localize(ui.language, "更新", "Update")}</button>
           ) : null}
-          {action === "detail" ? (
+          {action === "view" ? (
             <button className="btn" onClick={() => ui.openSkillDetail(skill.skillID, "home")}>{localize(ui.language, "查看详情", "View")}</button>
           ) : null}
           {skill.localVersion ? (
@@ -78,6 +78,13 @@ export function HomePage({ workspace, ui }: PageProps) {
     .slice(0, 3);
   const recommended = (workspace.loggedIn ? workspace.skills : workspace.installedSkills).slice(0, 3);
   const notices = workspace.notifications.filter((notice) => notice.unread).slice(0, 3);
+  const openNotificationTarget = (notice: PageProps["workspace"]["notifications"][number]) => {
+    if (notice.targetPage === "detail" && notice.relatedSkillID) {
+      ui.openSkillDetail(notice.relatedSkillID, "home");
+      return;
+    }
+    ui.navigate(notice.targetPage === "detail" ? "notifications" : notice.targetPage);
+  };
 
   return (
     <div className="page-stack">
@@ -142,7 +149,7 @@ export function HomePage({ workspace, ui }: PageProps) {
           {notices.length === 0 ? <SectionEmpty title="暂无通知" body="新的安装、路径异常和连接状态会出现在这里。" /> : null}
           <div className="stack-list compact">
             {notices.map((notice) => (
-              <button className="notice-row" key={notice.notificationID} onClick={() => ui.navigate(notice.targetPage)}>
+              <button className="notice-row" key={notice.notificationID} onClick={() => openNotificationTarget(notice)}>
                 <span>
                   <strong>{notice.title}</strong>
                   <small>{notice.summary}</small>

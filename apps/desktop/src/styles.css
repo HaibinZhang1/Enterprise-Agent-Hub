@@ -16,12 +16,12 @@
   --red: #b94d57;
   --red-soft: #f8e3e6;
   --green-soft: #e1f3e6;
-  --shadow: 0 16px 38px rgba(31, 41, 40, 0.11);
-  --shadow-soft: 0 8px 22px rgba(31, 41, 40, 0.07);
-  --radius: 8px;
+  --shadow: 0 4px 12px rgba(31, 41, 40, 0.08);
+  --shadow-soft: 0 1px 3px rgba(31, 41, 40, 0.06);
+  --radius: 6px;
   font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   letter-spacing: 0;
 }
 
@@ -205,11 +205,11 @@ textarea {
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
-  padding: 11px 12px;
+  padding: 8px 10px;
 }
 
 textarea {
-  min-height: 104px;
+  min-height: 80px;
   resize: vertical;
 }
 
@@ -671,6 +671,9 @@ code {
   min-width: 0;
   padding: 0;
   overflow: hidden;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
 }
 
 .skill-grid {
@@ -859,7 +862,10 @@ dd {
 }
 
 .tone-neutral {
-  background: var(--surface-2);
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .tone-success {
@@ -1543,3 +1549,91 @@ dd {
     font-size: 1.64rem;
   }
 }
+
+/* -- Phase 3: Drawer Overflow & Details -- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(25, 34, 31, 0.42);
+  display: flex;
+  justify-content: flex-end;
+  animation: fade-in 0.2s ease-out;
+}
+
+.drawer-panel {
+  width: min(820px, calc(100vw - 40px));
+  height: 100vh;
+  background: var(--bg);
+  box-shadow: -6px 0 32px rgba(31, 41, 40, 0.16);
+  display: flex;
+  flex-direction: column;
+  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.drawer-close-row {
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer-panel .page-detail {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  max-width: 100%;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* -- Phase 3: Micro-Animations -- */
+.btn, .icon-button, .nav-item, .skill-card, .status-chip, .target-tile, .tree-button, .operation-toast, .panel, .installed-card, .tool-card, .project-card {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skill-row-main:hover .skill-row-copy h3,
+.nav-item:hover .nav-item-main span {
+  color: var(--teal-strong);
+  transition: color 0.15s ease;
+}
+
+.btn:active, .icon-button:active, .nav-item:active, .skill-row-main:active {
+  transform: scale(0.98);
+}
+
+
+/* -- Phase 3: Staggered Entry Animations -- */
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.skill-card, .installed-card, .panel {
+  animation: slide-up-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.skill-card:nth-child(1) { animation-delay: 0.05s; }
+.skill-card:nth-child(2) { animation-delay: 0.1s; }
+.skill-card:nth-child(3) { animation-delay: 0.15s; }
+.skill-card:nth-child(4) { animation-delay: 0.2s; }
+.skill-card:nth-child(n+5) { animation-delay: 0.25s; }
+

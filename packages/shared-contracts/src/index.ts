@@ -185,6 +185,7 @@ export const NavigationItem = {
   Home: "home",
   Market: "market",
   MyInstalled: "my_installed",
+  Publisher: "publisher",
   Review: "review",
   Manage: "manage",
   Tools: "tools",

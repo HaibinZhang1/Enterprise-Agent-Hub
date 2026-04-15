@@ -12,7 +12,7 @@ import type {
   ToolConfig
 } from "../domain/p1";
 
-const baseNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "tools", "projects", "notifications", "settings"];
+const baseNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "publisher", "tools", "projects", "notifications", "settings"];
 
 export const guestBootstrap: BootstrapContext = {
   user: {

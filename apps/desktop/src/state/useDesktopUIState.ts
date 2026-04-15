@@ -11,7 +11,6 @@ import type { DisplayLanguage } from "../ui/desktopShared.tsx";
 import { buildPublishPrecheck } from "./ui/publishPrecheck.ts";
 import { defaultPreferences, loadPreferences, PREFERENCES_STORAGE_KEY, resolveDisplayLanguage } from "./ui/useDesktopPreferences.ts";
 import { useDesktopNavigation } from "./ui/useDesktopNavigation.ts";
-import { useInstalledSkillsView, type InstalledListFilter } from "./ui/useInstalledSkillsView.ts";
 import { useTargetsModalState } from "./ui/useTargetsModalState.ts";
 import { useLocalConfigEditors } from "./ui/useLocalConfigEditors.ts";
 export { buildPublishPrecheck } from "./ui/publishPrecheck.ts";
@@ -77,7 +76,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     setModal
   });
 
-  const installedViewState = useInstalledSkillsView(workspace);
+
 
   const openInstallConfirm = useCallback((skill: SkillSummary, operation: "install" | "update") => {
     const title = operation === "install" ? `安装 ${skill.displayName}` : `更新 ${skill.displayName}`;
@@ -155,6 +154,8 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     activePage: navigationState.activePage,
     navigation: navigationState.navigation,
     lastShellPage: navigationState.lastShellPage,
+    drawerOpen: navigationState.drawerOpen,
+    drawerSkill: navigationState.drawerSkill,
     modal,
     confirmModal,
     flash,
@@ -162,21 +163,17 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     notificationFilter,
     reviewTab,
     preferences,
-    installedQuery: installedViewState.installedQuery,
-    installedFilter: installedViewState.installedFilter,
     toolDraft: localConfigEditors.toolDraft,
     projectDraft: localConfigEditors.projectDraft,
     targetDrafts: targetsModalState.targetDrafts,
     filteredNotifications,
     filteredReviews,
-    visibleSkillDetail,
-    filteredInstalledSkills: installedViewState.filteredInstalledSkills,
-    installedFilterCounts: installedViewState.installedFilterCounts,
-    installedSkillIssuesByID: installedViewState.installedSkillIssuesByID,
+
     clearFlash,
     closeModal,
     navigate: navigationState.navigate,
     openSkillDetail: navigationState.openSkillDetail,
+    closeSkillDetail: navigationState.closeSkillDetail,
     openInstallConfirm,
     openUninstallConfirm,
     openTargetsModal: targetsModalState.openTargetsModal,
@@ -188,8 +185,6 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     setNotificationFilter,
     setReviewTab,
     setPreferences,
-    setInstalledQuery: installedViewState.setInstalledQuery,
-    setInstalledFilter: installedViewState.setInstalledFilter,
     openToolEditor: localConfigEditors.openToolEditor,
     openProjectEditor: localConfigEditors.openProjectEditor,
     pickProjectDirectoryForDraft: localConfigEditors.pickProjectDirectoryForDraft,

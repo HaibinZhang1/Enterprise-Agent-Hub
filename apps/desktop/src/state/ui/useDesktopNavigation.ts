@@ -2,18 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DesktopModalState, NavigationPageID } from "../../domain/p1.ts";
 import type { P1WorkspaceState } from "../useP1Workspace.ts";
 
-function isShellPage(page: NavigationPageID | "detail"): page is NavigationPageID {
-  return page !== "detail";
-}
-
 export function useDesktopNavigation(input: {
   workspace: P1WorkspaceState;
   visibleSkillDetail: P1WorkspaceState["selectedSkill"];
   setModal: (modal: DesktopModalState) => void;
 }) {
   const { workspace, visibleSkillDetail, setModal } = input;
-  const [activePage, setActivePage] = useState<NavigationPageID | "detail">("home");
+  const [activePage, setActivePage] = useState<NavigationPageID>("home");
   const [lastShellPage, setLastShellPage] = useState<NavigationPageID>("home");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (activePage === "review" && !workspace.visibleNavigation.includes("review")) {
@@ -25,43 +22,46 @@ export function useDesktopNavigation(input: {
     if (activePage === "settings") {
       setActivePage(lastShellPage);
     }
-    if (activePage === "detail" && !visibleSkillDetail) {
-      setActivePage(lastShellPage);
-    }
-  }, [activePage, lastShellPage, visibleSkillDetail, workspace.visibleNavigation]);
+  }, [activePage, lastShellPage, workspace.visibleNavigation]);
 
   const navigation = useMemo(() => workspace.visibleNavigation as NavigationPageID[], [workspace.visibleNavigation]);
 
-  const navigate = useCallback((page: NavigationPageID | "detail") => {
-    if (page === "detail") {
-      if (!visibleSkillDetail) return;
-      setActivePage("detail");
-      return;
-    }
-
+  const navigate = useCallback((page: NavigationPageID) => {
     if (page === "settings") {
       setModal({ type: "settings" });
       return;
     }
 
-    if (isShellPage(page)) {
-      setLastShellPage(page);
-      setActivePage(page);
-      workspace.openPage(page);
-    }
-  }, [setModal, visibleSkillDetail, workspace]);
+    setDrawerOpen(false);
+    setLastShellPage(page);
+    setActivePage(page);
+    workspace.openPage(page);
+  }, [setModal, workspace]);
 
   const openSkillDetail = useCallback((skillID: string, sourcePage: NavigationPageID = "market") => {
     workspace.selectSkill(skillID);
-    setLastShellPage(sourcePage);
-    setActivePage("detail");
-  }, [workspace]);
+    setDrawerOpen(true);
+    if (activePage !== sourcePage) {
+      setActivePage(sourcePage);
+      setLastShellPage(sourcePage);
+    }
+  }, [activePage, workspace]);
+
+  const closeSkillDetail = useCallback(() => {
+    setDrawerOpen(false);
+  }, []);
+
+  /** The skill to display in the drawer — only non-null when drawer is explicitly open */
+  const drawerSkill = drawerOpen ? visibleSkillDetail : null;
 
   return {
     activePage,
     navigation,
     lastShellPage,
+    drawerOpen,
+    drawerSkill,
     navigate,
     openSkillDetail,
+    closeSkillDetail,
   };
 }

@@ -1,4 +1,5 @@
 import { MyInstalledPage } from "./pages/MyInstalledPage.tsx";
+import { PublisherWorkbenchPage } from "./pages/PublisherWorkbenchPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
 import { ManagePage } from "./pages/ManagePage.tsx";
 import { MarketPage, SkillDetailPanel } from "./pages/MarketPage.tsx";
@@ -15,10 +16,11 @@ export function ActivePageContent({ workspace, ui }: PageProps) {
       return <HomePage workspace={workspace} ui={ui} />;
     case "market":
       return <MarketPage workspace={workspace} ui={ui} />;
-    case "detail":
-      return ui.visibleSkillDetail ? <SkillDetailPanel skill={ui.visibleSkillDetail} workspace={workspace} ui={ui} standalone /> : <SectionEmpty title="没有找到这个 Skill" body="返回市场重新选择。" />;
+
     case "my_installed":
       return <MyInstalledPage workspace={workspace} ui={ui} />;
+    case "publisher":
+      return <PublisherWorkbenchPage workspace={workspace} ui={ui} />;
     case "review":
       return <ReviewPage workspace={workspace} ui={ui} />;
     case "manage":

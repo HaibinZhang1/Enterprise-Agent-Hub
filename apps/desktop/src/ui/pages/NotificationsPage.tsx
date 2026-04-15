@@ -4,6 +4,13 @@ import { PageProps, SectionEmpty } from "./pageCommon.tsx";
 
 export function NotificationsPage({ workspace, ui }: PageProps) {
   const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
+  const openNotificationTarget = (notice: PageProps["workspace"]["notifications"][number]) => {
+    if (notice.targetPage === "detail" && notice.relatedSkillID) {
+      ui.openSkillDetail(notice.relatedSkillID, "notifications");
+      return;
+    }
+    ui.navigate(notice.targetPage === "detail" ? "notifications" : notice.targetPage);
+  };
 
   return (
     <div className="page-stack">
@@ -46,7 +53,7 @@ export function NotificationsPage({ workspace, ui }: PageProps) {
       {ui.filteredNotifications.length === 0 ? <SectionEmpty title={localize(ui.language, "暂无通知", "No Notifications")} body={localize(ui.language, "新的安装、更新、路径异常或连接状态会出现在这里。", "Install results, updates, path issues, and connection changes will appear here.")} /> : null}
       <div className="stack-list">
         {ui.filteredNotifications.map((notice) => (
-          <button className={notice.unread ? "notice-row unread" : "notice-row"} key={notice.notificationID} onClick={() => { ui.navigate(notice.targetPage); void workspace.markNotificationsRead([notice.notificationID]); }}>
+          <button className={notice.unread ? "notice-row unread" : "notice-row"} key={notice.notificationID} onClick={() => { openNotificationTarget(notice); void workspace.markNotificationsRead([notice.notificationID]); }}>
             <span>
               <strong>{notice.title}</strong>
               <small>{notice.summary}</small>

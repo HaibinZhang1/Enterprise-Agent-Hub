@@ -5,6 +5,7 @@ import { useP1Workspace } from "../state/useP1Workspace";
 import { useDesktopUIState } from "../state/useDesktopUIState";
 import { DesktopModals, FlashToast } from "./desktopModals";
 import { ActivePageContent } from "./desktopPages";
+import { SkillDetailPanel } from "./pages/MarketPage";
 import type { DisplayLanguage } from "./desktopShared";
 import { localize, pageMetaFor, roleLabel, shellBrand } from "./desktopShared";
 
@@ -222,6 +223,17 @@ export function DesktopApp() {
           <ActivePageContent workspace={workspace} ui={ui} />
         </main>
       </div>
+
+      {ui.drawerSkill ? (
+        <div className="drawer-overlay" role="presentation" onClick={ui.closeSkillDetail}>
+          <div className="drawer-panel" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <div className="drawer-close-row">
+               <button className="btn btn-small" onClick={ui.closeSkillDetail}>关闭详情</button>
+            </div>
+            <SkillDetailPanel skill={ui.drawerSkill} workspace={workspace} ui={ui} standalone />
+          </div>
+        </div>
+      ) : null}
 
       <LoginModal workspace={workspace} language={ui.language} />
       <DesktopModals workspace={workspace} ui={ui} />

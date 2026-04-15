@@ -22,7 +22,7 @@ export const defaultFilters: MarketFilters = {
   sort: "composite"
 };
 
-export const guestNavigation: PageID[] = ["home", "market", "my_installed", "tools", "projects", "notifications", "settings"];
+export const guestNavigation: PageID[] = ["home", "market", "my_installed", "publisher", "tools", "projects", "notifications", "settings"];
 export const emptyLocalNotifications: LocalNotification[] = [];
 
 export type HandleRemoteError = (error: unknown, options?: { reopenLogin?: boolean }) => Promise<boolean>;
