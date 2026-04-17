@@ -12,6 +12,33 @@ import { guestNavigation } from "./workspaceTypes.ts";
 
 const adminNavigationPages = ["review", "admin_departments", "admin_users", "admin_skills"] as const;
 
+export function deriveVisibleNavigation(input: {
+  authState: AuthState;
+  bootstrap: BootstrapContext;
+}) {
+  const { authState, bootstrap } = input;
+  const visibleNavigation = (
+    authState === "authenticated" && bootstrap.connection.status === "connected" ? bootstrap.navigation : guestNavigation
+  ).filter((page) => page !== "notifications");
+
+  if (authState !== "authenticated" || bootstrap.connection.status !== "connected") {
+    return visibleNavigation;
+  }
+
+  if (!bootstrap.features.publishSkill || visibleNavigation.includes("publisher")) {
+    return visibleNavigation;
+  }
+
+  const myInstalledIndex = visibleNavigation.indexOf("my_installed");
+  if (myInstalledIndex >= 0) {
+    visibleNavigation.splice(myInstalledIndex + 1, 0, "publisher");
+    return visibleNavigation;
+  }
+
+  visibleNavigation.push("publisher");
+  return visibleNavigation;
+}
+
 function findDepartment(nodes: DepartmentNode[], departmentID: string | null): DepartmentNode | null {
   if (!departmentID) return null;
   for (const node of nodes) {
@@ -136,9 +163,7 @@ export function deriveWorkspaceState(input: {
     marketSkills: skills,
     scanTargets
   });
-  const visibleNavigation = (
-    authState === "authenticated" && bootstrap.connection.status === "connected" ? bootstrap.navigation : guestNavigation
-  ).filter((page) => page !== "notifications");
+  const visibleNavigation = deriveVisibleNavigation({ authState, bootstrap });
   const departmentsFilter = [...new Set(skills.map((skill) => skill.authorDepartment).filter(Boolean))] as string[];
   const compatibleTools = [...new Set(skills.flatMap((skill) => skill.compatibleTools))];
   const categories = [...new Set(skills.map((skill) => skill.category).filter(Boolean))];

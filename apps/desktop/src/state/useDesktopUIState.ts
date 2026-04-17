@@ -31,6 +31,32 @@ interface ConfirmModalState extends Exclude<DesktopModalState, { type: "none" | 
   onConfirm?: () => Promise<void> | void;
 }
 
+export function presentModalWithDrawerDismissal(
+  nextModal: DesktopModalState,
+  input: {
+    closeSkillDetail: () => void;
+    setModal: (modal: DesktopModalState) => void;
+  }
+) {
+  if (nextModal.type !== "none") {
+    input.closeSkillDetail();
+  }
+  input.setModal(nextModal);
+}
+
+export function presentConfirmWithDrawerDismissal<T>(
+  nextConfirm: T | null,
+  input: {
+    closeSkillDetail: () => void;
+    setConfirmModal: (confirm: T | null) => void;
+  }
+) {
+  if (nextConfirm) {
+    input.closeSkillDetail();
+  }
+  input.setConfirmModal(nextConfirm);
+}
+
 function defaultAppUpdateState(): AppUpdateState {
   return {
     available: true,
@@ -116,14 +142,28 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     visibleSkillDetail
   });
 
+  const presentBlockingModal = useCallback((nextModal: DesktopModalState) => {
+    presentModalWithDrawerDismissal(nextModal, {
+      closeSkillDetail: navigationState.closeSkillDetail,
+      setModal
+    });
+  }, [navigationState.closeSkillDetail]);
+
+  const presentBlockingConfirm = useCallback((nextConfirm: ConfirmModalState | null) => {
+    presentConfirmWithDrawerDismissal(nextConfirm, {
+      closeSkillDetail: navigationState.closeSkillDetail,
+      setConfirmModal
+    });
+  }, [navigationState.closeSkillDetail]);
+
   const markAppUpdateRead = useCallback(() => {
     setAppUpdate((current) => (current.unread ? { ...current, unread: false } : current));
   }, []);
 
   const openAppUpdateModal = useCallback(() => {
     markAppUpdateRead();
-    setModal({ type: "app_update" });
-  }, [markAppUpdateRead]);
+    presentBlockingModal({ type: "app_update" });
+  }, [markAppUpdateRead, presentBlockingModal]);
 
   const viewAppUpdate = useCallback(() => {
     if (appUpdate.releaseURL && typeof window !== "undefined") {
@@ -206,7 +246,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
       : skill.hasLocalHashDrift
         ? "检测到本地内容已变更，本次更新会直接覆盖 Central Store 中的本地内容。"
         : "更新会下载新包、校验 SHA-256，并覆盖 Central Store 中的旧版本。";
-    setConfirmModal({
+    presentBlockingConfirm({
       type: "confirm",
       title,
       body,
@@ -222,11 +262,11 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
         await workspace.installOrUpdate(skill.skillID, operation);
       }
     });
-  }, [closeModal, workspace]);
+  }, [closeModal, presentBlockingConfirm, workspace]);
 
   const openUninstallConfirm = useCallback((skill: SkillSummary) => {
     const referencedTargets = skill.enabledTargets.map((target) => `${target.targetName} · ${target.targetPath}`);
-    setConfirmModal({
+    presentBlockingConfirm({
       type: "confirm",
       title: `卸载 ${skill.displayName}`,
       body: "卸载会删除 Central Store 中的本地副本，并移除当前已托管的目标位置。",
@@ -242,32 +282,32 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
         await workspace.uninstallSkill(skill.skillID);
       }
     });
-  }, [closeModal, workspace]);
+  }, [closeModal, presentBlockingConfirm, workspace]);
 
   const targetsModalState = useTargetsModalState({
     workspace,
     closeModal,
-    setModal,
-    setConfirmModal: (input) => setConfirmModal(input),
+    setModal: presentBlockingModal,
+    setConfirmModal: (input) => presentBlockingConfirm(input),
     setFlash
   });
 
   const openConnectionStatus = useCallback(() => {
-    setModal({ type: "connection_status" });
-  }, []);
+    presentBlockingModal({ type: "connection_status" });
+  }, [presentBlockingModal]);
 
   const openSettingsModal = useCallback(() => {
-    setModal({ type: "settings" });
-  }, []);
+    presentBlockingModal({ type: "settings" });
+  }, [presentBlockingModal]);
 
   const openConfirm = useCallback((input: Omit<NonNullable<ConfirmModalState>, "type">) => {
-    setConfirmModal({ type: "confirm", ...input });
-  }, []);
+    presentBlockingConfirm({ type: "confirm", ...input });
+  }, [presentBlockingConfirm]);
 
   const localConfigEditors = useLocalConfigEditors({
     workspace,
     closeModal,
-    setModal,
+    setModal: presentBlockingModal,
     setFlash
   });
 

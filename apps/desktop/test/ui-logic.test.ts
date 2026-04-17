@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { type LocalNotification, type ProjectConfig, type PublishDraft, type ScanTargetSummary, type SkillSummary, type ToolConfig } from "../src/domain/p1.ts";
 import { buildSkillListQuery } from "../src/services/p1Client.ts";
-import { buildPublishPrecheck, collectInstalledSkillIssues } from "../src/state/useDesktopUIState.ts";
+import {
+  buildPublishPrecheck,
+  collectInstalledSkillIssues,
+  presentConfirmWithDrawerDismissal,
+  presentModalWithDrawerDismissal,
+} from "../src/state/useDesktopUIState.ts";
 import { deriveDesktopNotifications, notificationBadgeLabel, resolveDesktopNotificationAction, type AppUpdateState } from "../src/state/ui/desktopNotifications.ts";
 import { buildNavigationGroups } from "../src/state/ui/desktopNavigationGroups.ts";
-import { deriveMarketSkills } from "../src/state/workspace/workspaceDerivedState.ts";
+import { deriveMarketSkills, deriveVisibleNavigation } from "../src/state/workspace/workspaceDerivedState.ts";
 import { defaultFilters } from "../src/state/workspace/workspaceTypes.ts";
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { formatDisplayDate, parseDisplayDate } from "../src/utils/displayDate.ts";
@@ -39,6 +44,37 @@ test("publish precheck passes for a valid folder upload with SKILL.md", () => {
   assert.equal(result.items.find((item) => item.id === "skill-doc")?.status, "pass");
   assert.equal(result.items.find((item) => item.id === "semver")?.status, "pass");
   assert.equal(result.items.find((item) => item.id === "size")?.status, "pass");
+});
+
+test("blocking modal presentation closes the skill drawer before opening the overlay", () => {
+  const calls: string[] = [];
+  presentModalWithDrawerDismissal(
+    { type: "targets", skillID: "ops-oncall-companion" },
+    {
+      closeSkillDetail: () => {
+        calls.push("close-drawer");
+      },
+      setModal: (modal) => {
+        calls.push(`modal:${modal.type}`);
+      },
+    }
+  );
+
+  assert.deepEqual(calls, ["close-drawer", "modal:targets"]);
+});
+
+test("clearing a confirm modal does not touch the skill drawer", () => {
+  const calls: string[] = [];
+  presentConfirmWithDrawerDismissal(null, {
+    closeSkillDetail: () => {
+      calls.push("close-drawer");
+    },
+    setConfirmModal: (modal) => {
+      calls.push(`confirm:${modal === null ? "none" : "open"}`);
+    },
+  });
+
+  assert.deepEqual(calls, ["confirm:none"]);
 });
 
 test("publish precheck blocks invalid semver and oversized packages", () => {
@@ -484,6 +520,38 @@ test("workspace market derivation applies query and sort while connected", () =>
   });
 
   assert.deepEqual(result.map((skill) => skill.skillID), ["review-heavy", "review-helper"]);
+});
+
+test("visible navigation injects publisher for authenticated users with publish access", () => {
+  const navigation = deriveVisibleNavigation({
+    authState: "authenticated",
+    bootstrap: {
+      connection: { status: "connected", serverURL: "http://localhost:3000", lastError: null },
+      counts: { installedCount: 0, enabledCount: 0, updateAvailableCount: 0, unreadNotificationCount: 0 },
+      features: { publishSkill: true, reviewWorkbench: false, adminManage: false },
+      menuPermissions: ["home", "market", "my_installed", "target_management"],
+      navigation: ["home", "market", "my_installed", "target_management"],
+      user: null,
+    }
+  });
+
+  assert.deepEqual(navigation, ["home", "market", "my_installed", "publisher", "target_management"]);
+});
+
+test("visible navigation does not inject publisher when publish access is disabled", () => {
+  const navigation = deriveVisibleNavigation({
+    authState: "authenticated",
+    bootstrap: {
+      connection: { status: "connected", serverURL: "http://localhost:3000", lastError: null },
+      counts: { installedCount: 0, enabledCount: 0, updateAvailableCount: 0, unreadNotificationCount: 0 },
+      features: { publishSkill: false, reviewWorkbench: false, adminManage: false },
+      menuPermissions: ["home", "market", "my_installed", "target_management"],
+      navigation: ["home", "market", "my_installed", "target_management"],
+      user: null,
+    }
+  });
+
+  assert.deepEqual(navigation, ["home", "market", "my_installed", "target_management"]);
 });
 
 test("navigation groups split user and admin sections", () => {
