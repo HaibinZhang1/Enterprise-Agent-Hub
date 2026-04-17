@@ -5,13 +5,24 @@ const basePermissions: MenuPermission[] = [
   'home',
   'market',
   'my_installed',
-  'tools',
-  'projects',
-  'notifications',
-  'settings',
+  'publisher',
+  'target_management',
 ];
 
-const adminPermissions: MenuPermission[] = ['review', 'manage'];
+const adminPermissions: MenuPermission[] = [
+  'review',
+  'admin_departments',
+  'admin_users',
+  'admin_skills',
+];
+
+const adminBasePermissions: MenuPermission[] = [
+  'home',
+  'market',
+  'my_installed',
+  'publisher',
+  'target_management',
+];
 
 @Injectable()
 export class PermissionResolverService {
@@ -19,7 +30,7 @@ export class PermissionResolverService {
     if (user.role !== 'admin') {
       return [...basePermissions];
     }
-    return [...basePermissions.slice(0, 3), ...adminPermissions, ...basePermissions.slice(3)];
+    return [...adminBasePermissions, ...adminPermissions];
   }
 
   navigationFor(user: UserSummary): MenuPermission[] {

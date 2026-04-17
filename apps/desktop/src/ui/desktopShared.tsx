@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import {
   Archive,
-  BellDot,
   BookOpenCheck,
   Building2,
   ClipboardList,
@@ -15,13 +14,11 @@ import {
   Store,
   TerminalSquare,
   TestTube2,
-  ToolCase,
   Workflow
 } from "lucide-react";
 import type {
   AdapterStatus,
   DetectionMethod,
-  LocalNotification,
   NavigationPageID,
   PageID,
   PreferenceState,
@@ -34,6 +31,7 @@ import type {
   SkillSummary
 } from "../domain/p1";
 import type { P1WorkspaceState } from "../state/useP1Workspace";
+import type { ShellNavigationPageID } from "../state/ui/desktopNavigationGroups.ts";
 import { formatDisplayDate } from "../utils/displayDate";
 
 export type DisplayLanguage = "zh-CN" | "en-US";
@@ -42,19 +40,22 @@ export function localize(language: DisplayLanguage, zhCN: string, enUS: string):
   return language === "en-US" ? enUS : zhCN;
 }
 
-export function pageMetaFor(language: DisplayLanguage): Record<NavigationPageID, { label: string; icon: ReactNode; mark?: string }> {
+export function pageMetaFor(language: DisplayLanguage): Record<ShellNavigationPageID, { label: string; icon: ReactNode; mark?: string }> {
   return {
     home: { label: localize(language, "首页", "Home"), icon: <LayoutDashboard size={18} /> },
     market: { label: localize(language, "市场", "Market"), icon: <Store size={18} /> },
-    my_installed: { label: localize(language, "我的 Skill", "My Skills"), icon: <SquareLibrary size={18} /> },
-    publisher: { label: localize(language, "我发布的", "My Published"), icon: <Archive size={18} /> },
+    my_installed: { label: localize(language, "已安装", "Installed"), icon: <SquareLibrary size={18} /> },
+    publisher: { label: localize(language, "发布中心", "Publisher Center"), icon: <Archive size={18} /> },
+    target_management: { label: localize(language, "目标管理", "Target Management"), icon: <Workflow size={18} /> },
     review: { label: localize(language, "审核", "Reviews"), icon: <ClipboardList size={18} /> },
-    manage: { label: localize(language, "管理", "Admin"), icon: <ShieldCheck size={18} /> },
-    tools: { label: localize(language, "工具", "Tools"), icon: <ToolCase size={18} /> },
-    projects: { label: localize(language, "项目", "Projects"), icon: <FolderOpen size={18} /> },
-    notifications: { label: localize(language, "通知", "Notifications"), icon: <BellDot size={18} /> },
-    settings: { label: localize(language, "设置", "Settings"), icon: <Settings2 size={18} /> }
+    admin_departments: { label: localize(language, "部门管理", "Departments"), icon: <Building2 size={18} /> },
+    admin_users: { label: localize(language, "用户管理", "Users"), icon: <ShieldCheck size={18} /> },
+    admin_skills: { label: localize(language, "Skill 管理", "Skill Admin"), icon: <FolderOpen size={18} /> },
   };
+}
+
+export function settingsMetaFor(language: DisplayLanguage) {
+  return { label: localize(language, "设置", "Settings"), icon: <Settings2 size={18} /> };
 }
 
 export function categoryIcon(skill: SkillSummary): ReactNode {
@@ -100,6 +101,7 @@ export function roleLabel(user: P1WorkspaceState["currentUser"], language: Displ
 
 export function labelForPage(page: PageID, language: DisplayLanguage = "zh-CN"): string {
   if (page === "detail") return localize(language, "详情", "Detail");
+  if (page === "notifications") return localize(language, "通知", "Notifications");
   return pageMetaFor(language)[page].label;
 }
 
@@ -285,20 +287,6 @@ export function transformStrategyLabel(strategy: ToolConfig["transformStrategy"]
         opencode_skill: "OpenCode Skill",
         generic_directory: "通用目录"
       }[strategy];
-}
-
-export function notificationSourceLabel(source: LocalNotification["source"], language: DisplayLanguage = "zh-CN"): string {
-  return language === "en-US"
-    ? {
-        server: "Server",
-        local: "Local",
-        sync: "Sync"
-      }[source]
-    : {
-        server: "服务端",
-        local: "本地",
-        sync: "同步"
-      }[source];
 }
 
 export function flattenDepartments(nodes: P1WorkspaceState["adminData"]["departments"]): P1WorkspaceState["adminData"]["departments"] {

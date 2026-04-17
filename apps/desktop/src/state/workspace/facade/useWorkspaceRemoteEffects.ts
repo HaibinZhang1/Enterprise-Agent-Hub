@@ -4,6 +4,8 @@ import { desktopBridge } from "../../../services/tauriBridge";
 import { buildGuestBootstrap, localSummaryFromInstall, mergeLocalInstalls } from "../../p1WorkspaceHelpers";
 import type { HandleRemoteError } from "../workspaceTypes";
 
+const adminPages = ["review", "admin_departments", "admin_users", "admin_skills"] as const;
+
 export function useWorkspaceRemoteEffects(input: {
   auth: {
     activePage: string;
@@ -129,20 +131,24 @@ export function useWorkspaceRemoteEffects(input: {
   ]);
 
   useEffect(() => {
-    if (auth.activePage === "manage" && !derived.visibleNavigation.includes("manage")) {
+    if (auth.activePage === "notifications") {
       auth.setActivePageState("home");
     }
-    if (auth.activePage === "review" && !derived.visibleNavigation.includes("review")) {
+    if (adminPages.includes(auth.activePage as (typeof adminPages)[number]) && !derived.visibleNavigation.includes(auth.activePage)) {
       auth.setActivePageState("home");
     }
   }, [auth.activePage, auth.setActivePageState, derived.visibleNavigation]);
 
   useEffect(() => {
     if (auth.authState !== "authenticated" || auth.bootstrap.connection.status !== "connected") return;
-    if (auth.activePage === "manage" && auth.bootstrap.menuPermissions.includes("manage")) {
+    if (
+      (auth.activePage === "admin_departments" && auth.bootstrap.menuPermissions.includes("admin_departments")) ||
+      (auth.activePage === "admin_users" && auth.bootstrap.menuPermissions.includes("admin_users")) ||
+      (auth.activePage === "admin_skills" && auth.bootstrap.menuPermissions.includes("admin_skills"))
+    ) {
       void adminActions.refreshManageData().catch((error) => void handleRemoteError(error));
     }
-    if (auth.activePage === "my_installed" && auth.bootstrap.features.publishSkill) {
+    if (auth.activePage === "publisher" && auth.bootstrap.features.publishSkill) {
       void publisherActions.refreshPublisherData().catch((error) => void handleRemoteError(error));
     }
     if (auth.activePage === "review" && auth.bootstrap.menuPermissions.includes("review")) {

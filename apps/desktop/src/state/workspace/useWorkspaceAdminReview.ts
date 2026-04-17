@@ -21,7 +21,6 @@ export function useWorkspaceAdminReviewState() {
   const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [selectedReviewID, setSelectedReviewID] = useState<string | null>(null);
   const [selectedReview, setSelectedReview] = useState<ReviewDetail | null>(null);
-  const [manageSection, setManageSection] = useState<"departments" | "users" | "skills">("departments");
 
   const resetAdminReviewState = useCallback(() => {
     setDepartments([]);
@@ -37,7 +36,6 @@ export function useWorkspaceAdminReviewState() {
     adminSkills,
     adminUsers,
     departments,
-    manageSection,
     resetAdminReviewState,
     reviews,
     selectedDepartmentID,
@@ -46,7 +44,6 @@ export function useWorkspaceAdminReviewState() {
     setAdminSkills,
     setAdminUsers,
     setDepartments,
-    setManageSection,
     setReviews,
     setSelectedDepartmentID,
     setSelectedReview,
@@ -111,7 +108,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const createDepartment = useCallback(
     async (parentDepartmentID: string, name: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_departments", async () => {
         const nextDepartments = await p1Client.createDepartment({ parentDepartmentID, name });
         setDepartments(nextDepartments);
         setSelectedDepartmentID(parentDepartmentID);
@@ -122,7 +119,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const updateDepartment = useCallback(
     async (departmentID: string, name: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_departments", async () => {
         const nextDepartments = await p1Client.updateDepartment(departmentID, { name });
         setDepartments(nextDepartments);
       });
@@ -132,7 +129,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const deleteDepartment = useCallback(
     async (departmentID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_departments", async () => {
         await p1Client.deleteDepartment(departmentID);
         await refreshManageData();
       });
@@ -142,7 +139,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const createAdminUser = useCallback(
     async (input: { username: string; password: string; displayName: string; departmentID: string; role: "normal_user" | "admin"; adminLevel: number | null }) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_users", async () => {
         setAdminUsers(await p1Client.createAdminUser(input));
       });
     },
@@ -151,7 +148,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const updateAdminUser = useCallback(
     async (targetUserID: string, input: { displayName?: string; departmentID?: string; role?: "normal_user" | "admin"; adminLevel?: number | null }) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_users", async () => {
         setAdminUsers(await p1Client.updateAdminUser(targetUserID, input));
       });
     },
@@ -160,7 +157,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const freezeAdminUser = useCallback(
     async (targetUserID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_users", async () => {
         setAdminUsers(await p1Client.freezeAdminUser(targetUserID));
       });
     },
@@ -169,7 +166,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const unfreezeAdminUser = useCallback(
     async (targetUserID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_users", async () => {
         setAdminUsers(await p1Client.unfreezeAdminUser(targetUserID));
       });
     },
@@ -178,7 +175,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const deleteAdminUser = useCallback(
     async (targetUserID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_users", async () => {
         await p1Client.deleteAdminUser(targetUserID);
         setAdminUsers((current) => current.filter((user) => user.userID !== targetUserID));
       });
@@ -188,7 +185,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const delistAdminSkill = useCallback(
     async (skillID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_skills", async () => {
         setAdminSkills(await p1Client.delistAdminSkill(skillID));
       });
     },
@@ -197,7 +194,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const relistAdminSkill = useCallback(
     async (skillID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_skills", async () => {
         setAdminSkills(await p1Client.relistAdminSkill(skillID));
       });
     },
@@ -206,7 +203,7 @@ export function useWorkspaceAdminReviewActions(input: {
 
   const archiveAdminSkill = useCallback(
     async (skillID: string) => {
-      requireAuthenticatedAction("manage", async () => {
+      requireAuthenticatedAction("admin_skills", async () => {
         await p1Client.archiveAdminSkill(skillID);
         setAdminSkills((current) => current.filter((skill) => skill.skillID !== skillID));
       });

@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { AlertTriangle, CheckCircle2, FolderPlus, Plus, RefreshCw, Sparkles, WifiOff, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, FolderPlus, Plus, RefreshCw, Sparkles, WifiOff, X } from "lucide-react";
 import type { P1WorkspaceState } from "../state/useP1Workspace";
 import type { DesktopUIState } from "../state/useDesktopUIState";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath, previewCentralStorePath } from "../utils/platformPaths";
@@ -313,6 +313,37 @@ function ConnectionStatusModal({ workspace, ui }: { workspace: P1WorkspaceState;
   );
 }
 
+function AppUpdateModal({ ui }: { ui: DesktopUIState }) {
+  if (ui.modal.type !== "app_update") return null;
+
+  return (
+    <ModalFrame title="软件更新" eyebrow="桌面客户端" onClose={ui.closeModal} narrow>
+      <div className="callout info">
+        <Download size={16} />
+        <span>
+          <strong>发现新版本 {ui.appUpdate.latestVersion}</strong>
+          <small>{ui.appUpdate.summary}</small>
+        </span>
+      </div>
+      <div className="definition-grid">
+        <div><dt>当前版本</dt><dd>{ui.appUpdate.currentVersion}</dd></div>
+        <div><dt>最新版本</dt><dd>{ui.appUpdate.latestVersion}</dd></div>
+      </div>
+      <div className="stack-list compact">
+        {ui.appUpdate.highlights.map((highlight) => (
+          <small key={highlight}>{highlight}</small>
+        ))}
+      </div>
+      <div className="inline-actions wrap modal-actions">
+        <button className="btn btn-primary" onClick={() => void ui.viewAppUpdate()}>
+          {ui.appUpdate.actionLabel}
+        </button>
+        <button className="btn" onClick={ui.closeModal}>稍后再说</button>
+      </div>
+    </ModalFrame>
+  );
+}
+
 function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: DesktopUIState }) {
   if (ui.modal.type !== "settings") return null;
 
@@ -434,6 +465,7 @@ export function DesktopModals({ workspace, ui }: { workspace: P1WorkspaceState; 
       <ToolEditorModal ui={ui} />
       <ProjectEditorModal ui={ui} />
       <ConnectionStatusModal workspace={workspace} ui={ui} />
+      <AppUpdateModal ui={ui} />
       <SettingsModal workspace={workspace} ui={ui} />
     </>
   );

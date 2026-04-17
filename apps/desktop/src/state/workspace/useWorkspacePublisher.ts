@@ -65,7 +65,7 @@ export function useWorkspacePublisherActions(input: {
   }, [setPublisherSkills, setSelectedPublisherSubmissionID]);
 
   useEffect(() => {
-    if (authState !== "authenticated" || activePage !== "my_installed" || !selectedPublisherSubmissionID) return;
+    if (authState !== "authenticated" || activePage !== "publisher" || !selectedPublisherSubmissionID) return;
     void p1Client
       .getPublisherSubmission(selectedPublisherSubmissionID)
       .then(setSelectedPublisherSubmission)
@@ -80,7 +80,7 @@ export function useWorkspacePublisherActions(input: {
 
   const submitPublisherSubmission = useCallback(
     async (formData: FormData) => {
-      requireAuthenticatedAction("my_installed", async () => {
+      requireAuthenticatedAction("publisher", async () => {
         const submission = await p1Client.submitPublisherSubmission(formData);
         setSelectedPublisherSubmission(submission);
         setSelectedPublisherSubmissionID(submission.submissionID);
@@ -93,7 +93,7 @@ export function useWorkspacePublisherActions(input: {
 
   const withdrawPublisherSubmission = useCallback(
     async (submissionID: string) => {
-      requireAuthenticatedAction("my_installed", async () => {
+      requireAuthenticatedAction("publisher", async () => {
         const submission = await p1Client.withdrawPublisherSubmission(submissionID);
         setSelectedPublisherSubmission(submission);
         setSelectedPublisherSubmissionID(submission.submissionID);
@@ -106,7 +106,7 @@ export function useWorkspacePublisherActions(input: {
 
   const delistPublisherSkill = useCallback(
     async (skillID: string) => {
-      requireAuthenticatedAction("my_installed", async () => {
+      requireAuthenticatedAction("publisher", async () => {
         setPublisherSkills(await p1Client.delistPublisherSkill(skillID));
       });
     },
@@ -115,7 +115,7 @@ export function useWorkspacePublisherActions(input: {
 
   const relistPublisherSkill = useCallback(
     async (skillID: string) => {
-      requireAuthenticatedAction("my_installed", async () => {
+      requireAuthenticatedAction("publisher", async () => {
         setPublisherSkills(await p1Client.relistPublisherSkill(skillID));
       });
     },
@@ -124,7 +124,7 @@ export function useWorkspacePublisherActions(input: {
 
   const archivePublisherSkill = useCallback(
     async (skillID: string) => {
-      requireAuthenticatedAction("my_installed", async () => {
+      requireAuthenticatedAction("publisher", async () => {
         setPublisherSkills(await p1Client.archivePublisherSkill(skillID));
       });
     },

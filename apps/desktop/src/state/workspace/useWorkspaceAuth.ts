@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from "react";
 import type { AuthState, BootstrapContext, PageID } from "../../domain/p1";
 import { guestBootstrap } from "../../fixtures/p1SeedData";
 
+const adminPages: PageID[] = ["review", "admin_departments", "admin_users", "admin_skills"];
+
 export function useWorkspaceAuthState() {
   const [authState, setAuthState] = useState<AuthState>("guest");
   const [bootstrap, setBootstrap] = useState<BootstrapContext>(guestBootstrap);
@@ -42,10 +44,10 @@ export function useWorkspaceAuthState() {
         reviewWorkbench: false,
         adminManage: false
       },
-      navigation: current.navigation.filter((page) => page !== "review" && page !== "manage"),
-      menuPermissions: current.menuPermissions.filter((page) => page !== "review" && page !== "manage")
+      navigation: current.navigation.filter((page) => !adminPages.includes(page)),
+      menuPermissions: current.menuPermissions.filter((page) => !adminPages.includes(page))
     }));
-    setActivePageState((current) => (current === "manage" || current === "review" ? "home" : current));
+    setActivePageState((current) => (adminPages.includes(current) ? "home" : current));
   }, []);
 
   return {

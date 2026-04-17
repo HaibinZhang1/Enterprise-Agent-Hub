@@ -1,20 +1,13 @@
-import { localize, categoryIcon, formatDate, riskLabel, statusLabel } from "../desktopShared.tsx";
+import { localize, categoryIcon, riskLabel, statusLabel } from "../desktopShared.tsx";
 import { PageProps, SectionEmpty, TagPill } from "./pageCommon.tsx";
-
-function formatMetricCount(value: number, language: "zh-CN" | "en-US") {
-  return new Intl.NumberFormat(language, {
-    notation: value >= 1000 ? "compact" : "standard",
-    compactDisplay: "short",
-    maximumFractionDigits: value >= 1000 ? 1 : 0
-  }).format(value);
-}
+import { NotificationListRow } from "../NotificationPopover.tsx";
 
 function HomeMetricCards({ workspace, ui }: PageProps) {
   const metrics = [
     [localize(ui.language, "本机已安装", "Installed"), workspace.bootstrap.counts.installedCount],
     [localize(ui.language, "已启用目标", "Enabled Targets"), workspace.bootstrap.counts.enabledCount],
     [localize(ui.language, "待更新", "Updates"), workspace.bootstrap.counts.updateAvailableCount],
-    [localize(ui.language, "未读通知", "Unread"), workspace.bootstrap.counts.unreadNotificationCount]
+    [localize(ui.language, "未读通知", "Unread"), ui.notificationUnreadCount]
   ] as const;
 
   return (
@@ -77,14 +70,7 @@ export function HomePage({ workspace, ui }: PageProps) {
     .sort((left, right) => right.currentVersionUpdatedAt.localeCompare(left.currentVersionUpdatedAt))
     .slice(0, 3);
   const recommended = (workspace.loggedIn ? workspace.skills : workspace.installedSkills).slice(0, 3);
-  const notices = workspace.notifications.filter((notice) => notice.unread).slice(0, 3);
-  const openNotificationTarget = (notice: PageProps["workspace"]["notifications"][number]) => {
-    if (notice.targetPage === "detail" && notice.relatedSkillID) {
-      ui.openSkillDetail(notice.relatedSkillID, "home");
-      return;
-    }
-    ui.navigate(notice.targetPage === "detail" ? "notifications" : notice.targetPage);
-  };
+  const notices = ui.desktopNotifications.slice(0, 3);
 
   return (
     <div className="page-stack">
@@ -100,8 +86,9 @@ export function HomePage({ workspace, ui }: PageProps) {
         </div>
         <div className="inline-actions wrap">
           <button className="btn btn-primary" onClick={() => workspace.loggedIn ? ui.navigate("market") : workspace.requireAuth("market")}>{localize(ui.language, "进入市场", "Open Market")}</button>
-          <button className="btn" onClick={() => ui.navigate("my_installed")}>{localize(ui.language, "查看我的 Skill", "My Skills")}</button>
-          <button className="btn" onClick={() => ui.navigate("tools")}>{localize(ui.language, "工具管理", "Manage Tools")}</button>
+          <button className="btn" onClick={() => ui.navigate("my_installed")}>{localize(ui.language, "查看已安装", "Installed")}</button>
+          <button className="btn" onClick={() => ui.navigate("target_management")}>{localize(ui.language, "目标管理", "Target Management")}</button>
+          <button className="btn" onClick={() => ui.navigate("publisher")}>{localize(ui.language, "发布中心", "Publisher Center")}</button>
         </div>
       </section>
 
@@ -144,18 +131,11 @@ export function HomePage({ workspace, ui }: PageProps) {
               <div className="eyebrow">通知摘要</div>
               <h2>{workspace.loggedIn ? "应用内消息" : "本机提醒"}</h2>
             </div>
-            <button className="btn btn-small" onClick={() => ui.navigate("notifications")}>查看全部</button>
           </div>
-          {notices.length === 0 ? <SectionEmpty title="暂无通知" body="新的安装、路径异常和连接状态会出现在这里。" /> : null}
+          {notices.length === 0 ? <SectionEmpty title="暂无通知" body="审核进度、Skill 更新和软件更新会出现在这里。" /> : null}
           <div className="stack-list compact">
             {notices.map((notice) => (
-              <button className="notice-row" key={notice.notificationID} onClick={() => openNotificationTarget(notice)}>
-                <span>
-                  <strong>{notice.title}</strong>
-                  <small>{notice.summary}</small>
-                </span>
-                <small>{formatDate(notice.occurredAt, ui.language)}</small>
-              </button>
+              <NotificationListRow key={notice.notificationID} notification={notice} onSelect={(notification) => void ui.openDesktopNotification(notification)} ui={ui} />
             ))}
           </div>
         </article>

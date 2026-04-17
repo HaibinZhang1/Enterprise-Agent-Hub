@@ -1,13 +1,15 @@
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useState } from "react";
-import { CheckCircle2, LogIn, LogOut, RefreshCw, Search, WifiOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Bell, CheckCircle2, LogIn, LogOut, Search, WifiOff } from "lucide-react";
 import { useP1Workspace } from "../state/useP1Workspace";
-import { useDesktopUIState } from "../state/useDesktopUIState";
+import { useDesktopUIState, type DesktopUIState } from "../state/useDesktopUIState";
 import { DesktopModals, FlashToast } from "./desktopModals";
 import { ActivePageContent } from "./desktopPages";
+import { NotificationPopover } from "./NotificationPopover";
 import { SkillDetailPanel } from "./pages/MarketPage";
+import { buildNavigationGroups } from "../state/ui/desktopNavigationGroups.ts";
 import type { DisplayLanguage } from "./desktopShared";
-import { localize, pageMetaFor, roleLabel, shellBrand } from "./desktopShared";
+import { localize, pageMetaFor, roleLabel, settingsMetaFor, shellBrand } from "./desktopShared";
 
 function defaultLoginForm(apiBaseURL: string) {
   return {
@@ -115,11 +117,66 @@ function LoginModal({ workspace, language }: { workspace: ReturnType<typeof useP
   );
 }
 
+function TopbarNotifications({ ui }: { ui: DesktopUIState }) {
+  const [open, setOpen] = useState(false);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (shellRef.current && !shellRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="notification-shell" ref={shellRef}>
+      <button
+        className={open ? "icon-button notification-bell active" : "icon-button notification-bell"}
+        type="button"
+        aria-label={localize(ui.language, "打开通知", "Open notifications")}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        data-testid="notification-bell"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <Bell size={18} />
+        {ui.notificationBadge ? <span className="notification-badge">{ui.notificationBadge}</span> : null}
+      </button>
+      {open ? (
+        <NotificationPopover
+          ui={ui}
+          onSelect={(notification) => {
+            setOpen(false);
+            void ui.openDesktopNotification(notification);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function DesktopApp() {
   const workspace = useP1Workspace();
   const ui = useDesktopUIState(workspace);
   const pageMeta = pageMetaFor(ui.language);
-  const shellNavigation = ui.navigation.filter((page) => page !== "settings");
+  const settingsMeta = settingsMetaFor(ui.language);
+  const navigationGroups = buildNavigationGroups(ui.navigation);
 
   const connection = workspace.bootstrap.connection.status;
   const connectionLabel =
@@ -150,28 +207,34 @@ export function DesktopApp() {
             </div>
           </div>
 
-          <nav className="sidebar-nav">
-            {shellNavigation.map((page) => (
-              <button key={page} className={ui.activePage === page ? "nav-item active" : "nav-item"} data-testid={`nav-${page}`} onClick={() => ui.navigate(page)}>
-                <span className="nav-item-main">
-                  {pageMeta[page].icon}
-                  <span>{pageMeta[page].label}</span>
-                </span>
-                <span className="nav-item-side">
-                  {pageMeta[page].mark ? <small>{pageMeta[page].mark}</small> : null}
-                  {page === "notifications" && workspace.bootstrap.counts.unreadNotificationCount > 0 ? <b>{workspace.bootstrap.counts.unreadNotificationCount}</b> : null}
-                </span>
-              </button>
-            ))}
-          </nav>
+          <div className="sidebar-nav-stack">
+            {navigationGroups.map((group, index) =>
+              group.pages.length > 0 ? (
+                <div className="sidebar-nav-group" key={group.id}>
+                  {index > 0 ? <div className="sidebar-divider" /> : null}
+                  <nav className="sidebar-nav" aria-label={group.id === "user" ? "primary navigation" : "admin navigation"}>
+                    {group.pages.map((page) => (
+                      <button key={page} className={ui.activePage === page ? "nav-item active" : "nav-item"} data-testid={`nav-${page}`} onClick={() => ui.navigate(page)}>
+                        <span className="nav-item-main">
+                          {pageMeta[page].icon}
+                          <span>{pageMeta[page].label}</span>
+                        </span>
+                        {pageMeta[page].mark ? <span className="nav-item-side"><small>{pageMeta[page].mark}</small></span> : null}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+              ) : null
+            )}
+          </div>
         </div>
 
         <div className="sidebar-footer">
           <div className="sidebar-divider" />
           <button className={ui.modal.type === "settings" ? "nav-item active" : "nav-item"} onClick={ui.openSettingsModal}>
             <span className="nav-item-main">
-              {pageMeta.settings.icon}
-              <span>{pageMeta.settings.label}</span>
+              {settingsMeta.icon}
+              <span>{settingsMeta.label}</span>
             </span>
           </button>
         </div>
@@ -195,10 +258,7 @@ export function DesktopApp() {
             {connectionLabel}
           </button>
 
-          <button className="btn btn-small" onClick={() => void workspace.refreshBootstrap()}>
-            <RefreshCw size={15} />
-            {localize(ui.language, "刷新", "Refresh")}
-          </button>
+          <TopbarNotifications ui={ui} />
 
           <div className="account-chip">
             <div>

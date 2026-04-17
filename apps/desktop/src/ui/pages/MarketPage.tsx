@@ -1,6 +1,6 @@
-import { Download, RefreshCw, Search, ShieldAlert, Star, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, Download, RefreshCw, Search, ShieldAlert, Star } from "lucide-react";
 import type { MarketFilters, SkillSummary } from "../../domain/p1.ts";
-import { downloadAuthenticatedFile } from "../../services/p1Client.ts";
 import { categoryIcon, formatDate, localize, riskLabel, statusLabel } from "../desktopShared.tsx";
 import { AuthGateCard, PageProps, SectionEmpty, SelectField, TagPill } from "./pageCommon.tsx";
 
@@ -8,12 +8,14 @@ function formatMetricCount(value: number, language: "zh-CN" | "en-US") {
   return new Intl.NumberFormat(language, {
     notation: value >= 1000 ? "compact" : "standard",
     compactDisplay: "short",
-    maximumFractionDigits: value >= 1000 ? 1 : 0
+    maximumFractionDigits: value >= 1000 ? 1 : 0,
   }).format(value);
 }
 
 function MarketToolbar({ workspace, ui }: PageProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
+
   return (
     <section className="toolbar-shell">
       <form className="search-shell" onSubmit={(event) => event.preventDefault()}>
@@ -26,126 +28,172 @@ function MarketToolbar({ workspace, ui }: PageProps) {
           disabled={offline}
         />
       </form>
-      <div className="toolbar-grid">
+
+      <div className="toolbar-grid market-filter-grid">
         <SelectField
           label={localize(ui.language, "部门", "Department")}
           value={workspace.filters.department}
           options={[
             { value: "all", label: localize(ui.language, "全部", "All") },
-            ...workspace.departments.map((department) => ({ value: department, label: department }))
+            ...workspace.departments.map((department) => ({ value: department, label: department })),
           ]}
           onChange={(value) => workspace.setFilters((current) => ({ ...current, department: value }))}
           disabled={offline}
         />
         <SelectField
-          label={localize(ui.language, "工具", "Tool")}
+          label={localize(ui.language, "工具兼容", "Tool Compatibility")}
           value={workspace.filters.compatibleTool}
           options={[
             { value: "all", label: localize(ui.language, "全部", "All") },
-            ...workspace.compatibleTools.map((tool) => ({ value: tool, label: tool }))
+            ...workspace.compatibleTools.map((tool) => ({ value: tool, label: tool })),
           ]}
           onChange={(value) => workspace.setFilters((current) => ({ ...current, compatibleTool: value }))}
           disabled={offline}
         />
         <SelectField
-          label={localize(ui.language, "安装", "Install")}
+          label={localize(ui.language, "安装状态", "Install Status")}
           value={workspace.filters.installed}
           options={[
             { value: "all", label: localize(ui.language, "全部", "All") },
             { value: "installed", label: localize(ui.language, "已安装", "Installed") },
-            { value: "not_installed", label: localize(ui.language, "未安装", "Not Installed") }
+            { value: "not_installed", label: localize(ui.language, "未安装", "Not Installed") },
           ]}
           onChange={(value) => workspace.setFilters((current) => ({ ...current, installed: value as MarketFilters["installed"] }))}
           disabled={offline}
         />
-        <SelectField
-          label={localize(ui.language, "启用", "Enabled")}
-          value={workspace.filters.enabled}
-          options={[
-            { value: "all", label: localize(ui.language, "全部", "All") },
-            { value: "enabled", label: localize(ui.language, "已启用", "Enabled") },
-            { value: "not_enabled", label: localize(ui.language, "未启用", "Not Enabled") }
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, enabled: value as MarketFilters["enabled"] }))}
-          disabled={offline}
-        />
-        <SelectField
-          label={localize(ui.language, "权限", "Access")}
-          value={workspace.filters.accessScope}
-          options={[
-            { value: "include_public", label: localize(ui.language, "全部可见", "All Visible") },
-            { value: "authorized_only", label: localize(ui.language, "仅授权", "Authorized Only") }
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, accessScope: value as MarketFilters["accessScope"] }))}
-          disabled={offline}
-        />
-        <SelectField
-          label={localize(ui.language, "分类", "Category")}
-          value={workspace.filters.category}
-          options={[
-            { value: "all", label: localize(ui.language, "全部", "All") },
-            ...workspace.categories.map((category) => ({ value: category, label: category }))
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, category: value }))}
-          disabled={offline}
-        />
-        <SelectField
-          label={localize(ui.language, "风险", "Risk")}
-          value={workspace.filters.riskLevel}
-          options={[
-            { value: "all", label: localize(ui.language, "全部", "All") },
-            { value: "low", label: localize(ui.language, "低", "Low") },
-            { value: "medium", label: localize(ui.language, "中", "Medium") },
-            { value: "high", label: localize(ui.language, "高", "High") },
-            { value: "unknown", label: localize(ui.language, "未知", "Unknown") }
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, riskLevel: value as MarketFilters["riskLevel"] }))}
-          disabled={offline}
-        />
-        <SelectField
-          label={localize(ui.language, "发布时间", "Published")}
-          value={workspace.filters.publishedWithin}
-          options={[
-            { value: "all", label: localize(ui.language, "全部时间", "Any Time") },
-            { value: "7d", label: localize(ui.language, "最近 7 天", "Last 7 Days") },
-            { value: "30d", label: localize(ui.language, "最近 30 天", "Last 30 Days") },
-            { value: "90d", label: localize(ui.language, "最近 90 天", "Last 90 Days") }
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, publishedWithin: value as MarketFilters["publishedWithin"] }))}
-          disabled={offline}
-        />
-        <SelectField
-          label={localize(ui.language, "更新时间", "Updated")}
-          value={workspace.filters.updatedWithin}
-          options={[
-            { value: "all", label: localize(ui.language, "全部时间", "Any Time") },
-            { value: "7d", label: localize(ui.language, "最近 7 天", "Last 7 Days") },
-            { value: "30d", label: localize(ui.language, "最近 30 天", "Last 30 Days") },
-            { value: "90d", label: localize(ui.language, "最近 90 天", "Last 90 Days") }
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, updatedWithin: value as MarketFilters["updatedWithin"] }))}
-          disabled={offline}
-        />
-        <SelectField
-          label={localize(ui.language, "排序", "Sort")}
-          value={workspace.filters.sort}
-          options={[
-            { value: "composite", label: localize(ui.language, "综合排序", "Recommended") },
-            { value: "latest_published", label: localize(ui.language, "最新发布", "Latest Published") },
-            { value: "recently_updated", label: localize(ui.language, "最近更新", "Recently Updated") },
-            { value: "download_count", label: localize(ui.language, "下载量", "Downloads") },
-            { value: "star_count", label: localize(ui.language, "收藏数", "Stars") },
-            { value: "relevance", label: localize(ui.language, "相关度", "Relevance") }
-          ]}
-          onChange={(value) => workspace.setFilters((current) => ({ ...current, sort: value as MarketFilters["sort"] }))}
-          disabled={false}
-        />
+        <div className="market-filter-toggle">
+          <button className={showAdvanced ? "btn btn-primary btn-small" : "btn btn-small"} type="button" onClick={() => setShowAdvanced((current) => !current)}>
+            {showAdvanced ? "收起高级筛选" : "展开高级筛选"}
+          </button>
+        </div>
       </div>
+
+      {showAdvanced ? (
+        <div className="toolbar-grid market-filter-grid">
+          <SelectField
+            label={localize(ui.language, "启用状态", "Enabled Status")}
+            value={workspace.filters.enabled}
+            options={[
+              { value: "all", label: localize(ui.language, "全部", "All") },
+              { value: "enabled", label: localize(ui.language, "已启用", "Enabled") },
+              { value: "not_enabled", label: localize(ui.language, "未启用", "Not Enabled") },
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, enabled: value as MarketFilters["enabled"] }))}
+            disabled={offline}
+          />
+          <SelectField
+            label={localize(ui.language, "权限范围", "Access Scope")}
+            value={workspace.filters.accessScope}
+            options={[
+              { value: "include_public", label: localize(ui.language, "全部可见", "All Visible") },
+              { value: "authorized_only", label: localize(ui.language, "仅授权", "Authorized Only") },
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, accessScope: value as MarketFilters["accessScope"] }))}
+            disabled={offline}
+          />
+          <SelectField
+            label={localize(ui.language, "分类", "Category")}
+            value={workspace.filters.category}
+            options={[
+              { value: "all", label: localize(ui.language, "全部", "All") },
+              ...workspace.categories.map((category) => ({ value: category, label: category })),
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, category: value }))}
+            disabled={offline}
+          />
+          <SelectField
+            label={localize(ui.language, "风险等级", "Risk")}
+            value={workspace.filters.riskLevel}
+            options={[
+              { value: "all", label: localize(ui.language, "全部", "All") },
+              { value: "low", label: localize(ui.language, "低", "Low") },
+              { value: "medium", label: localize(ui.language, "中", "Medium") },
+              { value: "high", label: localize(ui.language, "高", "High") },
+              { value: "unknown", label: localize(ui.language, "未知", "Unknown") },
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, riskLevel: value as MarketFilters["riskLevel"] }))}
+            disabled={offline}
+          />
+          <SelectField
+            label={localize(ui.language, "发布时间", "Published")}
+            value={workspace.filters.publishedWithin}
+            options={[
+              { value: "all", label: localize(ui.language, "全部时间", "Any Time") },
+              { value: "7d", label: localize(ui.language, "最近 7 天", "Last 7 Days") },
+              { value: "30d", label: localize(ui.language, "最近 30 天", "Last 30 Days") },
+              { value: "90d", label: localize(ui.language, "最近 90 天", "Last 90 Days") },
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, publishedWithin: value as MarketFilters["publishedWithin"] }))}
+            disabled={offline}
+          />
+          <SelectField
+            label={localize(ui.language, "更新时间", "Updated")}
+            value={workspace.filters.updatedWithin}
+            options={[
+              { value: "all", label: localize(ui.language, "全部时间", "Any Time") },
+              { value: "7d", label: localize(ui.language, "最近 7 天", "Last 7 Days") },
+              { value: "30d", label: localize(ui.language, "最近 30 天", "Last 30 Days") },
+              { value: "90d", label: localize(ui.language, "最近 90 天", "Last 90 Days") },
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, updatedWithin: value as MarketFilters["updatedWithin"] }))}
+            disabled={offline}
+          />
+          <SelectField
+            label={localize(ui.language, "排序", "Sort")}
+            value={workspace.filters.sort}
+            options={[
+              { value: "composite", label: localize(ui.language, "综合排序", "Recommended") },
+              { value: "latest_published", label: localize(ui.language, "最新发布", "Latest Published") },
+              { value: "recently_updated", label: localize(ui.language, "最近更新", "Recently Updated") },
+              { value: "download_count", label: localize(ui.language, "下载量", "Downloads") },
+              { value: "star_count", label: localize(ui.language, "收藏数", "Stars") },
+              { value: "relevance", label: localize(ui.language, "相关度", "Relevance") },
+            ]}
+            onChange={(value) => workspace.setFilters((current) => ({ ...current, sort: value as MarketFilters["sort"] }))}
+            disabled={offline}
+          />
+        </div>
+      ) : null}
     </section>
   );
 }
 
+function primaryMarketAction(skill: SkillSummary) {
+  if (skill.installState === "blocked" || !skill.canInstall) {
+    return { label: "不可安装", disabled: true as const };
+  }
+  if (skill.installState === "update_available" && skill.canUpdate) {
+    return { label: "更新", action: "update" as const };
+  }
+  if (skill.enabledTargets.length > 0) {
+    return { label: "已启用", action: "enabled" as const };
+  }
+  if (skill.localVersion) {
+    return { label: "已安装", action: "installed" as const };
+  }
+  return { label: "安装", action: "install" as const };
+}
+
 function SkillCard({ skill, workspace, ui }: PageProps & { skill: SkillSummary }) {
+  const primaryAction = primaryMarketAction(skill);
+
+  function handlePrimaryAction() {
+    if ("disabled" in primaryAction) return;
+    if (primaryAction.action === "install") {
+      ui.openInstallConfirm(skill, "install");
+      return;
+    }
+    if (primaryAction.action === "update") {
+      ui.openInstallConfirm(skill, "update");
+      return;
+    }
+    if (primaryAction.action === "enabled") {
+      ui.navigate("target_management");
+      return;
+    }
+    ui.openTargetsModal(skill);
+  }
+
   return (
     <article className="skill-card no-art" key={skill.skillID} data-testid="market-skill-card" data-skill-id={skill.skillID}>
       <button className="skill-row-main" onClick={() => ui.openSkillDetail(skill.skillID, "market")}>
@@ -153,28 +201,37 @@ function SkillCard({ skill, workspace, ui }: PageProps & { skill: SkillSummary }
         <div className="skill-row-copy">
           <h3>{skill.displayName}</h3>
           <p className="skill-row-description">{skill.description}</p>
+          <div className="pill-row">
+            <TagPill tone={skill.installState === "update_available" ? "warning" : skill.installState === "blocked" ? "danger" : "success"}>
+              {statusLabel(skill, ui.language)}
+            </TagPill>
+            <TagPill tone={skill.riskLevel === "high" ? "danger" : skill.riskLevel === "medium" ? "warning" : "info"}>{riskLabel(skill, ui.language)}</TagPill>
+          </div>
         </div>
       </button>
-      <div className="skill-row-metrics">
-        <button
-          className="skill-metric skill-metric-button"
-          onClick={() => void workspace.toggleStar(skill.skillID)}
-          aria-label={skill.starred ? `取消收藏 ${skill.displayName}` : `收藏 ${skill.displayName}`}
-        >
-          <Star size={15} fill={skill.starred ? "currentColor" : "none"} />
-          <span>{formatMetricCount(skill.starCount, ui.language)}</span>
-        </button>
-        <div className="skill-metric">
-          <Download size={15} />
-          <span>{formatMetricCount(skill.downloadCount, ui.language)}</span>
+      <div className="market-card-side">
+        <div className="skill-row-metrics">
+          <button
+            className="skill-metric skill-metric-button"
+            onClick={() => void workspace.toggleStar(skill.skillID)}
+            aria-label={skill.starred ? `取消收藏 ${skill.displayName}` : `收藏 ${skill.displayName}`}
+          >
+            <Star size={15} fill={skill.starred ? "currentColor" : "none"} />
+            <span>{formatMetricCount(skill.starCount, ui.language)}</span>
+          </button>
+          <div className="skill-metric">
+            <Download size={15} />
+            <span>{formatMetricCount(skill.downloadCount, ui.language)}</span>
+          </div>
+          <div className="skill-metric skill-metric-version">
+            <span>v{skill.version}</span>
+          </div>
         </div>
-        <div className="skill-metric skill-metric-status">
-          <TagPill tone={skill.installState === "update_available" ? "warning" : skill.installState === "blocked" ? "danger" : "success"}>
-            {statusLabel(skill, ui.language)}
-          </TagPill>
-        </div>
-        <div className="skill-metric skill-metric-version">
-          <span>v{skill.version}</span>
+        <div className="inline-actions wrap market-card-actions">
+          <button className={"disabled" in primaryAction ? "btn btn-small" : "btn btn-primary btn-small"} disabled={"disabled" in primaryAction} onClick={handlePrimaryAction}>
+            {primaryAction.label}
+          </button>
+          <button className="btn btn-small" onClick={() => ui.openSkillDetail(skill.skillID, "market")}>详情</button>
         </div>
       </div>
     </article>
@@ -183,6 +240,7 @@ function SkillCard({ skill, workspace, ui }: PageProps & { skill: SkillSummary }
 
 export function SkillDetailPanel({ skill, workspace, ui, standalone }: PageProps & { skill: SkillSummary; standalone?: boolean }) {
   const offline = workspace.bootstrap.connection.status === "offline" || workspace.bootstrap.connection.status === "failed";
+
   return (
     <aside className={standalone ? "detail-shell page-detail" : "detail-shell"}>
       <div className="detail-head">
@@ -199,6 +257,7 @@ export function SkillDetailPanel({ skill, workspace, ui, standalone }: PageProps
           <small>{skill.skillID} · {skill.authorName} · {skill.authorDepartment}</small>
         </div>
       </div>
+
       <div className="detail-content">
         <section className="detail-block">
           <h3>基础信息</h3>
@@ -211,18 +270,13 @@ export function SkillDetailPanel({ skill, workspace, ui, standalone }: PageProps
         </section>
 
         {skill.detailAccess === "summary" ? (
-          <div className="callout warning"><ShieldAlert size={16} /> 该 Skill 暂未向你开放详情；不会展示 README、安全摘要或包信息。</div>
+          <div className="callout warning"><ShieldAlert size={16} /> 该 Skill 暂未向你开放完整详情；这里只保留轻量说明与主操作。</div>
         ) : (
-          <>
-            <section className="detail-block">
-              <h3>使用说明</h3>
-              <p>{skill.readme ?? "README 将由服务端返回完整文本。"}</p>
-            </section>
-            <section className="detail-block">
-              <h3>审核与安全信息</h3>
-              <p>{skill.reviewSummary ?? "服务端暂未返回审核摘要。"}</p>
-            </section>
-          </>
+          <section className="detail-block">
+            <h3>摘要说明</h3>
+            <p>{skill.readme?.slice(0, 240) ?? "README 将由服务端返回完整文本。"}</p>
+            <small>{skill.reviewSummary ?? "服务端暂未返回审核摘要。"}</small>
+          </section>
         )}
 
         <section className="detail-block">
@@ -234,7 +288,7 @@ export function SkillDetailPanel({ skill, workspace, ui, standalone }: PageProps
         </section>
 
         <section className="detail-block">
-          <h3>操作区</h3>
+          <h3>主操作</h3>
           <div className="inline-actions wrap">
             {!skill.localVersion && skill.canInstall && skill.detailAccess === "full" ? (
               <button className="btn btn-primary" onClick={() => ui.openInstallConfirm(skill, "install")} disabled={offline}>
@@ -249,11 +303,11 @@ export function SkillDetailPanel({ skill, workspace, ui, standalone }: PageProps
               </button>
             ) : null}
             {skill.localVersion ? (
-              <button className="btn" onClick={() => ui.openTargetsModal(skill)} disabled={skill.isScopeRestricted}>启用到目标</button>
+              <button className="btn" onClick={() => ui.openTargetsModal(skill)} disabled={skill.isScopeRestricted}>
+                {skill.enabledTargets.length > 0 ? "调整启用范围" : "启用到目标"}
+              </button>
             ) : null}
-            {skill.localVersion ? (
-              <button className="btn btn-danger" onClick={() => ui.openUninstallConfirm(skill)}>卸载</button>
-            ) : null}
+            {skill.localVersion ? <button className="btn btn-danger" onClick={() => ui.openUninstallConfirm(skill)}>卸载</button> : null}
           </div>
         </section>
 
@@ -307,11 +361,12 @@ export function MarketPage({ workspace, ui }: PageProps) {
       <section className="page-head">
         <div>
           <div className="eyebrow">Skill 市场</div>
-          <h1>发现、搜索、筛选和安装 Skill</h1>
-          <p>这里的市场数据来自真实服务端；摘要权限与可安装状态均以接口返回为准。</p>
+          <h1>发现、筛选和安装 Skill</h1>
+          <p>在线搜索、筛选和排序都会真实生效；卡片提供直接主操作，减少必须先进详情的场景。</p>
         </div>
         <TagPill tone="info">{workspace.marketSkills.length} 个结果</TagPill>
       </section>
+
       {disconnected ? (
         <section className="panel">
           <div className="callout warning">
@@ -327,7 +382,9 @@ export function MarketPage({ workspace, ui }: PageProps) {
           </div>
         </section>
       ) : null}
+
       <MarketToolbar workspace={workspace} ui={ui} />
+
       <section className="panel skill-grid-panel">
         {disconnected ? <SectionEmpty title={statusTitle} body={statusBody} /> : null}
         {!disconnected && workspace.marketSkills.length === 0 ? <SectionEmpty title="没有找到匹配的 Skill" body="清空筛选后再试一次。" /> : null}

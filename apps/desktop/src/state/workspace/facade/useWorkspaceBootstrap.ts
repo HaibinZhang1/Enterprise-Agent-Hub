@@ -1,4 +1,4 @@
-import type { LocalBootstrap, SkillSummary } from "../../../domain/p1";
+import type { LocalBootstrap, PageID, SkillSummary } from "../../../domain/p1";
 import { p1Client } from "../../../services/p1Client";
 import { desktopBridge } from "../../../services/tauriBridge";
 import {
@@ -21,7 +21,7 @@ export async function moveWorkspaceToGuest(input: {
   resetPublisherState: () => void;
   resetAdminReviewState: () => void;
   setSelectedSkillID: (value: string | ((current: string) => string)) => void;
-  setActivePageState: (value: ((current: "home" | "market" | "my_installed" | "review" | "manage" | "tools" | "projects" | "notifications" | "settings" | "detail") => "home" | "market" | "my_installed" | "review" | "manage" | "tools" | "projects" | "notifications" | "settings" | "detail")) => void;
+  setActivePageState: (value: (current: PageID) => PageID) => void;
 }) {
   const localBootstrap = input.localBootstrapRef.current ?? (await input.refreshLocalBootstrap());
   const localScanTargets = await desktopBridge.scanLocalTargets().catch(() => []);
@@ -35,7 +35,16 @@ export async function moveWorkspaceToGuest(input: {
   input.resetPublisherState();
   input.resetAdminReviewState();
   input.setSelectedSkillID((current) => (localSkills.some((skill) => skill.skillID === current) ? current : localSkills[0]?.skillID ?? ""));
-  input.setActivePageState((current) => (current === "manage" || current === "review" || current === "market" ? "home" : current));
+  input.setActivePageState((current) =>
+    current === "market" ||
+    current === "review" ||
+    current === "admin_departments" ||
+    current === "admin_users" ||
+    current === "admin_skills" ||
+    current === "notifications"
+      ? "home"
+      : current
+  );
 }
 
 export async function hydrateAuthenticatedWorkspace(input: {

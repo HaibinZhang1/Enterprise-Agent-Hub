@@ -12,7 +12,7 @@ import type {
   ToolConfig
 } from "../domain/p1";
 
-const baseNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "publisher", "tools", "projects", "notifications", "settings"];
+const baseNavigation: BootstrapContext["navigation"] = ["home", "market", "my_installed", "publisher", "target_management"];
 
 export const guestBootstrap: BootstrapContext = {
   user: {
@@ -293,7 +293,9 @@ export const seedProjects: ProjectConfig[] = [
 export const seedNotifications: LocalNotification[] = [
   { notificationID: "n-001", type: "skill_update_available", title: "上下文路由助手有新版本", summary: "市场版本 1.4.0 高于本地版本 1.2.0，更新前会提示覆盖本地修改。", relatedSkillID: "context-router", targetPage: "my_installed", occurredAt: "2026-04-11T01:20:00Z", unread: true, source: "server" },
   { notificationID: "n-002", type: "skill_scope_restricted", title: "旧版 CLI 迁移助手权限已收缩", summary: "可继续使用当前版本，但不可更新或新增启用位置。", relatedSkillID: "legacy-cli-helper", targetPage: "my_installed", occurredAt: "2026-04-10T10:02:00Z", unread: true, source: "server" },
-  { notificationID: "n-003", type: "target_path_invalid", title: "opencode 路径不可用", summary: "请在工具页修复 skills 安装路径后再启用到 opencode。", relatedSkillID: null, targetPage: "tools", occurredAt: "2026-04-10T03:41:00Z", unread: false, source: "local" }
+  { notificationID: "n-003", type: "target_path_invalid", title: "opencode 路径不可用", summary: "请在目标管理中修复 skills 安装路径后再启用到 opencode。", relatedSkillID: null, targetPage: "target_management", occurredAt: "2026-04-10T03:41:00Z", unread: false, source: "local" },
+  { notificationID: "n-004", type: "pending_review" as LocalNotification["type"], title: "你有新的待审核任务", summary: "Codex Review Helper 等待管理员领取并处理。", relatedSkillID: "codex-review-helper", targetPage: "review", occurredAt: "2026-04-11T08:10:00Z", unread: true, source: "server" },
+  { notificationID: "n-005", type: "returned_for_changes" as LocalNotification["type"], title: "README 改写助手被退回修改", summary: "submissionID sub_readme-polisher_20260411 需要补充变更说明后重新提交。", relatedSkillID: "readme-polisher", targetPage: "publisher", occurredAt: "2026-04-11T06:05:00Z", unread: true, source: "server" }
 ];
 
 export const seedOfflineEvents: LocalEvent[] = [];

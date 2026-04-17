@@ -14,19 +14,19 @@ export class AdminController {
   ) {}
 
   @Get('departments')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_departments')
   listDepartments(@Req() request: P1AuthenticatedRequest) {
     return this.adminService.listDepartments(request.p1UserID ?? '');
   }
 
   @Post('departments')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_departments')
   createDepartment(@Req() request: P1AuthenticatedRequest, @Body() body: { parentDepartmentID?: string; name?: string }) {
     return this.adminService.createDepartment(request.p1UserID ?? '', body);
   }
 
   @Patch('departments/:departmentID')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_departments')
   updateDepartment(
     @Req() request: P1AuthenticatedRequest,
     @Param('departmentID') departmentID: string,
@@ -36,19 +36,19 @@ export class AdminController {
   }
 
   @Delete('departments/:departmentID')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_departments')
   deleteDepartment(@Req() request: P1AuthenticatedRequest, @Param('departmentID') departmentID: string) {
     return this.adminService.deleteDepartment(request.p1UserID ?? '', departmentID);
   }
 
   @Get('users')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_users')
   listUsers(@Req() request: P1AuthenticatedRequest) {
     return this.adminService.listUsers(request.p1UserID ?? '');
   }
 
   @Post('users')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_users')
   createUser(
     @Req() request: P1AuthenticatedRequest,
     @Body()
@@ -65,7 +65,7 @@ export class AdminController {
   }
 
   @Patch('users/:targetUserID')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_users')
   updateUser(
     @Req() request: P1AuthenticatedRequest,
     @Param('targetUserID') targetUserID: string,
@@ -81,43 +81,43 @@ export class AdminController {
   }
 
   @Post('users/:targetUserID/freeze')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_users')
   freezeUser(@Req() request: P1AuthenticatedRequest, @Param('targetUserID') targetUserID: string) {
     return this.adminService.freezeUser(request.p1UserID ?? '', targetUserID, 'frozen');
   }
 
   @Post('users/:targetUserID/unfreeze')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_users')
   unfreezeUser(@Req() request: P1AuthenticatedRequest, @Param('targetUserID') targetUserID: string) {
     return this.adminService.freezeUser(request.p1UserID ?? '', targetUserID, 'active');
   }
 
   @Delete('users/:targetUserID')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_users')
   deleteUser(@Req() request: P1AuthenticatedRequest, @Param('targetUserID') targetUserID: string) {
     return this.adminService.deleteUser(request.p1UserID ?? '', targetUserID);
   }
 
   @Get('skills')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_skills')
   listSkills(@Req() request: P1AuthenticatedRequest) {
     return this.adminService.listSkills(request.p1UserID ?? '');
   }
 
   @Post('skills/:skillID/delist')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_skills')
   delistSkill(@Req() request: P1AuthenticatedRequest, @Param('skillID') skillID: string) {
     return this.adminService.setSkillStatus(request.p1UserID ?? '', skillID, 'delisted');
   }
 
   @Post('skills/:skillID/relist')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_skills')
   relistSkill(@Req() request: P1AuthenticatedRequest, @Param('skillID') skillID: string) {
     return this.adminService.setSkillStatus(request.p1UserID ?? '', skillID, 'published');
   }
 
   @Delete('skills/:skillID')
-  @RequireMenuPermission('manage')
+  @RequireMenuPermission('admin_skills')
   archiveSkill(@Req() request: P1AuthenticatedRequest, @Param('skillID') skillID: string) {
     return this.adminService.setSkillStatus(request.p1UserID ?? '', skillID, 'archived');
   }
@@ -135,11 +135,13 @@ export class AdminController {
   }
 
   @Get('reviews/:reviewID/files')
+  @RequireMenuPermission('review')
   listReviewFiles(@Req() request: P1AuthenticatedRequest, @Param('reviewID') reviewID: string) {
     return this.publishingService.listReviewFiles(request.p1UserID ?? '', reviewID);
   }
 
   @Get('reviews/:reviewID/file-content')
+  @RequireMenuPermission('review')
   reviewFileContent(
     @Req() request: P1AuthenticatedRequest,
     @Param('reviewID') reviewID: string,

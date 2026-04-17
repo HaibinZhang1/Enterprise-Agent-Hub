@@ -10,6 +10,8 @@ import type {
 import { deriveDiscoveredLocalSkills } from "../../utils/discoveredLocalSkills.ts";
 import { guestNavigation } from "./workspaceTypes.ts";
 
+const adminNavigationPages = ["review", "admin_departments", "admin_users", "admin_skills"] as const;
+
 function findDepartment(nodes: DepartmentNode[], departmentID: string | null): DepartmentNode | null {
   if (!departmentID) return null;
   for (const node of nodes) {
@@ -26,20 +28,26 @@ export function deriveMarketSkills(input: {
   filters: MarketFilters;
   skills: SkillSummary[];
 }): SkillSummary[] {
-  const { authState, bootstrap, filters, skills } = input;
+  const { filters, skills } = input;
   const query = filters.query.trim().toLocaleLowerCase();
+  const publishedWindowDays = filters.publishedWithin === "7d" ? 7 : filters.publishedWithin === "30d" ? 30 : filters.publishedWithin === "90d" ? 90 : 0;
+  const updatedWindowDays = filters.updatedWithin === "7d" ? 7 : filters.updatedWithin === "30d" ? 30 : filters.updatedWithin === "90d" ? 90 : 0;
+
+  function relevanceScore(skill: SkillSummary) {
+    if (query.length === 0) return 0;
+    let score = 0;
+    if (skill.displayName.toLocaleLowerCase().includes(query)) score += 4;
+    if (skill.skillID.toLocaleLowerCase().includes(query)) score += 3;
+    if (skill.tags.some((tag) => tag.toLocaleLowerCase().includes(query))) score += 2;
+    if (skill.description.toLocaleLowerCase().includes(query)) score += 1;
+    return score;
+  }
+
   const filtered = [...skills].filter((skill) => {
     const matchesInstalled =
       filters.installed === "all" || (filters.installed === "installed" ? skill.localVersion : !skill.localVersion);
     const matchesEnabled =
       filters.enabled === "all" || (filters.enabled === "enabled" ? skill.enabledTargets.length > 0 : skill.enabledTargets.length === 0);
-
-    if (authState === "authenticated" && bootstrap.connection.status === "connected") {
-      return matchesInstalled && matchesEnabled;
-    }
-
-    const publishedWindowDays = filters.publishedWithin === "7d" ? 7 : filters.publishedWithin === "30d" ? 30 : filters.publishedWithin === "90d" ? 90 : 0;
-    const updatedWindowDays = filters.updatedWithin === "7d" ? 7 : filters.updatedWithin === "30d" ? 30 : filters.updatedWithin === "90d" ? 90 : 0;
     const matchesQuery =
       query.length === 0 ||
       skill.displayName.toLocaleLowerCase().includes(query) ||
@@ -72,10 +80,6 @@ export function deriveMarketSkills(input: {
     );
   });
 
-  if (authState === "authenticated" && bootstrap.connection.status === "connected") {
-    return filtered;
-  }
-
   return filtered.sort((left, right) => {
     switch (filters.sort) {
       case "latest_published":
@@ -87,7 +91,7 @@ export function deriveMarketSkills(input: {
       case "star_count":
         return right.starCount - left.starCount;
       case "relevance":
-        return Number(right.skillID.toLocaleLowerCase().includes(query)) - Number(left.skillID.toLocaleLowerCase().includes(query));
+        return relevanceScore(right) - relevanceScore(left);
       case "composite":
       default:
         return right.starCount + right.downloadCount - (left.starCount + left.downloadCount);
@@ -132,12 +136,16 @@ export function deriveWorkspaceState(input: {
     marketSkills: skills,
     scanTargets
   });
-  const visibleNavigation = authState === "authenticated" && bootstrap.connection.status === "connected" ? bootstrap.navigation : guestNavigation;
+  const visibleNavigation = (
+    authState === "authenticated" && bootstrap.connection.status === "connected" ? bootstrap.navigation : guestNavigation
+  ).filter((page) => page !== "notifications");
   const departmentsFilter = [...new Set(skills.map((skill) => skill.authorDepartment).filter(Boolean))] as string[];
   const compatibleTools = [...new Set(skills.flatMap((skill) => skill.compatibleTools))];
   const categories = [...new Set(skills.map((skill) => skill.category).filter(Boolean))];
   const isAdminConnected =
-    authState === "authenticated" && bootstrap.connection.status === "connected" && bootstrap.menuPermissions.includes("manage");
+    authState === "authenticated" &&
+    bootstrap.connection.status === "connected" &&
+    adminNavigationPages.some((page) => bootstrap.menuPermissions.includes(page));
 
   return {
     categories,
