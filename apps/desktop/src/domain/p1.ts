@@ -330,6 +330,9 @@ export type DesktopModalState =
       type: "connection_status";
     }
   | {
+      type: "app_update";
+    }
+  | {
       type: "settings";
     };
 

@@ -44,9 +44,9 @@ export type ApiSkill = Omit<
 
 function targetPageForNotification(notification: ApiNotification): PageID {
   if (notification.objectType === "skill") return "market";
-  if (notification.objectType === "tool") return "tools";
-  if (notification.objectType === "project") return "projects";
-  return "notifications";
+  if (notification.objectType === "tool") return "target_management";
+  if (notification.objectType === "project") return "target_management";
+  return "home";
 }
 
 export function normalizeNotification(notification: ApiNotification): LocalNotification {

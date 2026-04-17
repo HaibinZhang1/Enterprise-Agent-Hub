@@ -1,49 +1,53 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DesktopModalState, NavigationPageID } from "../../domain/p1.ts";
+import type { NavigationPageID } from "../../domain/p1.ts";
 import type { P1WorkspaceState } from "../useP1Workspace.ts";
+
+type ShellNavigationPageID = Exclude<NavigationPageID, "notifications">;
+const adminPages: ShellNavigationPageID[] = ["review", "admin_departments", "admin_users", "admin_skills"];
 
 export function useDesktopNavigation(input: {
   workspace: P1WorkspaceState;
   visibleSkillDetail: P1WorkspaceState["selectedSkill"];
-  setModal: (modal: DesktopModalState) => void;
 }) {
-  const { workspace, visibleSkillDetail, setModal } = input;
+  const { workspace, visibleSkillDetail } = input;
   const [activePage, setActivePage] = useState<NavigationPageID>("home");
-  const [lastShellPage, setLastShellPage] = useState<NavigationPageID>("home");
+  const [lastShellPage, setLastShellPage] = useState<ShellNavigationPageID>("home");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    if (activePage === "review" && !workspace.visibleNavigation.includes("review")) {
+    const activeAdminPage = activePage as ShellNavigationPageID;
+    if (activePage === "notifications") {
       setActivePage("home");
     }
-    if (activePage === "manage" && !workspace.visibleNavigation.includes("manage")) {
+    if (adminPages.includes(activeAdminPage) && !workspace.visibleNavigation.includes(activeAdminPage)) {
       setActivePage("home");
     }
-    if (activePage === "settings") {
-      setActivePage(lastShellPage);
-    }
-  }, [activePage, lastShellPage, workspace.visibleNavigation]);
+  }, [activePage, workspace.visibleNavigation]);
 
-  const navigation = useMemo(() => workspace.visibleNavigation as NavigationPageID[], [workspace.visibleNavigation]);
+  const navigation = useMemo(() => workspace.visibleNavigation as ShellNavigationPageID[], [workspace.visibleNavigation]);
 
   const navigate = useCallback((page: NavigationPageID) => {
-    if (page === "settings") {
-      setModal({ type: "settings" });
+    if (page === "notifications") {
+      setDrawerOpen(false);
+      setLastShellPage("home");
+      setActivePage("home");
+      workspace.openPage("home");
       return;
     }
 
     setDrawerOpen(false);
-    setLastShellPage(page);
+    setLastShellPage(page as ShellNavigationPageID);
     setActivePage(page);
     workspace.openPage(page);
-  }, [setModal, workspace]);
+  }, [workspace]);
 
   const openSkillDetail = useCallback((skillID: string, sourcePage: NavigationPageID = "market") => {
     workspace.selectSkill(skillID);
     setDrawerOpen(true);
     if (activePage !== sourcePage) {
-      setActivePage(sourcePage);
-      setLastShellPage(sourcePage);
+      const nextSourcePage = (sourcePage === "notifications" ? "market" : sourcePage) as ShellNavigationPageID;
+      setActivePage(nextSourcePage);
+      setLastShellPage(nextSourcePage);
     }
   }, [activePage, workspace]);
 

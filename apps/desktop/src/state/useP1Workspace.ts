@@ -10,6 +10,8 @@ import { useWorkspaceMarketActions, useWorkspaceMarketState } from "./workspace/
 import { useWorkspacePublisherActions, useWorkspacePublisherState } from "./workspace/useWorkspacePublisher";
 import { deriveWorkspaceState } from "./workspace/workspaceDerivedState";
 
+const adminPages: PageID[] = ["review", "admin_departments", "admin_users", "admin_skills"];
+
 export function useP1Workspace() {
   const auth = useWorkspaceAuthState();
   const localSync = useWorkspaceLocalSyncState();
@@ -59,11 +61,15 @@ export function useP1Workspace() {
 
   const openPage = useCallback(
     (page: PageID) => {
+      if (page === "notifications") {
+        auth.setActivePageState("home");
+        return;
+      }
       if (page === "market" && auth.authState !== "authenticated") {
         sessionFlow.requireAuth(page);
         return;
       }
-      if (page === "manage" || page === "review") {
+      if (adminPages.includes(page)) {
         if (auth.authState !== "authenticated") {
           sessionFlow.requireAuth(page);
           return;
@@ -95,13 +101,9 @@ export function useP1Workspace() {
     bootstrap: auth.bootstrap,
     handleRemoteError: sessionFlow.handleRemoteError,
     notifications: localSync.notifications,
-    offlineEvents: localSync.offlineEvents,
-    persistNotifications: localSync.persistNotifications,
     refreshLocalBootstrap: localSync.refreshLocalBootstrap,
     refreshLocalScans: localSync.refreshLocalScans,
-    requireAuthenticatedAction: sessionFlow.requireAuthenticatedAction,
     setNotifications: localSync.setNotifications,
-    setOfflineEvents: localSync.setOfflineEvents,
     setProjects: localSync.setProjects,
     setTools: localSync.setTools
   });
@@ -195,7 +197,6 @@ export function useP1Workspace() {
     saveProjectConfig: localActions.saveProjectConfig,
     toggleStar: marketActions.toggleStar,
     markNotificationsRead: localActions.markNotificationsRead,
-    syncOfflineEvents: localActions.syncOfflineEvents,
     refreshTools: localActions.refreshTools,
     scanLocalTargets: localActions.scanLocalTargets,
     validateTargetPath: localActions.validateTargetPath,
@@ -228,8 +229,6 @@ export function useP1Workspace() {
       selectedReview: adminReview.selectedReview,
       selectedReviewID: adminReview.selectedReviewID,
       setSelectedReviewID: adminReview.setSelectedReviewID,
-      manageSection: adminReview.manageSection,
-      setManageSection: adminReview.setManageSection,
       refreshManageData: adminActions.refreshManageData,
       refreshReviews: adminActions.refreshReviews,
       claimReview: adminActions.claimReview,

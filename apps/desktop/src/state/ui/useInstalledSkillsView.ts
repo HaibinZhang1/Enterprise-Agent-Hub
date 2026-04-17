@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
 import type { P1WorkspaceState } from "../useP1Workspace.ts";
 import { collectInstalledSkillIssues, matchesInstalledFilter } from "./installedSkillSelectors.ts";
+import type { InstalledListFilter } from "./installedSkillsTypes.ts";
 
-export type InstalledListFilter = "all" | "enabled" | "updates" | "scope_restricted" | "issues";
-
-export function useInstalledSkillsView(workspace: P1WorkspaceState) {
+export function useInstalledSkillsView(
+  workspace: P1WorkspaceState,
+  input: {
+    installedFilter: InstalledListFilter;
+    setInstalledFilter: (value: InstalledListFilter) => void;
+  }
+) {
   const [installedQuery, setInstalledQuery] = useState("");
-  const [installedFilter, setInstalledFilter] = useState<InstalledListFilter>("all");
+  const installedFilter = input.installedFilter;
 
   const installedSkillIssuesByID = useMemo(
     () =>
@@ -44,8 +49,8 @@ export function useInstalledSkillsView(workspace: P1WorkspaceState) {
   return {
     installedQuery,
     setInstalledQuery,
-    installedFilter,
-    setInstalledFilter,
+    installedFilter: input.installedFilter,
+    setInstalledFilter: input.setInstalledFilter,
     installedSkillIssuesByID,
     filteredInstalledSkills,
     installedFilterCounts,

@@ -22,7 +22,7 @@ export function notificationFromProgress(progress: OperationProgress, fallbackRe
       ? `${progress.message}；symlink 已降级为 copy（${fallbackReason}）。`
       : progress.message,
     relatedSkillID: progress.skillID,
-    targetPage: progress.operation === "install" || progress.operation === "update" ? "my_installed" : "tools",
+    targetPage: progress.operation === "install" || progress.operation === "update" ? "my_installed" : "target_management",
     occurredAt: new Date().toISOString(),
     unread: true,
     source: "local"

@@ -186,12 +186,12 @@ export const NavigationItem = {
   Market: "market",
   MyInstalled: "my_installed",
   Publisher: "publisher",
+  TargetManagement: "target_management",
   Review: "review",
-  Manage: "manage",
-  Tools: "tools",
-  Projects: "projects",
+  AdminDepartments: "admin_departments",
+  AdminUsers: "admin_users",
+  AdminSkills: "admin_skills",
   Notifications: "notifications",
-  Settings: "settings"
 } as const;
 export type NavigationItem = (typeof NavigationItem)[keyof typeof NavigationItem];
 

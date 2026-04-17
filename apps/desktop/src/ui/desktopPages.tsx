@@ -1,14 +1,13 @@
+import { AdminDepartmentsPage } from "./pages/AdminDepartmentsPage.tsx";
+import { AdminSkillsPage } from "./pages/AdminSkillsPage.tsx";
+import { AdminUsersPage } from "./pages/AdminUsersPage.tsx";
 import { MyInstalledPage } from "./pages/MyInstalledPage.tsx";
 import { PublisherWorkbenchPage } from "./pages/PublisherWorkbenchPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
-import { ManagePage } from "./pages/ManagePage.tsx";
-import { MarketPage, SkillDetailPanel } from "./pages/MarketPage.tsx";
-import { NotificationsPage } from "./pages/NotificationsPage.tsx";
-import { ProjectsPage } from "./pages/ProjectsPage.tsx";
+import { MarketPage } from "./pages/MarketPage.tsx";
 import { ReviewPage } from "./pages/ReviewPage.tsx";
-import { SettingsPage } from "./pages/SettingsPage.tsx";
-import { ToolsPage } from "./pages/ToolsPage.tsx";
-import { PageProps, SectionEmpty } from "./pages/pageCommon.tsx";
+import { TargetManagementPage } from "./pages/TargetManagementPage.tsx";
+import { PageProps } from "./pages/pageCommon.tsx";
 
 export function ActivePageContent({ workspace, ui }: PageProps) {
   switch (ui.activePage) {
@@ -23,16 +22,14 @@ export function ActivePageContent({ workspace, ui }: PageProps) {
       return <PublisherWorkbenchPage workspace={workspace} ui={ui} />;
     case "review":
       return <ReviewPage workspace={workspace} ui={ui} />;
-    case "manage":
-      return <ManagePage workspace={workspace} ui={ui} />;
-    case "tools":
-      return <ToolsPage workspace={workspace} ui={ui} />;
-    case "projects":
-      return <ProjectsPage workspace={workspace} ui={ui} />;
-    case "notifications":
-      return <NotificationsPage workspace={workspace} ui={ui} />;
-    case "settings":
-      return <SettingsPage workspace={workspace} ui={ui} />;
+    case "admin_departments":
+      return <AdminDepartmentsPage workspace={workspace} ui={ui} />;
+    case "admin_users":
+      return <AdminUsersPage workspace={workspace} ui={ui} />;
+    case "admin_skills":
+      return <AdminSkillsPage workspace={workspace} ui={ui} />;
+    case "target_management":
+      return <TargetManagementPage workspace={workspace} ui={ui} />;
     default:
       return null;
   }

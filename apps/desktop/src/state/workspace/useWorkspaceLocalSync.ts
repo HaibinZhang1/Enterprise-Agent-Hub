@@ -4,7 +4,7 @@ import type { AuthState, BootstrapContext, LocalBootstrap, LocalEvent, LocalNoti
 import { p1Client } from "../../services/p1Client";
 import { desktopBridge } from "../../services/tauriBridge";
 import { upsertNotifications } from "../p1WorkspaceHelpers";
-import type { HandleRemoteError, RequireAuthenticatedAction } from "./workspaceTypes";
+import type { HandleRemoteError } from "./workspaceTypes";
 import { emptyLocalNotifications } from "./workspaceTypes";
 
 export function useWorkspaceLocalSyncState() {
@@ -73,13 +73,9 @@ export function useWorkspaceLocalSyncActions(input: {
   bootstrap: BootstrapContext;
   handleRemoteError: HandleRemoteError;
   notifications: LocalNotification[];
-  offlineEvents: LocalEvent[];
-  persistNotifications: (incoming: LocalNotification[]) => Promise<void>;
   refreshLocalBootstrap: () => Promise<LocalBootstrap>;
   refreshLocalScans: () => Promise<ScanTargetSummary[]>;
-  requireAuthenticatedAction: RequireAuthenticatedAction;
   setNotifications: Dispatch<SetStateAction<LocalNotification[]>>;
-  setOfflineEvents: Dispatch<SetStateAction<LocalEvent[]>>;
   setProjects: Dispatch<SetStateAction<LocalBootstrap["projects"]>>;
   setTools: Dispatch<SetStateAction<LocalBootstrap["tools"]>>;
 }) {
@@ -88,13 +84,9 @@ export function useWorkspaceLocalSyncActions(input: {
     bootstrap,
     handleRemoteError,
     notifications,
-    offlineEvents,
-    persistNotifications,
     refreshLocalBootstrap,
     refreshLocalScans,
-    requireAuthenticatedAction,
     setNotifications,
-    setOfflineEvents,
     setProjects,
     setTools
   } = input;
@@ -130,34 +122,6 @@ export function useWorkspaceLocalSyncActions(input: {
     },
     [authState, bootstrap.connection.status, handleRemoteError, notifications, setNotifications]
   );
-
-  const syncOfflineEvents = useCallback(async () => {
-    requireAuthenticatedAction("notifications", async () => {
-      if (offlineEvents.length === 0 || bootstrap.connection.status !== "connected") return;
-      const result = await p1Client.syncLocalEvents(offlineEvents);
-      const accepted = new Set(result.acceptedEventIDs);
-      if (accepted.size > 0) {
-        await desktopBridge.markOfflineEventsSynced([...accepted]);
-        const localBootstrap = await refreshLocalBootstrap();
-        setOfflineEvents(localBootstrap.offlineEvents);
-      }
-      if (result.serverStateChanged) {
-        await persistNotifications([
-          {
-            notificationID: `sync_${crypto.randomUUID()}`,
-            type: "connection_restored",
-            title: "本地事件已同步",
-            summary: "服务端返回远端状态变化，请检查我的 Skill 和通知。",
-            relatedSkillID: null,
-            targetPage: "notifications",
-            occurredAt: new Date().toISOString(),
-            unread: true,
-            source: "sync"
-          }
-        ]);
-      }
-    });
-  }, [bootstrap.connection.status, offlineEvents, persistNotifications, refreshLocalBootstrap, requireAuthenticatedAction, setOfflineEvents]);
 
   const refreshTools = useCallback(async () => {
     const detectedTools = await desktopBridge.refreshToolDetection();
@@ -206,7 +170,6 @@ export function useWorkspaceLocalSyncActions(input: {
     saveProjectConfig,
     saveToolConfig,
     scanLocalTargets,
-    syncOfflineEvents,
     validateTargetPath
   };
 }
