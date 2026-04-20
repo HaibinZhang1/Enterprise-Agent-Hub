@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-`packages/shared-contracts` 是 当前版本 Desktop 与 API 的共享 TypeScript 契约源，承接 `docs/RequirementDocument/21_p1_data_contract.md` 中的枚举、DTO、分页、错误响应、最小 HTTP 路由和 Tauri command 签名，避免 Desktop/API/Rust command 边界出现字段漂移。
+`packages/shared-contracts` 是 当前版本 Desktop 与 API 的共享 TypeScript 契约源，承接 `docs/RequirementDocument/index.md`、`docs/RequirementDocument/14_skill_spec.md`、`docs/RequirementDocument/15_core_flows.md` 与 `docs/RequirementDocument/21_client_online_upgrade.md` 中的枚举、DTO、分页、错误响应、最小 HTTP 路由和 Tauri command 签名，避免 Desktop/API/Rust command 边界出现字段漂移。
 
 ## 2. 落地范围
 
@@ -27,4 +27,4 @@ Store/Adapter/Rust command 实现不得退回 copy-only 文案或数据模型；
 - API/Nest DTO 与 Desktop API client 应从 `@enterprise-agent-hub/shared-contracts` 复用类型或保持同名字段映射。
 - `DesktopBootstrapResponse`、`LoginResponse` 与前端领域模型需统一包含 `menuPermissions`；管理员用户需统一包含 `adminLevel`。
 - Tauri command wrapper 应使用 `LocalCommandRequestMap` / `LocalCommandResponseMap` 校准命令签名。
-- 若 `21_p1_data_contract.md` 变更字段或枚举，必须同步更新共享契约和本文件，并运行根目录 `npm run typecheck` 与 `npm test`。
+- 若 `docs/RequirementDocument/` 中的字段、枚举、接口或本地命令口径变更，必须同步更新共享契约和本文件，并运行根目录 `npm run typecheck` 与 `npm test`。

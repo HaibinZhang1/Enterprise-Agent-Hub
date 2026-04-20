@@ -11,16 +11,18 @@ import {
   mapLegacyPageToView,
   presentConfirmWithDrawerDismissal,
   presentModalWithDrawerDismissal,
+  reviewDetailOverlay,
   skillDetailOverlay
 } from "../src/state/useDesktopUIState.ts";
 import { deriveDesktopNotifications, notificationBadgeLabel, resolveDesktopNotificationAction, type AppUpdateState } from "../src/state/ui/desktopNotifications.ts";
 import { deriveCommunityLeaderboards } from "../src/state/ui/communityLeaderboards.ts";
 import { buildTargetDrafts, collectInstalledSkillIssues, compareToolsByAvailability, matchesDiscoveredTargetFilter, matchesInstalledTargetFilter } from "../src/state/ui/installedSkillSelectors.ts";
 import { parseSkillFrontmatter, readSkillMarkdownFromUploadEntries, validateSkillSlug, validateUploadEntries } from "../src/state/ui/publishPackageIntrospection.ts";
-import { scanTargetsSummaryMessage } from "../src/state/ui/scanProgress.ts";
-import { resolveDisplayLanguage } from "../src/state/ui/useDesktopPreferences.ts";
+import { scanTargetsSummaryMessage } from "../src/state/workspace/scanProgress.ts";
+import { normalizePreferences, resolveDisplayLanguage } from "../src/state/ui/useDesktopPreferences.ts";
 import { deriveMarketSkills, deriveVisibleNavigation, deriveWorkspaceState } from "../src/state/workspace/workspaceDerivedState.ts";
 import { iconToneForLabel, iconTones } from "../src/ui/iconTone.ts";
+import { themeLabel } from "../src/ui/themeLabels.ts";
 import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "../src/services/tauriBridge/localCommandArgs.ts";
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath } from "../src/utils/platformPaths.ts";
@@ -156,6 +158,23 @@ test("skill detail opens through overlay state instead of a replacement stage", 
       overlay: skillDetailOverlay("codex-review-helper", "community")
     }),
     "market"
+  );
+});
+
+test("review detail opens as a management overlay without replacing the review page", () => {
+  assert.deepEqual(reviewDetailOverlay("review-123"), {
+    kind: "review_detail",
+    reviewID: "review-123"
+  });
+  assert.equal(
+    legacyPageForView({
+      section: "manage",
+      communityPane: "skills",
+      localPane: "skills",
+      managePane: "reviews",
+      overlay: reviewDetailOverlay("review-123")
+    }),
+    "review"
   );
 });
 
@@ -392,6 +411,19 @@ test("auto language prefers authenticated user locale over browser locale", () =
       Reflect.deleteProperty(globalThis, "navigator");
     }
   }
+});
+
+test("theme labels include the global dark theme", () => {
+  assert.equal(themeLabel("dark", "zh-CN"), "暗色");
+  assert.equal(themeLabel("dark", "en-US"), "Dark");
+});
+
+test("preferences normalize unsupported saved themes back to classic", () => {
+  const preferences = normalizePreferences({ theme: "legacy-blue" as never });
+  assert.equal(preferences.theme, "classic");
+
+  const darkPreferences = normalizePreferences({ theme: "dark" });
+  assert.equal(darkPreferences.theme, "dark");
 });
 
 test("target drafts localize adapter status labels in Chinese", () => {

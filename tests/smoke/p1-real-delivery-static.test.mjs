@@ -99,12 +99,13 @@ test('React desktop app is split into shell, sections, overlays, and UI state co
   assert.match(desktopSectionsTsx, /ManageSection/);
   assert.match(desktopSectionsTsx, /LocalSection/);
   assert.match(desktopSectionsTsx, /发布 Skill/);
-  assert.match(desktopSectionsTsx, /review-action-\$\{action\}/);
-  assert.match(desktopSectionsTsx, /approveReview/);
-  assert.match(desktopSectionsTsx, /returnReview/);
-  assert.match(desktopSectionsTsx, /rejectReview/);
+  assert.match(desktopSectionsTsx, /openReviewDetail/);
+  assert.match(desktopOverlaysTsx, /review-action-\$\{action\}/);
+  assert.match(desktopOverlaysTsx, /approveReview/);
+  assert.match(desktopOverlaysTsx, /returnReview/);
+  assert.match(desktopOverlaysTsx, /rejectReview/);
   assert.match(pageCommon, /PackagePreviewPanel/);
-  assert.match(desktopSectionsTsx, /PackagePreviewPanel/);
+  assert.match(desktopOverlaysTsx, /PackagePreviewPanel/);
   assert.match(desktopSectionsTsx, /下架/);
   assert.match(desktopSectionsTsx, /上架/);
   assert.match(desktopSectionsTsx, /归档/);
@@ -191,8 +192,8 @@ test('Publishing and review client routes are wired to the live API', () => {
   assert.match(domainTypes, /export type ReviewPrecheckItem =/);
 });
 
-test('Desktop runtime does not import ui-prototype as executable code', () => {
+test('Desktop runtime does not import design prototype files as executable code', () => {
   for (const source of [appTsx, desktopShellTsx, desktopSectionsTsx, desktopOverlaysTsx, desktopUiState]) {
-    assert.doesNotMatch(source, /ui-prototype/);
+    assert.doesNotMatch(source, /docs\/design-ui\/layout-prototype/);
   }
 });

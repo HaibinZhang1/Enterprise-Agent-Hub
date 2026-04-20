@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "name": "P1 foundation loop smoke/e2e acceptance spec",
   "sourceRefs": [
-    "docs/DetailedDesign/02_p1_task_design.md#12-p1-t10-验收与打包",
-    "docs/RequirementDocument/20_p1_desktop_prd.md#9-验收标准",
-    "docs/RequirementDocument/21_p1_data_contract.md#8-接口验收",
-    "docs/RequirementDocument/22_p1_tool_adapter_contract.md#11-验收标准",
-    "docs/RequirementDocument/23_p1_interaction_spec.md#15-p1-验收清单"
+    "docs/DetailedDesign/01_production_foundation.md#7-第一阶段验收重点",
+    "docs/RequirementDocument/index.md#当前实现约束",
+    "docs/RequirementDocument/14_skill_spec.md#9.5-上传校验规则",
+    "docs/RequirementDocument/15_core_flows.md#10.9-安装与启用流程",
+    "docs/RequirementDocument/17_interaction_ux.md#14.5-离线场景行为规则"
   ],
   "scenarios": [
     {

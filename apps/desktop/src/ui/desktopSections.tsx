@@ -20,7 +20,7 @@ import {
   Users,
   X
 } from "lucide-react";
-import type { AdminSkill, DiscoveredLocalSkill, MarketFilters, PublishDraft, PublisherSkillSummary, PublisherSubmissionDetail, PublishScopeType, SkillLeaderboardItem, SkillSummary } from "../domain/p1.ts";
+import type { AdminSkill, DiscoveredLocalSkill, MarketFilters, PublishDraft, PublisherSkillSummary, PublisherSubmissionDetail, PublishScopeType, ReviewDetail, RiskLevel, SkillLeaderboardItem, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
 import type { DesktopUIState } from "../state/useDesktopUIState.ts";
@@ -60,7 +60,6 @@ import {
   formatDate,
   projectPathStatusLabel,
   publishVisibilityLabel,
-  reviewActionLabel,
   riskLabel,
   roleLabel,
   skillInitials,
@@ -2122,6 +2121,54 @@ function ManageSidebar({ ui }: { ui: DesktopUIState }) {
   );
 }
 
+function reviewStatusTone(review: Pick<ReviewDetail, "reviewStatus">): "success" | "warning" | "danger" | "info" | "neutral" {
+  if (review.reviewStatus === "reviewed") return "success";
+  if (review.reviewStatus === "in_review") return "warning";
+  return "info";
+}
+
+function riskToneForLevel(risk: RiskLevel): "success" | "warning" | "danger" | "info" | "neutral" {
+  if (risk === "high") return "danger";
+  if (risk === "medium") return "warning";
+  if (risk === "low") return "success";
+  return "neutral";
+}
+
+function reviewRiskText(risk: RiskLevel) {
+  return {
+    low: "低风险",
+    medium: "中风险",
+    high: "高风险",
+    unknown: "未知风险"
+  }[risk];
+}
+
+function reviewChangeLines(review: ReviewDetail, language: "zh-CN" | "en-US") {
+  if (review.reviewType === "permission_change") {
+    const currentScope = review.currentScopeType ? scopeLabel(review.currentScopeType, language) : "未设置";
+    const requestedScope = review.requestedScopeType ? scopeLabel(review.requestedScopeType, language) : currentScope;
+    const currentVisibility = review.currentVisibilityLevel ? publishVisibilityLabel(review.currentVisibilityLevel, language) : "未设置";
+    const requestedVisibility = review.requestedVisibilityLevel ? publishVisibilityLabel(review.requestedVisibilityLevel, language) : currentVisibility;
+    return [
+      `授权范围：${currentScope} -> ${requestedScope}`,
+      `公开级别：${currentVisibility} -> ${requestedVisibility}`
+    ];
+  }
+
+  if (review.reviewType === "update") {
+    return [
+      `版本：${review.currentVersion ?? "未发布"} -> ${review.requestedVersion ?? "未填写"}`,
+      review.summary || review.reviewSummary || "暂无变更摘要"
+    ];
+  }
+
+  return [
+    `目标版本：${review.requestedVersion ?? review.currentVersion ?? "未填写"}`,
+    `公开级别：${review.requestedVisibilityLevel ? publishVisibilityLabel(review.requestedVisibilityLevel, language) : "未设置"}`,
+    `授权范围：${review.requestedScopeType ? scopeLabel(review.requestedScopeType, language) : "未设置"}`
+  ];
+}
+
 function ManageReviewsPane({ workspace, ui }: SectionProps) {
   useEffect(() => {
     if (!workspace.adminData.selectedReviewID && workspace.adminData.reviews[0]) {
@@ -2130,18 +2177,9 @@ function ManageReviewsPane({ workspace, ui }: SectionProps) {
   }, [workspace]);
 
   const selectedReview = workspace.adminData.selectedReview;
-  const [reviewComment, setReviewComment] = useState("");
-
-  useEffect(() => {
-    setReviewComment("");
-  }, [selectedReview?.reviewID]);
-
-  const loadReviewFileContent = async (relativePath: string) => {
-    if (!selectedReview) {
-      throw new Error("未选择审核单");
-    }
-    return workspace.adminData.getReviewFileContent(selectedReview.reviewID, relativePath);
-  };
+  const warningPrechecks = selectedReview?.precheckResults.filter((item) => item.status === "warn") ?? [];
+  const latestHistory = selectedReview?.history[selectedReview.history.length - 1] ?? null;
+  const selectedChangeLines = selectedReview ? reviewChangeLines(selectedReview, ui.language) : [];
 
   return (
     <div className="manage-pane-grid reviews">
@@ -2176,7 +2214,7 @@ function ManageReviewsPane({ workspace, ui }: SectionProps) {
                 </span>
               </div>
               <span className="selection-row-meta">
-                <TagPill tone={review.reviewStatus === "reviewed" ? "success" : review.reviewStatus === "in_review" ? "warning" : "info"}>
+                <TagPill tone={reviewStatusTone(review)}>
                   {workflowStateLabel(review.workflowState, ui.language)}
                 </TagPill>
                 <small>{formatDate(review.submittedAt, ui.language)}</small>
@@ -2187,7 +2225,7 @@ function ManageReviewsPane({ workspace, ui }: SectionProps) {
       </section>
       <section className="stage-panel detail-panel wide inspector-panel manage-review-detail" data-testid="review-detail-panel">
         {!selectedReview ? (
-          <SectionEmpty title="选择一条审核单查看详情" body="可查看预检查结果、审核动作和文件预览。" />
+          <SectionEmpty title="选择一条审核单查看摘要" body="工作台右侧用于快速判断，完整处理请进入审核详情。" />
         ) : (
           <>
             <div className="detail-hero compact">
@@ -2196,16 +2234,16 @@ function ManageReviewsPane({ workspace, ui }: SectionProps) {
               </div>
               <div className="detail-hero-copy">
                 <div className="pill-row">
-                  <TagPill tone={selectedReview.reviewStatus === "reviewed" ? "success" : selectedReview.reviewStatus === "in_review" ? "warning" : "info"}>
+                  <TagPill tone={reviewStatusTone(selectedReview)}>
                     {workflowStateLabel(selectedReview.workflowState, ui.language)}
                   </TagPill>
-                  <TagPill tone={selectedReview.riskLevel === "high" ? "danger" : selectedReview.riskLevel === "medium" ? "warning" : "info"}>
-                    {selectedReview.riskLevel}
+                  <TagPill tone={riskToneForLevel(selectedReview.riskLevel)}>
+                    {reviewRiskText(selectedReview.riskLevel)}
                   </TagPill>
                   <TagPill tone="neutral">{submissionTypeLabel(selectedReview.reviewType, ui.language)}</TagPill>
                 </div>
                 <h3>{selectedReview.skillDisplayName}</h3>
-                <p>{selectedReview.description}</p>
+                <p>{selectedReview.summary || selectedReview.description}</p>
               </div>
             </div>
             <div className="definition-grid split">
@@ -2218,74 +2256,51 @@ function ManageReviewsPane({ workspace, ui }: SectionProps) {
               <div><dt>分类</dt><dd>{selectedReview.category}</dd></div>
               <div><dt>标签</dt><dd>{selectedReview.tags.length > 0 ? selectedReview.tags.join("、") : "-"}</dd></div>
             </div>
-            <div className="detail-block">
-              <h3>预检查结果</h3>
-              {selectedReview.precheckResults.length === 0 ? (
-                <p>系统初审尚未返回结果。</p>
-              ) : (
-                <div className="stack-list compact">
-                  {selectedReview.precheckResults.map((item) => (
-                    <div className="micro-row" key={item.id}>
-                      <strong>{item.label}</strong>
-                      <small>{item.message}</small>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="detail-block">
-              <h3>审核动作</h3>
-              <label className="field">
-                <span>说明</span>
-                <textarea
-                  rows={3}
-                  data-testid="review-comment"
-                  value={reviewComment}
-                  placeholder="补充审核意见、退回原因或通过说明"
-                  onChange={(event) => setReviewComment(event.target.value)}
-                />
-              </label>
-              <div className="inline-actions wrap">
-                {selectedReview.availableActions.map((action) => (
-	                  <button
-	                    key={action}
-	                    className={action === "approve" || action === "pass_precheck" ? "btn btn-primary btn-small" : "btn btn-small"}
-	                    type="button"
-	                    data-testid={`review-action-${action}`}
-	                    onClick={() => {
-	                      switch (action) {
-	                        case "claim":
-	                          void workspace.adminData.claimReview(selectedReview.reviewID);
-	                          break;
-	                        case "pass_precheck":
-	                          void workspace.adminData.passPrecheck(selectedReview.reviewID, reviewComment);
-	                          break;
-	                        case "approve":
-	                          void workspace.adminData.approveReview(selectedReview.reviewID, reviewComment);
-	                          break;
-	                        case "return_for_changes":
-	                          void workspace.adminData.returnReview(selectedReview.reviewID, reviewComment);
-	                          break;
-	                        case "reject":
-	                          void workspace.adminData.rejectReview(selectedReview.reviewID, reviewComment);
-	                          break;
-                        case "withdraw":
-                          break;
-                      }
-                    }}
-                  >
-                    {reviewActionLabel(action, ui.language)}
-                  </button>
+            <div className="detail-block inspector-subsection">
+              <h3>本次变更</h3>
+              <div className="stack-list compact">
+                {selectedChangeLines.map((line) => (
+                  <div className="micro-row" key={line}>
+                    <span>{line}</span>
+                  </div>
                 ))}
               </div>
             </div>
-            <PackagePreviewPanel
-              files={selectedReview.packageFiles}
-              packageURL={selectedReview.packageURL}
-              downloadName={`${selectedReview.skillID}.zip`}
-              loadContent={loadReviewFileContent}
-              ui={ui}
-            />
+            <div className="detail-block inspector-subsection">
+              <h3>预检查概览</h3>
+              {selectedReview.precheckResults.length === 0 ? <p>系统初审尚未返回结果。</p> : null}
+              {selectedReview.precheckResults.length > 0 ? (
+                <p>{warningPrechecks.length > 0 ? `有 ${warningPrechecks.length} 个警告项，进入详情查看处理建议。` : "未发现警告项，可进入详情完成最终判断。"}</p>
+              ) : null}
+              {warningPrechecks[0] ? (
+                <div className="micro-row">
+                  <strong>{warningPrechecks[0].label}</strong>
+                  <small>{warningPrechecks[0].message}</small>
+                </div>
+              ) : null}
+            </div>
+            <div className="detail-block inspector-subsection">
+              <h3>最近历史</h3>
+              {latestHistory ? (
+                <div className="micro-row">
+                  <strong>{latestHistory.actorName} · {workflowStateLabel(latestHistory.action, ui.language)}</strong>
+                  <small>{latestHistory.comment ?? "无补充说明"} · {formatDate(latestHistory.createdAt, ui.language)}</small>
+                </div>
+              ) : (
+                <p>暂无审核历史。</p>
+              )}
+            </div>
+            <div className="inline-actions wrap">
+              <button className="btn btn-primary" type="button" onClick={() => ui.openReviewDetail(selectedReview.reviewID)}>
+                打开审核详情
+              </button>
+              <button className="btn" type="button" onClick={() => ui.openSkillDetail(selectedReview.skillID, "manage")}>
+                Skill 详情
+              </button>
+            </div>
+            <div className="detail-block review-summary-note">
+              <p>最终审核动作、审核意见、文件预览和完整历史统一在全屏审核详情中处理。</p>
+            </div>
           </>
         )}
       </section>

@@ -4,7 +4,7 @@ import type { AuthState, BootstrapContext, LocalBootstrap, LocalEvent, LocalNoti
 import { p1Client } from "../../services/p1Client.ts";
 import { desktopBridge } from "../../services/tauriBridge.ts";
 import { upsertNotifications } from "../p1WorkspaceHelpers.ts";
-import { scanTargetsErrorMessage, scanTargetsSummaryMessage } from "../ui/scanProgress.ts";
+import { scanTargetsErrorMessage, scanTargetsSummaryMessage } from "./scanProgress.ts";
 import type { HandleRemoteError } from "./workspaceTypes.ts";
 import { emptyLocalNotifications } from "./workspaceTypes.ts";
 

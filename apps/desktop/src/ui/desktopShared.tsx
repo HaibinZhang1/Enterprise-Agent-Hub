@@ -23,6 +23,7 @@ import type {
 } from "../domain/p1.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
 import { formatDisplayDate } from "../utils/displayDate.ts";
+export { themeLabel } from "./themeLabels.ts";
 
 export type DisplayLanguage = "zh-CN" | "en-US";
 
@@ -201,20 +202,6 @@ export function reviewDecisionLabel(decision: ReviewDecisionDraft["decision"], l
         return_for_changes: "退回修改",
         reject: "拒绝"
       }[decision];
-}
-
-export function themeLabel(theme: PreferenceState["theme"], language: DisplayLanguage = "zh-CN"): string {
-  return language === "en-US"
-    ? {
-        classic: "Classic",
-        fresh: "Fresh",
-        contrast: "Contrast"
-      }[theme]
-    : {
-        classic: "经典白",
-        fresh: "清爽蓝",
-        contrast: "高对比"
-      }[theme];
 }
 
 export function settingsLanguageLabel(languageValue: PreferenceState["language"], language: DisplayLanguage = "zh-CN"): string {

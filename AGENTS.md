@@ -2,11 +2,12 @@
 
 ## Project Structure & Module Organization
 
-This repository currently contains product documentation and a static UI prototype.
+This repository currently contains product documentation, a React/Tauri desktop app, a NestJS API, shared contracts, deployment assets, and a static UI prototype.
 
 - `docs/RequirementDocument/` holds the P1/P2/P3 requirements, page specs, data contracts, and glossary. Start with `docs/RequirementDocument/index.md`.
 - `docs/DetailedDesign/` contains implementation-oriented design notes. Start with `docs/DetailedDesign/index.md` before adding architecture or deployment code.
-- `ui-prototype/` is a standalone prototype: `index.html`, `app.js`, and `styles.css`. It is vanilla HTML/CSS/JavaScript; no package manager or build system is present yet.
+- `apps/desktop/` is the real product UI and Tauri client. It is the delivery and verification entrypoint for frontend work.
+- `docs/design-ui/layout-prototype/` is a standalone design prototype: `index.html`, `app.js`, and `styles.css`. It is vanilla HTML/CSS/JavaScript and is not a delivery or integration entrypoint.
 - `.omx/` is local orchestration state and should not be treated as product source.
 - 如果本次修改涉及到需求上的变动，请同步修改'docs/RequirementDocument/'
 
@@ -23,22 +24,22 @@ These rules adapt the core ideas from `multica-ai/andrej-karpathy-skills`: reduc
 
 ## Build, Test, and Development Commands
 
-No project-level `package.json`, Makefile, or test runner is checked in yet. For the current prototype:
+For the current design prototype:
 
 ```sh
-python3 -m http.server 8000 --directory ui-prototype
+python3 -m http.server 8000 --directory docs/design-ui/layout-prototype
 open http://localhost:8000
 ```
 
-When adding future tooling, commit the manifest and document the canonical commands here, for example `npm run dev`, `npm test`, or `docker compose up`.
+Canonical workspace commands are defined in the root `package.json`, for example `npm run lint`, `npm run typecheck`, `npm test`, and `npm run p1:full-closure`.
 
 ## Coding Style & Naming Conventions
 
-Use 2-space indentation for HTML, CSS, and JavaScript. Follow the existing JavaScript style in `ui-prototype/app.js`: `const`/`let`, camelCase variables, double-quoted strings, semicolons, and descriptive object field names. Keep CSS organized around custom properties in `:root`, reusable class selectors, and accessible focus/disabled states. Preserve the existing Chinese product copy unless a requirement document calls for a wording change.
+Use 2-space indentation for HTML, CSS, and JavaScript. Follow the existing JavaScript style in `docs/design-ui/layout-prototype/app.js`: `const`/`let`, camelCase variables, double-quoted strings, semicolons, and descriptive object field names. Keep CSS organized around custom properties in `:root`, reusable class selectors, and accessible focus/disabled states. Preserve the existing Chinese product copy unless a requirement document calls for a wording change.
 
 ## Testing Guidelines
 
-Automated tests are not configured in this snapshot. For now, manually smoke-test the prototype in a browser after UI edits: login/entry flow, market browsing, search/filter controls, install/update actions, toasts, empty/error states, and responsive layout. When introducing tests, colocate them near the implemented source or in a clear `tests/` directory and document the runner command in this file.
+Automated tests and checks are configured through the root workspace scripts. For UI edits, run the relevant workspace checks and manually smoke-test the real `apps/desktop` entrypoint; use `docs/design-ui/layout-prototype/` only as a visual/reference prototype.
 
 ## Commit & Pull Request Guidelines
 

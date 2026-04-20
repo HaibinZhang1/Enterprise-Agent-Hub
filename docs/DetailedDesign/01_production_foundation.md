@@ -110,13 +110,13 @@ EnterpriseAgentHub/
 ├── docs/
 │   ├── RequirementDocument/
 │   └── DetailedDesign/
-├── ui-prototype/
+├── docs/design-ui/layout-prototype/
 └── README.md
 ```
 
 说明：
 
-- `apps/desktop/src` 承接 `ui-prototype` 中已验证的页面结构，但生产实现需要隐藏发布、审核、管理等 后续版本 入口。
+- `apps/desktop/src` 承接 `docs/design-ui/layout-prototype/` 中已验证的页面结构，但生产实现需要隐藏发布、审核、管理等 后续版本 入口。
 - `apps/desktop/src-tauri` 是所有本地系统能力的唯一入口，React 只通过 `invoke` 调用命令。
 - `packages/shared-contracts` 放 API DTO、枚举和跨端类型，避免 Desktop 与 API 字段漂移。
 - `packages/tool-adapter-fixtures` 放 Codex、Claude、Cursor、Windsurf、opencode 的格式转换 golden fixture。
@@ -298,7 +298,7 @@ bucket: skill-assets
 3. 固化共享契约：枚举、DTO、错误码、分页响应、`installMode` 的 `symlink|copy` 实际模式字段。
 4. 实现服务端 当前版本 API：登录、`/desktop/bootstrap`、`/skills`、`/skills/{skillID}`、download-ticket、Star、通知、`/desktop/local-events`。
 5. 接入 MinIO 与 BullMQ：包对象元数据、短期下载凭证、包校验任务、通知生成任务。
-6. 实现 Desktop React 主框架：登录、首页、市场、详情、我的已安装、工具、项目、通知、设置；以 `ui-prototype` 为页面参考，移除 后续版本 正式入口。
+6. 实现 Desktop React 主框架：登录、首页、市场、详情、我的已安装、工具、项目、通知、设置；以 `docs/design-ui/layout-prototype/` 为页面参考，移除 后续版本 正式入口。
 7. 实现 Rust SQLite 与 Central Store：本地迁移、安装状态、工具/项目配置、下载校验、覆盖更新、卸载。
 8. 实现 Tool Adapter 与本地分发：Codex、Claude、Cursor、Windsurf、opencode、自定义目录；优先 symlink，失败 copy；补齐 fixture 验收。
 9. 实现离线闭环：离线启用/停用写 SQLite 队列；恢复网络后上报本地事件；权限、下架、版本仍以服务端为准。

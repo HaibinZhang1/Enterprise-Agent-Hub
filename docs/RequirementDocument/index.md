@@ -9,7 +9,7 @@
 
 > 当前交付边界（2026-04-19）：正式桌面交付仍以 Windows exe 为主，服务端部署仍以 Linux 服务器为目标并优先选择简单、兼容性高的方案。真实 API `download-ticket` -> Tauri 安装/更新 -> Central Store + SQLite -> 启用 -> 重启恢复的最小闭环已经验证；Desktop runtime 已完成 Windows/macOS 平台适配层收敛。剩余缺口集中在 Windows exe 打包、Linux live 部署、客户端在线升级链路实现，以及 Windows/macOS 实机验收。
 
-> 交付入口口径（2026-04-12）：真实产品前端固定为 `apps/desktop`。`ui-prototype/` 只作为原型 UI/文案/信息架构参考，不作为交付界面、联调入口或验收依据。凡涉及登录、市场、通知、管理员权限和服务连接状态的能力，均以 live 服务端返回为准，不允许前端用 mock 或假远端数据兜底。
+> 交付入口口径（2026-04-12）：真实产品前端固定为 `apps/desktop`。`docs/design-ui/layout-prototype/` 只作为原型 UI/文案/信息架构参考，不作为交付界面、联调入口或验收依据。凡涉及登录、市场、通知、管理员权限和服务连接状态的能力，均以 live 服务端返回为准，不允许前端用 mock 或假远端数据兜底。
 
 
 ## 当前实现约束

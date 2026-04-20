@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const sourceRoot = fileURLToPath(new URL("../src/", import.meta.url));
-const forbiddenPrototypeMutationMarkers = ["ui-prototype/app.js", "ui-prototype/styles.css"];
+const forbiddenPrototypeMutationMarkers = ["docs/design-ui/layout-prototype/app.js", "docs/design-ui/layout-prototype/styles.css"];
 const forbiddenLegacyImports = [
   "desktopPages.tsx",
   "desktopModals.tsx",

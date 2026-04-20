@@ -31,6 +31,7 @@ export type PublisherPane = "compose" | "mine";
 export type OverlayState =
   | { kind: "none" }
   | { kind: "skill_detail"; skillID: string; source: TopLevelSection }
+  | { kind: "review_detail"; reviewID: string }
   | { kind: "publisher"; pane: PublisherPane };
 
 export interface FlashMessage {
@@ -112,6 +113,7 @@ export function legacyPageForView(input: {
   overlay: OverlayState;
 }): Exclude<PageID, "detail" | "notifications"> {
   if (input.overlay.kind === "publisher") return "publisher";
+  if (input.overlay.kind === "review_detail") return "review";
 
   switch (input.section) {
     case "community":
@@ -137,6 +139,14 @@ export function legacyPageForView(input: {
 
 export function skillDetailOverlay(skillID: string, source: TopLevelSection): OverlayState {
   return { kind: "skill_detail", skillID, source };
+}
+
+export function reviewDetailOverlay(reviewID: string): OverlayState {
+  return { kind: "review_detail", reviewID };
+}
+
+function isDetailOverlay(overlay: OverlayState): boolean {
+  return overlay.kind === "skill_detail" || overlay.kind === "review_detail";
 }
 
 function defaultAppUpdateState(): AppUpdateState {
@@ -250,7 +260,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
   }, [activeSection, workspace.isAdminConnected]);
 
   const closeSkillDetail = useCallback(() => {
-    setOverlay((current) => (current.kind === "skill_detail" ? { kind: "none" } : current));
+    setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
   }, []);
 
   const clearFlash = useCallback(() => {
@@ -278,7 +288,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
 
   const navigateSection = useCallback((section: TopLevelSection) => {
     if (section === "manage" && !workspace.isAdminConnected) return;
-    setOverlay((current) => (current.kind === "skill_detail" ? { kind: "none" } : current));
+    setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
     if (section === "community") {
       setCommunityPane("skills");
     }
@@ -286,20 +296,20 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
   }, [workspace.isAdminConnected]);
 
   const openCommunityPane = useCallback((pane: CommunityPane) => {
-    setOverlay((current) => (current.kind === "skill_detail" ? { kind: "none" } : current));
+    setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
     setActiveSection("community");
     setCommunityPane(pane);
   }, []);
 
   const openLocalPane = useCallback((pane: LocalPane) => {
-    setOverlay((current) => (current.kind === "skill_detail" ? { kind: "none" } : current));
+    setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
     setActiveSection("local");
     setLocalPane(pane);
   }, []);
 
   const openManagePane = useCallback((pane: ManagePane) => {
     if (!workspace.isAdminConnected) return;
-    setOverlay((current) => (current.kind === "skill_detail" ? { kind: "none" } : current));
+    setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
     setActiveSection("manage");
     setManagePane(pane);
   }, [workspace.isAdminConnected]);
@@ -312,6 +322,14 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     workspace.selectSkill(skillID);
     setOverlay(skillDetailOverlay(skillID, source));
   }, [activeSection, workspace]);
+
+  const openReviewDetail = useCallback((reviewID: string) => {
+    if (!workspace.isAdminConnected) return;
+    workspace.adminData.setSelectedReviewID(reviewID);
+    setActiveSection("manage");
+    setManagePane("reviews");
+    setOverlay(reviewDetailOverlay(reviewID));
+  }, [workspace]);
 
   const closeOverlay = useCallback(() => {
     setOverlay({ kind: "none" });
@@ -520,6 +538,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     setManagePane,
     setPublisherPane,
     openSkillDetail,
+    openReviewDetail,
     openDesktopNotification,
     openInstallConfirm,
     openUninstallConfirm,

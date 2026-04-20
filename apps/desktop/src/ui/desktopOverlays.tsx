@@ -1,5 +1,5 @@
 import type { ChangeEvent, Dispatch, FormEvent, SetStateAction } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -15,7 +15,7 @@ import {
   WifiOff,
   X
 } from "lucide-react";
-import type { AdminSkill, OperationProgress, PreferenceState, PublishDraft, PublisherSkillSummary, SkillSummary } from "../domain/p1.ts";
+import type { AdminSkill, OperationProgress, PreferenceState, PublishDraft, PublisherSkillSummary, ReviewAction, ReviewDetail, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
 import type { DesktopUIState, FlashMessage, OverlayState, PublisherPane } from "../state/useDesktopUIState.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
@@ -680,9 +680,10 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
   if (ui.modal.type !== "settings") return null;
 
   const themeOptions = [
-    { value: "classic", title: "经典白", description: "冷白背景，保持企业工作台的标准对比。" },
-    { value: "fresh", title: "清爽蓝", description: "更轻一点的蓝感背景，适合长时间浏览。" },
-    { value: "contrast", title: "高对比", description: "提高层级对比，适合信息密度更高的场景。" }
+    { value: "classic", description: localize(ui.language, "冷白背景，保持企业工作台的标准对比。", "Cool white background with standard enterprise workspace contrast.") },
+    { value: "fresh", description: localize(ui.language, "更轻一点的蓝感背景，适合长时间浏览。", "A lighter blue-tinted workspace for long browsing sessions.") },
+    { value: "contrast", description: localize(ui.language, "提高层级对比，适合信息密度更高的场景。", "Higher layer contrast for dense information work.") },
+    { value: "dark", description: localize(ui.language, "深色全局界面，适合低光环境和长时间工作。", "A global dark interface for low-light and long-session work.") }
   ] as const;
   const knownAgentBaseURLs = Object.values(defaultAgentBaseURLs).filter(Boolean);
   const hasAgentKey = ui.preferences.agentApiKey.trim().length > 0;
@@ -1239,6 +1240,305 @@ function SkillDetailOverlay({ workspace, ui, overlay }: { workspace: P1Workspace
           ) : (
             <SectionEmpty title="暂无 README.md" body="发布包中没有可展示的 README.md。" />
           )}
+        </section>
+      </div>
+    </ModalFrame>
+  );
+}
+
+function reviewStatusTone(review: Pick<ReviewDetail, "reviewStatus">): "success" | "warning" | "danger" | "info" | "neutral" {
+  if (review.reviewStatus === "reviewed") return "success";
+  if (review.reviewStatus === "in_review") return "warning";
+  return "info";
+}
+
+function reviewRiskText(risk: string, language: DesktopUIState["language"]) {
+  const label = fallbackRiskLabel(risk, language);
+  return language === "en-US" ? `${label} Risk` : `${label}风险`;
+}
+
+function reviewHistoryActionLabel(action: string, language: DesktopUIState["language"]) {
+  const zhCN: Record<string, string> = {
+    submit: "提交",
+    submitted: "提交",
+    claim: "开始审核",
+    pass_precheck: "通过初审",
+    approve: "同意",
+    return_for_changes: "退回修改",
+    reject: "拒绝",
+    withdraw: "撤回"
+  };
+  const enUS: Record<string, string> = {
+    submit: "Submitted",
+    submitted: "Submitted",
+    claim: "Claimed",
+    pass_precheck: "Passed Precheck",
+    approve: "Approved",
+    return_for_changes: "Returned",
+    reject: "Rejected",
+    withdraw: "Withdrawn"
+  };
+  return (language === "en-US" ? enUS : zhCN)[action] ?? workflowStateLabel(action, language);
+}
+
+function reviewChangeSections(review: ReviewDetail, language: DesktopUIState["language"]) {
+  if (review.reviewType === "permission_change") {
+    const currentScope = review.currentScopeType ? scopeLabel(review.currentScopeType, language) : "未设置";
+    const requestedScope = review.requestedScopeType ? scopeLabel(review.requestedScopeType, language) : currentScope;
+    const currentVisibility = review.currentVisibilityLevel ? publishVisibilityLabel(review.currentVisibilityLevel, language) : "未设置";
+    const requestedVisibility = review.requestedVisibilityLevel ? publishVisibilityLabel(review.requestedVisibilityLevel, language) : currentVisibility;
+    return [
+      { label: "授权范围", value: `${currentScope} -> ${requestedScope}` },
+      { label: "公开级别", value: `${currentVisibility} -> ${requestedVisibility}` },
+      { label: "指定部门", value: review.requestedDepartmentIDs.length > 0 ? `${review.requestedDepartmentIDs.length} 个部门` : "未指定" }
+    ];
+  }
+
+  if (review.reviewType === "update") {
+    return [
+      { label: "版本", value: `${review.currentVersion ?? "未发布"} -> ${review.requestedVersion ?? "未填写"}` },
+      { label: "公开级别", value: review.requestedVisibilityLevel ? publishVisibilityLabel(review.requestedVisibilityLevel, language) : "沿用当前设置" },
+      { label: "变更说明", value: review.summary || review.reviewSummary || "暂无变更摘要" }
+    ];
+  }
+
+  return [
+    { label: "目标版本", value: review.requestedVersion ?? review.currentVersion ?? "未填写" },
+    { label: "授权范围", value: review.requestedScopeType ? scopeLabel(review.requestedScopeType, language) : "未设置" },
+    { label: "公开级别", value: review.requestedVisibilityLevel ? publishVisibilityLabel(review.requestedVisibilityLevel, language) : "未设置" }
+  ];
+}
+
+function reviewActionButtonClass(action: ReviewAction) {
+  return action === "approve" || action === "pass_precheck" || action === "claim" ? "btn btn-primary btn-small" : "btn btn-small";
+}
+
+function ReviewDetailOverlay({ workspace, ui, overlay }: { workspace: P1WorkspaceState; ui: DesktopUIState; overlay: OverlayState }) {
+  if (overlay.kind !== "review_detail") return null;
+  return <ReviewDetailOverlayContent workspace={workspace} ui={ui} reviewID={overlay.reviewID} />;
+}
+
+function ReviewDetailOverlayContent({ workspace, ui, reviewID }: { workspace: P1WorkspaceState; ui: DesktopUIState; reviewID: string }) {
+  const selectedReview = workspace.adminData.selectedReview?.reviewID === reviewID ? workspace.adminData.selectedReview : null;
+  const listItem = workspace.adminData.reviews.find((review) => review.reviewID === reviewID) ?? null;
+  const [reviewComment, setReviewComment] = useState("");
+
+  useEffect(() => {
+    if (workspace.adminData.selectedReviewID !== reviewID) {
+      workspace.adminData.setSelectedReviewID(reviewID);
+    }
+  }, [reviewID, workspace.adminData]);
+
+  useEffect(() => {
+    setReviewComment("");
+  }, [reviewID]);
+
+  const loadReviewFileContent = useCallback(
+    async (relativePath: string) => workspace.adminData.getReviewFileContent(reviewID, relativePath),
+    [reviewID, workspace.adminData]
+  );
+
+  const runReviewAction = useCallback((action: ReviewAction) => {
+    if (!selectedReview) return;
+    switch (action) {
+      case "claim":
+        void workspace.adminData.claimReview(selectedReview.reviewID);
+        break;
+      case "pass_precheck":
+        void workspace.adminData.passPrecheck(selectedReview.reviewID, reviewComment);
+        break;
+      case "approve":
+        void workspace.adminData.approveReview(selectedReview.reviewID, reviewComment);
+        break;
+      case "return_for_changes":
+        void workspace.adminData.returnReview(selectedReview.reviewID, reviewComment);
+        break;
+      case "reject":
+        void workspace.adminData.rejectReview(selectedReview.reviewID, reviewComment);
+        break;
+      case "withdraw":
+        break;
+    }
+  }, [reviewComment, selectedReview, workspace.adminData]);
+
+  if (!selectedReview) {
+    const title = listItem?.skillDisplayName ?? "审核详情";
+    return (
+      <ModalFrame
+        title={title}
+        eyebrow="审核详情"
+        onClose={ui.closeOverlay}
+        full
+        panelClassName="skill-detail-modal review-detail-modal"
+      >
+        <SectionEmpty
+          title={listItem ? "正在加载审核详情" : "未找到审核单"}
+          body={listItem ? `${listItem.submitterName} · ${submissionTypeLabel(listItem.reviewType, ui.language)} · ${workflowStateLabel(listItem.workflowState, ui.language)}` : "请返回审核工作台重新选择审核单。"}
+        />
+      </ModalFrame>
+    );
+  }
+
+  const reviewActions = selectedReview.availableActions.filter((action) => action !== "withdraw");
+  const changeItems = reviewChangeSections(selectedReview, ui.language);
+  const warningPrechecks = selectedReview.precheckResults.filter((item) => item.status === "warn");
+  const reviewSummary = selectedReview.reviewSummary ?? selectedReview.summary ?? "暂无审核摘要。";
+
+  return (
+    <ModalFrame
+      title={selectedReview.skillDisplayName}
+      eyebrow="审核详情"
+      onClose={ui.closeOverlay}
+      full
+      panelClassName="skill-detail-modal review-detail-modal"
+      headerContent={skillDetailHead({
+        displayName: selectedReview.skillDisplayName,
+        eyebrow: "审核详情",
+        description: selectedReview.description,
+        meta: `${selectedReview.skillID} · ${selectedReview.submitterName} · ${selectedReview.submitterDepartmentName}`,
+        tags: (
+          <>
+            <TagPill tone={reviewStatusTone(selectedReview)}>{workflowStateLabel(selectedReview.workflowState, ui.language)}</TagPill>
+            <TagPill tone={riskToneClass(selectedReview.riskLevel)}>{reviewRiskText(selectedReview.riskLevel, ui.language)}</TagPill>
+            <TagPill tone="neutral">{submissionTypeLabel(selectedReview.reviewType, ui.language)}</TagPill>
+          </>
+        )
+      })}
+    >
+      <div className="skill-detail-page review-detail-page">
+        <section className="skill-detail-section">
+          <div className="definition-grid split skill-detail-meta-grid">
+            <div><dt>提交人</dt><dd>{selectedReview.submitterName}</dd></div>
+            <div><dt>提交部门</dt><dd>{selectedReview.submitterDepartmentName}</dd></div>
+            <div><dt>当前审核人</dt><dd>{selectedReview.currentReviewerName ?? "未锁定"}</dd></div>
+            <div><dt>提交时间</dt><dd>{formatDate(selectedReview.submittedAt, ui.language)}</dd></div>
+            <div><dt>更新时间</dt><dd>{formatDate(selectedReview.updatedAt, ui.language)}</dd></div>
+            <div><dt>锁单状态</dt><dd>{selectedReview.lockState === "locked" ? "已锁定" : "未锁定"}</dd></div>
+          </div>
+        </section>
+
+        <section className="skill-detail-section">
+          <div className="detail-column-head">
+            <h3>本次变更</h3>
+          </div>
+          <div className="definition-grid split">
+            {changeItems.map((item) => (
+              <div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>
+            ))}
+            <div><dt>分类</dt><dd>{selectedReview.category}</dd></div>
+            <div><dt>标签</dt><dd>{selectedReview.tags.length > 0 ? selectedReview.tags.join("、") : "-"}</dd></div>
+            <div><dt>包信息</dt><dd>{selectedReview.packageSize ? `${Math.max(1, Math.round(selectedReview.packageSize / 1024))} KB` : "-"} · {selectedReview.packageFileCount ?? selectedReview.packageFiles.length} 个文件</dd></div>
+          </div>
+          <div className="skill-detail-note-grid">
+            <div>
+              <strong>审核摘要</strong>
+              <p>{reviewSummary}</p>
+            </div>
+            <div>
+              <strong>处理提示</strong>
+              <p>{warningPrechecks.length > 0 ? `当前有 ${warningPrechecks.length} 个预检查警告，确认阻塞项处理方式后再给出结论。` : "当前未发现预检查警告，仍需结合包内容完成最终判断。"}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="skill-detail-section review-action-section">
+          <div className="detail-column-head">
+            <h3>审核动作</h3>
+          </div>
+          <label className="field">
+            <span>审核意见</span>
+            <textarea
+              rows={4}
+              data-testid="review-comment"
+              value={reviewComment}
+              placeholder="补充审核意见、退回原因或通过说明"
+              onChange={(event) => setReviewComment(event.target.value)}
+            />
+          </label>
+          <div className="inline-actions wrap">
+            {reviewActions.length === 0 ? <span className="muted-copy">当前状态没有可执行审核动作。</span> : null}
+            {reviewActions.map((action) => (
+              <button
+                key={action}
+                className={reviewActionButtonClass(action)}
+                type="button"
+                data-testid={`review-action-${action}`}
+                onClick={() => runReviewAction(action)}
+              >
+                {reviewActionLabel(action, ui.language)}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="skill-detail-section">
+          <div className="detail-column-head">
+            <h3>系统预检查</h3>
+          </div>
+          {selectedReview.precheckResults.length === 0 ? <SectionEmpty title="系统初审尚未返回结果" body="等待服务端返回结构、版本、包大小和文件数等检查结果。" /> : null}
+          {selectedReview.precheckResults.length > 0 ? (
+            <div className="stack-list compact">
+              {selectedReview.precheckResults.map((item) => (
+                <div className="micro-row review-precheck-row" key={item.id}>
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>{item.message}</small>
+                  </span>
+                  <TagPill tone={item.status === "warn" ? "warning" : "success"}>{item.status === "warn" ? "警告" : "通过"}</TagPill>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="skill-detail-section">
+          <div className="detail-column-head">
+            <h3>包内容预览</h3>
+          </div>
+          <PackagePreviewPanel
+            files={selectedReview.packageFiles}
+            packageURL={selectedReview.packageURL}
+            downloadName={`${selectedReview.skillID}.zip`}
+            loadContent={loadReviewFileContent}
+            ui={ui}
+          />
+        </section>
+
+        <section className="skill-detail-section">
+          <div className="detail-column-head">
+            <h3>Skill 信息</h3>
+          </div>
+          <div className="definition-grid split">
+            <div><dt>skillID</dt><dd>{selectedReview.skillID}</dd></div>
+            <div><dt>当前版本</dt><dd>{selectedReview.currentVersion ?? "未发布"}</dd></div>
+            <div><dt>目标版本</dt><dd>{selectedReview.requestedVersion ?? "-"}</dd></div>
+            <div><dt>当前公开级别</dt><dd>{selectedReview.currentVisibilityLevel ? publishVisibilityLabel(selectedReview.currentVisibilityLevel, ui.language) : "未设置"}</dd></div>
+            <div><dt>申请公开级别</dt><dd>{selectedReview.requestedVisibilityLevel ? publishVisibilityLabel(selectedReview.requestedVisibilityLevel, ui.language) : "未设置"}</dd></div>
+            <div><dt>风险等级</dt><dd>{reviewRiskText(selectedReview.riskLevel, ui.language)}</dd></div>
+          </div>
+          <p>{selectedReview.description}</p>
+        </section>
+
+        <section className="skill-detail-section">
+          <div className="detail-column-head">
+            <h3>审核历史</h3>
+          </div>
+          {selectedReview.history.length === 0 ? <SectionEmpty title="暂无审核历史" body="领取、退回、拒绝、同意等动作会记录在这里。" /> : null}
+          {selectedReview.history.length > 0 ? (
+            <div className="version-history-list review-history-list">
+              {selectedReview.history.map((item) => (
+                <article className="version-history-row review-history-row" key={item.historyID}>
+                  <div className="version-history-row-head">
+                    <div>
+                      <strong>{reviewHistoryActionLabel(item.action, ui.language)}</strong>
+                      <small>{item.actorName} · {formatDate(item.createdAt, ui.language)}</small>
+                    </div>
+                  </div>
+                  <p>{item.comment ?? "无补充说明。"}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </section>
       </div>
     </ModalFrame>
@@ -1847,6 +2147,7 @@ export function DesktopOverlays({ workspace, ui }: { workspace: P1WorkspaceState
         <AppUpdateModal ui={ui} />
         <SettingsModal workspace={workspace} ui={ui} />
         <SkillDetailOverlay workspace={workspace} ui={ui} overlay={ui.overlay} />
+        <ReviewDetailOverlay workspace={workspace} ui={ui} overlay={ui.overlay} />
       </>
     </OverlayPortal>
   );

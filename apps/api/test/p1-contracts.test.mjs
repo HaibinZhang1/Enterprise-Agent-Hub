@@ -5,7 +5,6 @@ import { createHash } from 'node:crypto';
 
 const contracts = readFileSync(new URL('../src/common/p1-contracts.ts', import.meta.url), 'utf8');
 const sharedContracts = readFileSync(new URL('../../../packages/shared-contracts/src/index.ts', import.meta.url), 'utf8');
-const seed = readFileSync(new URL('../src/database/p1-seed.ts', import.meta.url), 'utf8');
 const seedSql = readFileSync(new URL('../src/database/seeds/p1_seed.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../src/database/migrations/001_p1_base.sql', import.meta.url), 'utf8');
 const publishingMigration = readFileSync(new URL('../src/database/migrations/002_publishing_workflow.sql', import.meta.url), 'utf8');
@@ -47,9 +46,9 @@ test('authenticated menu permissions include notifications for bootstrap and API
 });
 
 test('P1 seed covers full, restricted, and delisted skill scenarios', () => {
-  assert.match(seed, /detailAccess: 'full'/);
-  assert.match(seed, /detailAccess: 'summary'/);
-  assert.match(seed, /status: 'delisted'/);
+  assert.match(seedSql, /'codex-review-helper'[\s\S]*'public_installable'/);
+  assert.match(seedSql, /'design-guideline-lite'[\s\S]*'summary_visible'/);
+  assert.match(seedSql, /'legacy-dept-runbook'[\s\S]*'delisted'/);
   assert.match(seedSql, /UPDATE skills s\s+SET current_version_id = v\.id\s+FROM desired_versions dv/s);
   assert.match(seedSql, /sha256:[a-f0-9]{64}/);
   assert.match(packageDownloadService, /packageHash: packageRow\.sha256/);

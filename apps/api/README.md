@@ -62,4 +62,4 @@ That path bootstraps isolated PostgreSQL/Redis/MinIO/API/Desktop services, runs 
 - `POST /notifications/mark-read`
 - `GET /health`
 
-The initial implementation uses deterministic seed data and DTO shapes aligned with `docs/RequirementDocument/21_p1_data_contract.md`; the migration contains the PostgreSQL FTS schema and idempotency constraints for the DB-backed follow-up.
+The implementation uses deterministic SQL seed data and DTO shapes aligned with `docs/RequirementDocument/index.md` and `docs/DetailedDesign/04_p1_shared_contracts_alignment.md`; the migration contains the PostgreSQL FTS schema and idempotency constraints for the DB-backed path.
