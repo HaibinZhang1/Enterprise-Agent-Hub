@@ -1597,6 +1597,7 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const categories = ["all", ...workspace.categories];
   const activeTags = workspace.filters.tags;
+  const isCommunityResultsEmpty = workspace.marketSkills.length === 0;
   const discoverEntries = [
     { id: "skills", label: "Skills", icon: <Sparkles size={16} /> },
     { id: "mcp", label: "MCP", icon: <Link2 size={16} /> },
@@ -1726,9 +1727,9 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
                 </div>
                 ) : null}
               </section>
-              <div className="community-grid-layout">
-                <section className="stage-panel">
-                  {workspace.marketSkills.length === 0 ? <SectionEmpty title="没有符合筛选的 Skill" body="换一个搜索词或标签再试一次。" /> : null}
+              <div className="community-grid-layout" data-empty={isCommunityResultsEmpty ? "true" : undefined}>
+                <section className="stage-panel community-results-panel" data-empty={isCommunityResultsEmpty ? "true" : undefined}>
+                  {isCommunityResultsEmpty ? <SectionEmpty title="没有符合筛选的 Skill" body="换一个搜索词或标签再试一次。" /> : null}
                   <div className="market-grid">
                     {workspace.marketSkills.map((skill) => (
                       <CommunitySkillCard key={skill.skillID} workspace={workspace} ui={ui} skill={skill} />
@@ -2108,6 +2109,7 @@ export function LocalSection({ workspace, ui }: SectionProps) {
     [filteredDiscoveredSkills, selectedSkill, workspace.selectedSkillID]
   );
   const hasLocalSkillRows = ui.installedView.filteredInstalledSkills.length > 0 || filteredDiscoveredSkills.length > 0;
+  const isLocalSkillsEmptyState = !hasLocalSkillRows && !selectedSkill && !selectedDiscoveredSkill;
 
   useEffect(() => {
     const nextSkillID =
@@ -2145,8 +2147,8 @@ export function LocalSection({ workspace, ui }: SectionProps) {
         </aside>
         <div className="workspace-main local-main">
           {ui.localPane === "skills" ? (
-            <div className="list-detail-shell local-browser has-detail">
-              <section className="stage-panel list-panel local-list-panel">
+            <div className="list-detail-shell local-browser has-detail" data-empty={isLocalSkillsEmptyState ? "true" : undefined}>
+              <section className="stage-panel list-panel local-list-panel" data-empty={isLocalSkillsEmptyState ? "true" : undefined}>
                 <div className="local-filter-shell">
                   <div className="search-sort-row list-toolbar-row">
                     <label className="search-shell">
@@ -2224,7 +2226,7 @@ export function LocalSection({ workspace, ui }: SectionProps) {
               ) : selectedDiscoveredSkill ? (
                 <LocalDiscoveredSkillDetail workspace={workspace} ui={ui} skill={selectedDiscoveredSkill} />
               ) : (
-                <aside className="detail-panel"><SectionEmpty title="选择一个 Skill 查看详情" /></aside>
+                <aside className="detail-panel inspector-panel detail-placeholder-panel"><SectionEmpty title="选择一个 Skill 查看详情" /></aside>
               )}
             </div>
           ) : null}
