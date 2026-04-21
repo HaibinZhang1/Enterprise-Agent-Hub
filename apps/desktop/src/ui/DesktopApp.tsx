@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, CircleUserRound, LogIn, LogOut, Minus, Settings2, Square, X } from "lucide-react";
 import { useP1Workspace } from "../state/useP1Workspace.ts";
 import { type TopLevelSection, useDesktopUIState } from "../state/useDesktopUIState.ts";
-import { localize, roleLabel } from "./desktopShared.tsx";
-import { iconToneForLabel } from "./iconTone.ts";
+import { deriveAccountPresentation } from "../state/ui/accountPresentation.ts";
+import { InitialBadge } from "./pageCommon.tsx";
 import { NotificationPopover } from "./NotificationPopover.tsx";
 import { CommunitySection, HomeSection, LocalSection, ManageSection } from "./desktopSections.tsx";
 import { DesktopOverlays, FlashToast } from "./desktopOverlays.tsx";
@@ -64,17 +64,12 @@ function TopbarNotifications({ ui }: { ui: ReturnType<typeof useDesktopUIState> 
 function AvatarMenu({ workspace, ui }: { workspace: ReturnType<typeof useP1Workspace>; ui: ReturnType<typeof useDesktopUIState> }) {
   const [open, setOpen] = useState(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const roleText =
-    workspace.loggedIn && workspace.bootstrap.connection.status !== "connected"
-      ? localize(ui.language, "离线待验权", "Offline Pending Verification")
-      : roleLabel(workspace.currentUser, ui.language);
-  const connectionTone = workspace.loggedIn && workspace.bootstrap.connection.status === "connected" ? "connected" : "offline";
-  const connectionLabel =
-    workspace.loggedIn && workspace.bootstrap.connection.status === "connected"
-      ? localize(ui.language, "已连接", "Connected")
-      : workspace.loggedIn
-        ? localize(ui.language, "离线", "Offline")
-        : localize(ui.language, "本地", "Local");
+  const account = deriveAccountPresentation({
+    user: workspace.currentUser,
+    loggedIn: workspace.loggedIn,
+    connectionStatus: workspace.bootstrap.connection.status,
+    language: ui.language
+  });
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
@@ -100,57 +95,38 @@ function AvatarMenu({ workspace, ui }: { workspace: ReturnType<typeof useP1Works
   }, [open]);
 
   return (
-    <div className="topbar-popover-shell" ref={shellRef}>
+    <div className="topbar-popover-shell account-launcher" ref={shellRef}>
+      <InitialBadge label={workspace.currentUser.username} className="account-avatar-badge" />
       <button
         className={open ? "avatar-button active" : "avatar-button"}
         type="button"
-        data-testid={!workspace.loggedIn ? "open-login" : undefined}
-        onClick={() => {
-          if (!workspace.loggedIn) {
-            workspace.setLoginModalOpen(true);
-            return;
-          }
-          setOpen((current) => !current);
-        }}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="打开账号菜单"
+        onClick={() => setOpen((current) => !current)}
       >
-        <span className={`avatar-dot icon-tone-${iconToneForLabel(workspace.currentUser.username)}`}>
-          {workspace.currentUser.username.slice(0, 2).toUpperCase()}
-        </span>
-        <span className="avatar-copy">
-          <strong>{workspace.currentUser.username}</strong>
-          <small className="avatar-subline">
-            <span className={`avatar-status-dot ${connectionTone}`} />
-            {roleText}
-          </small>
+        <span className="avatar-button-label">
+          <span className={`avatar-status-dot ${account.connectionTone}`} />
+          {account.buttonLabel}
         </span>
         <ChevronDown size={14} />
       </button>
       {open ? (
         <div className="avatar-menu" aria-label="账号菜单">
-          <div className="avatar-menu-profile">
-            <span className={`avatar-dot icon-tone-${iconToneForLabel(workspace.currentUser.username)}`}>
-              {workspace.currentUser.username.slice(0, 2).toUpperCase()}
-            </span>
-            <span className="avatar-menu-copy">
-              <strong>{workspace.currentUser.username}</strong>
-              <small>{roleText}</small>
-              <small>{workspace.currentUser.departmentName}</small>
-            </span>
-            <em className={`avatar-menu-status ${connectionTone}`}>{connectionLabel}</em>
-          </div>
-          <div className="avatar-menu-separator" />
-          <button className="menu-row account-menu-row" type="button" onClick={() => { setOpen(false); ui.openConnectionStatus(); }}>
-            <span className="menu-row-icon"><CircleUserRound size={15} /></span>
-            <span className="menu-row-copy">
-              <strong>我的信息</strong>
-              <small>身份、部门与服务状态</small>
-            </span>
-          </button>
+          {workspace.loggedIn ? (
+            <button className="menu-row account-menu-row" type="button" onClick={() => { setOpen(false); ui.openConnectionStatus(); }}>
+              <span className="menu-row-icon"><CircleUserRound size={15} /></span>
+              <span className="menu-row-copy">
+                <strong>我的信息</strong>
+                <small>身份、部门与服务状态</small>
+              </span>
+            </button>
+          ) : null}
           <button className="menu-row account-menu-row" type="button" onClick={() => { setOpen(false); ui.openSettingsModal(); }}>
             <span className="menu-row-icon"><Settings2 size={15} /></span>
             <span className="menu-row-copy">
               <strong>设置</strong>
-              <small>偏好、凭据与本地环境</small>
+              <small>偏好、本地环境与关于信息</small>
             </span>
           </button>
           {workspace.loggedIn ? (

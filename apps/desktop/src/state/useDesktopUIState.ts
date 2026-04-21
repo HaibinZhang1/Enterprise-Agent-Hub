@@ -18,6 +18,8 @@ import type { AppUpdateState, DesktopNotificationItem } from "./ui/desktopNotifi
 import { deriveDesktopNotifications, notificationBadgeLabel, resolveDesktopNotificationAction } from "./ui/desktopNotifications.ts";
 import type { InstalledListFilter } from "./ui/installedSkillsTypes.ts";
 import type { DisplayLanguage } from "../ui/desktopShared.tsx";
+import { openExternalURL } from "../services/externalLinks.ts";
+import { themeLabel } from "../ui/themeLabels.ts";
 
 export { buildPublishPrecheck } from "./ui/publishPrecheck.ts";
 export { collectInstalledSkillIssues } from "./ui/installedSkillSelectors.ts";
@@ -38,6 +40,13 @@ export interface FlashMessage {
   tone: "info" | "warning" | "danger" | "success";
   title: string;
   body: string;
+}
+
+export interface SettingsPanelSummary {
+  id: "general" | "agent" | "local" | "sync" | "about";
+  title: string;
+  description: string;
+  status: string;
 }
 
 export interface ConfirmModalState extends Exclude<DesktopModalState, { type: "none" | "targets" | "local_import" | "tool_editor" | "project_editor" | "connection_status" | "app_update" | "settings" }> {
@@ -165,6 +174,22 @@ function defaultAppUpdateState(): AppUpdateState {
     releaseURL: null,
     actionLabel: "查看更新"
   };
+}
+
+export function buildSettingsPanels(input: {
+  language: DisplayLanguage;
+  theme: PreferenceState["theme"];
+  hasAgentKey: boolean;
+  connectionStatus: P1WorkspaceState["bootstrap"]["connection"]["status"];
+  appUpdate: AppUpdateState;
+}): SettingsPanelSummary[] {
+  return [
+    { id: "general", title: "常规偏好", description: "语言、主题", status: themeLabel(input.theme, input.language) },
+    { id: "agent", title: "Agent 接入", description: "模型服务、API Key", status: input.hasAgentKey ? "已保存" : "待配置" },
+    { id: "local", title: "本地环境", description: "Central Store、服务地址", status: input.connectionStatus === "connected" ? "已连接" : "本地可用" },
+    { id: "sync", title: "同步与更新", description: "通知、启动上下文", status: input.appUpdate.available ? "有更新" : "已是最新" },
+    { id: "about", title: "关于", description: "软件信息、版本、仓库", status: `v${input.appUpdate.currentVersion}` }
+  ];
 }
 
 export function useDesktopUIState(workspace: P1WorkspaceState) {
@@ -340,14 +365,8 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
   }, [presentBlockingModal]);
 
   const openSettingsModal = useCallback(() => {
-    if (!workspace.loggedIn) {
-      workspace.requireAuth(workspace.activePage, () => {
-        presentBlockingModal({ type: "settings" });
-      });
-      return;
-    }
     presentBlockingModal({ type: "settings" });
-  }, [presentBlockingModal, workspace.activePage, workspace.loggedIn, workspace.requireAuth]);
+  }, [presentBlockingModal]);
 
   const openConfirm = useCallback((input: Omit<NonNullable<ConfirmModalState>, "type">) => {
     presentBlockingConfirm({ type: "confirm", ...input });
@@ -364,8 +383,15 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
 
   const viewAppUpdate = useCallback(() => {
     if (appUpdate.releaseURL && typeof window !== "undefined") {
-      window.open(appUpdate.releaseURL, "_blank", "noopener,noreferrer");
-      markAppUpdateRead();
+      void openExternalURL(appUpdate.releaseURL)
+        .then(markAppUpdateRead)
+        .catch((error) => {
+          setFlash({
+            tone: "warning",
+            title: "无法打开更新链接",
+            body: error instanceof Error ? error.message : "请稍后重试。"
+          });
+        });
       return;
     }
 

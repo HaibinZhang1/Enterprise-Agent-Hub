@@ -6,6 +6,7 @@ import {
   Archive,
   CheckCircle2,
   Download,
+  ExternalLink,
   FolderPlus,
   LogIn,
   Plus,
@@ -17,9 +18,11 @@ import {
 } from "lucide-react";
 import type { AdminSkill, OperationProgress, PreferenceState, PublishDraft, PublisherSkillSummary, ReviewAction, ReviewDetail, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
-import type { DesktopUIState, FlashMessage, OverlayState, PublisherPane } from "../state/useDesktopUIState.ts";
+import { buildSettingsPanels, type DesktopUIState, type FlashMessage, type OverlayState, type PublisherPane } from "../state/useDesktopUIState.ts";
+import { openExternalURL } from "../services/externalLinks.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
+import { connectedServiceURL, ENTERPRISE_AGENT_HUB_GITHUB_URL } from "../state/ui/aboutInfo.ts";
 import { downloadAuthenticatedFile } from "../services/p1Client.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath, previewCentralStorePath } from "../utils/platformPaths.ts";
 import {
@@ -659,7 +662,7 @@ function AppUpdateModal({ ui }: { ui: DesktopUIState }) {
   );
 }
 
-type SettingsPanelID = "general" | "agent" | "local" | "sync";
+type SettingsPanelID = "general" | "agent" | "local" | "sync" | "about";
 
 const defaultAgentBaseURLs: Record<PreferenceState["agentProvider"], string> = {
   openai: "https://api.openai.com/v1",
@@ -687,15 +690,20 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
   ] as const;
   const knownAgentBaseURLs = Object.values(defaultAgentBaseURLs).filter(Boolean);
   const hasAgentKey = ui.preferences.agentApiKey.trim().length > 0;
-  const settingsPanels: Array<{ id: SettingsPanelID; title: string; description: string; status: string }> = [
-    { id: "general", title: "常规偏好", description: "语言、主题", status: themeLabel(ui.preferences.theme, ui.language) },
-    { id: "agent", title: "Agent 接入", description: "模型服务、API Key", status: hasAgentKey ? "已保存" : "待配置" },
-    { id: "local", title: "本地环境", description: "Central Store、服务地址", status: workspace.bootstrap.connection.status === "connected" ? "已连接" : "本地可用" },
-    { id: "sync", title: "同步与更新", description: "通知、启动上下文", status: ui.appUpdate.available ? "有更新" : "已是最新" }
-  ];
+  const settingsPanels = buildSettingsPanels({
+    language: ui.language,
+    theme: ui.preferences.theme,
+    hasAgentKey,
+    connectionStatus: workspace.bootstrap.connection.status,
+    appUpdate: ui.appUpdate
+  });
   const activePanelMeta = settingsPanels.find((panel) => panel.id === activePanel) ?? settingsPanels[0];
   const agentBaseURL = ui.preferences.agentBaseURL || defaultAgentBaseURLs[ui.preferences.agentProvider];
   const updateStatus = ui.appUpdate.available ? `可更新到 ${ui.appUpdate.latestVersion}` : "已是最新版本";
+  const connectedServerAddress = connectedServiceURL({
+    connectionStatus: workspace.bootstrap.connection.status,
+    apiBaseURL: workspace.apiBaseURL
+  });
 
   return (
     <ModalFrame title={localize(ui.language, "设置", "Settings")} eyebrow={localize(ui.language, "基础偏好", "Preferences")} onClose={ui.closeModal} panelClassName="settings-modal-panel">
@@ -900,6 +908,62 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
                 <button className="btn" type="button" onClick={() => void workspace.refreshBootstrap()}>
                   <RefreshCw size={14} />
                   刷新启动上下文
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {activePanel === "about" ? (
+            <div className="settings-panel-stack">
+              <section className="settings-about-hero">
+                <div>
+                  <div className="eyebrow">Enterprise Agent Hub</div>
+                  <h4>Desktop Skills Workspace</h4>
+                  <p>统一承载本地 Skill、社区浏览、管理能力与桌面更新的企业桌面工作台。</p>
+                </div>
+                <span className="pill tone-info">v{ui.appUpdate.currentVersion}</span>
+              </section>
+              <div className="settings-about-grid">
+                <article className="settings-about-card">
+                  <span>软件名称</span>
+                  <strong>Enterprise Agent Hub</strong>
+                  <small>Desktop Skills Workspace</small>
+                </article>
+                <article className="settings-about-card">
+                  <span>当前版本</span>
+                  <strong>v{ui.appUpdate.currentVersion}</strong>
+                  <small>{ui.appUpdate.available ? `可更新到 v${ui.appUpdate.latestVersion}` : "当前已是最新版本"}</small>
+                </article>
+                <article className="settings-about-card">
+                  <span>运行模式</span>
+                  <strong>{workspace.loggedIn ? "企业服务连接" : "本地工作台"}</strong>
+                  <small>{workspace.loggedIn ? "已支持身份同步、通知与管理权限。" : "未登录时仍可使用本地设置与离线能力。"}</small>
+                </article>
+                {connectedServerAddress ? (
+                  <article className="settings-about-card">
+                    <span>服务地址</span>
+                    <strong className="settings-path-strong">{connectedServerAddress}</strong>
+                    <small>当前正式连接到该企业服务地址。</small>
+                  </article>
+                ) : null}
+              </div>
+              <div className="settings-link-row">
+                <div>
+                  <span>GitHub</span>
+                  <strong className="settings-path-strong">{ENTERPRISE_AGENT_HUB_GITHUB_URL}</strong>
+                  <small>项目源码与协作入口</small>
+                </div>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    void openExternalURL(ENTERPRISE_AGENT_HUB_GITHUB_URL).catch((error) => {
+                      console.error("open github url failed", error);
+                    });
+                  }}
+                >
+                  打开仓库
+                  <ExternalLink size={14} />
                 </button>
               </div>
             </div>

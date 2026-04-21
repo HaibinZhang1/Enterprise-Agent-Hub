@@ -5,6 +5,7 @@ import test from "node:test";
 import type { LocalBootstrap, LocalNotification, ProjectConfig, PublishDraft, ScanTargetSummary, SkillSummary, ToolConfig } from "../src/domain/p1.ts";
 import { buildSkillListQuery } from "../src/services/p1Client.ts";
 import {
+  buildSettingsPanels,
   buildPublishPrecheck,
   deriveTopLevelNavigation,
   legacyPageForView,
@@ -14,11 +15,14 @@ import {
   reviewDetailOverlay,
   skillDetailOverlay
 } from "../src/state/useDesktopUIState.ts";
+import { isSafeExternalURL } from "../src/services/externalLinks.ts";
 import { deriveDesktopNotifications, notificationBadgeLabel, resolveDesktopNotificationAction, type AppUpdateState } from "../src/state/ui/desktopNotifications.ts";
+import { connectedServiceURL } from "../src/state/ui/aboutInfo.ts";
 import { deriveCommunityLeaderboards } from "../src/state/ui/communityLeaderboards.ts";
 import { buildTargetDrafts, collectInstalledSkillIssues, compareToolsByAvailability, matchesDiscoveredTargetFilter, matchesInstalledTargetFilter } from "../src/state/ui/installedSkillSelectors.ts";
 import { parseSkillFrontmatter, readSkillMarkdownFromUploadEntries, validateSkillSlug, validateUploadEntries } from "../src/state/ui/publishPackageIntrospection.ts";
 import { scanTargetsSummaryMessage } from "../src/state/workspace/scanProgress.ts";
+import { deriveAccountPresentation } from "../src/state/ui/accountPresentation.ts";
 import { normalizePreferences, resolveDisplayLanguage } from "../src/state/ui/useDesktopPreferences.ts";
 import { deriveMarketSkills, deriveVisibleNavigation, deriveWorkspaceState } from "../src/state/workspace/workspaceDerivedState.ts";
 import { iconToneForLabel, iconTones } from "../src/ui/iconTone.ts";
@@ -416,6 +420,75 @@ test("auto language prefers authenticated user locale over browser locale", () =
 test("theme labels include the global dark theme", () => {
   assert.equal(themeLabel("dark", "zh-CN"), "暗色");
   assert.equal(themeLabel("dark", "en-US"), "Dark");
+});
+
+test("guest account presentation keeps settings as a local-first experience", () => {
+  assert.deepEqual(
+    deriveAccountPresentation({
+      user: {
+        username: "本地模式",
+        phoneNumber: "",
+        role: "guest",
+        departmentID: "local",
+        departmentName: "离线工作台",
+        locale: "zh-CN"
+      },
+      loggedIn: false,
+      connectionStatus: "offline",
+      language: "zh-CN"
+    }),
+    {
+      buttonLabel: "本地模式",
+      connectionTone: "offline",
+      connectionLabel: "本地"
+    }
+  );
+});
+
+test("connected service url only appears after a successful connection", () => {
+  assert.equal(
+    connectedServiceURL({
+      connectionStatus: "connected",
+      apiBaseURL: "https://intranet.example.com/api"
+    }),
+    "https://intranet.example.com/api"
+  );
+  assert.equal(
+    connectedServiceURL({
+      connectionStatus: "offline",
+      apiBaseURL: "https://intranet.example.com/api"
+    }),
+    null
+  );
+});
+
+test("settings navigation includes the about panel and current version", () => {
+  const panels = buildSettingsPanels({
+    language: "zh-CN",
+    theme: "classic",
+    hasAgentKey: false,
+    connectionStatus: "offline",
+    appUpdate: {
+      available: false,
+      currentVersion: "0.1.0",
+      latestVersion: "0.1.0",
+      summary: "当前已是最新版本",
+      highlights: [],
+      occurredAt: "2026-04-21T00:00:00.000Z",
+      unread: false,
+      releaseURL: null,
+      actionLabel: "查看更新"
+    }
+  });
+
+  assert.ok(panels.some((panel) => panel.id === "about" && panel.status === "v0.1.0"));
+});
+
+test("external link helper only accepts http and https urls", () => {
+  assert.equal(isSafeExternalURL("https://github.com/HaibinZhang1/EnterpriseAgentHub"), true);
+  assert.equal(isSafeExternalURL("http://127.0.0.1:3000"), true);
+  assert.equal(isSafeExternalURL("file:///tmp/demo"), false);
+  assert.equal(isSafeExternalURL("javascript:alert(1)"), false);
 });
 
 test("preferences normalize unsupported saved themes back to classic", () => {
