@@ -1,7 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
-  ClientArtifactSignatureStatus,
   ClientReleaseStatus,
   ClientUpdateReleaseSummaryDto,
 } from '../common/p1-contracts';

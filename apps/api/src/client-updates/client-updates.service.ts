@@ -68,7 +68,7 @@ export class ClientUpdatesService {
     const release = await this.repository.loadReleaseOrThrow(releaseID);
     let bucket = this.storage.bucket();
     let objectKey = normalizeText(request.objectKey) ?? undefined;
-    let packageName = requireNonEmptyText(request.packageName || file?.originalname, 'packageName');
+    const packageName = requireNonEmptyText(request.packageName || file?.originalname, 'packageName');
     let sizeBytes = normalizeNumber(request.sizeBytes ?? file?.size, 'sizeBytes');
     let sha256 = this.normalizeSha256(request.sha256);
     const signatureStatus = this.normalizeSignatureStatus(request.signatureStatus);
