@@ -2,6 +2,19 @@ import type {
   AdminSkillDto as SharedAdminSkillDto,
   AdminUserDto as SharedAdminUserDto,
   BootstrapContextDto as SharedBootstrapContextDto,
+  ClientUpdateCheckRequestDto as SharedClientUpdateCheckRequestDto,
+  ClientUpdateCheckResponseDto as SharedClientUpdateCheckResponseDto,
+  ClientUpdateDownloadTicketResponseDto as SharedClientUpdateDownloadTicketResponseDto,
+  ClientUpdateReleaseActionRequestDto as SharedClientUpdateReleaseActionRequestDto,
+  ClientUpdateReleaseSummaryDto as SharedClientUpdateReleaseSummaryDto,
+  ClientReleaseArch as SharedClientReleaseArch,
+  ClientReleaseChannel as SharedClientReleaseChannel,
+  ClientReleasePlatform as SharedClientReleasePlatform,
+  ClientReleaseStatus as SharedClientReleaseStatus,
+  ClientUpdateCheckStatus as SharedClientUpdateCheckStatus,
+  ClientUpdateEventType as SharedClientUpdateEventType,
+  ClientArtifactSignatureStatus as SharedClientArtifactSignatureStatus,
+  CreateClientUpdateReleaseRequestDto as SharedCreateClientUpdateReleaseRequestDto,
   DepartmentNodeDto as SharedDepartmentNodeDto,
   DownloadTicketResponse as SharedDownloadTicketResponse,
   ErrorCode as SharedErrorCode,
@@ -18,6 +31,9 @@ import type {
   ReviewDecision as SharedReviewDecision,
   ReviewDetailDto as SharedReviewDetailDto,
   ReviewHistoryDto as SharedReviewHistoryDto,
+  RegisterClientUpdateArtifactRequestDto as SharedRegisterClientUpdateArtifactRequestDto,
+  ReportClientUpdateEventRequestDto as SharedReportClientUpdateEventRequestDto,
+  ReportClientUpdateEventResponseDto as SharedReportClientUpdateEventResponseDto,
   ReviewItemDto as SharedReviewItemDto,
   ReviewPrecheckItemDto as SharedReviewPrecheckItemDto,
   ReviewStatus as SharedReviewStatus,
@@ -27,6 +43,8 @@ import type {
   SkillLeaderboardsResponse as SharedSkillLeaderboardsResponse,
   SkillStatus as SharedSkillStatus,
   SkillSummary as SharedSkillSummary,
+  PublishClientUpdateReleaseRequestDto as SharedPublishClientUpdateReleaseRequestDto,
+  UpdateClientUpdateRolloutRequestDto as SharedUpdateClientUpdateRolloutRequestDto,
   UserSummary as SharedUserSummary,
   VisibilityLevel as SharedVisibilityLevel,
   DetailAccess as SharedDetailAccess,
@@ -60,6 +78,13 @@ export type ConnectionStatus = SharedConnectionStatus;
 export type TargetType = SharedTargetType;
 export type RequestedMode = SharedRequestedMode;
 export type ResolvedMode = SharedResolvedMode;
+export type ClientReleasePlatform = SharedClientReleasePlatform;
+export type ClientReleaseArch = SharedClientReleaseArch;
+export type ClientReleaseChannel = SharedClientReleaseChannel;
+export type ClientReleaseStatus = SharedClientReleaseStatus;
+export type ClientUpdateCheckStatus = SharedClientUpdateCheckStatus;
+export type ClientUpdateEventType = SharedClientUpdateEventType;
+export type ClientArtifactSignatureStatus = SharedClientArtifactSignatureStatus;
 export type MenuPermission = SharedMenuPermission;
 export type NotificationType = SharedNotificationType;
 export type ReviewStatus = SharedReviewStatus;
@@ -84,6 +109,17 @@ export type LocalEventDto = MutableDeep<SharedLocalEventDto>;
 export type DepartmentNodeDto = MutableDeep<SharedDepartmentNodeDto>;
 export type AdminUserDto = MutableDeep<SharedAdminUserDto>;
 export type AdminSkillDto = MutableDeep<SharedAdminSkillDto>;
+export type ClientUpdateReleaseSummaryDto = MutableDeep<SharedClientUpdateReleaseSummaryDto>;
+export type ClientUpdateCheckRequestDto = MutableDeep<SharedClientUpdateCheckRequestDto>;
+export type ClientUpdateCheckResponseDto = MutableDeep<SharedClientUpdateCheckResponseDto>;
+export type ClientUpdateDownloadTicketResponseDto = MutableDeep<SharedClientUpdateDownloadTicketResponseDto>;
+export type CreateClientUpdateReleaseRequestDto = MutableDeep<SharedCreateClientUpdateReleaseRequestDto>;
+export type RegisterClientUpdateArtifactRequestDto = MutableDeep<SharedRegisterClientUpdateArtifactRequestDto>;
+export type PublishClientUpdateReleaseRequestDto = MutableDeep<SharedPublishClientUpdateReleaseRequestDto>;
+export type UpdateClientUpdateRolloutRequestDto = MutableDeep<SharedUpdateClientUpdateRolloutRequestDto>;
+export type ClientUpdateReleaseActionRequestDto = MutableDeep<SharedClientUpdateReleaseActionRequestDto>;
+export type ReportClientUpdateEventRequestDto = MutableDeep<SharedReportClientUpdateEventRequestDto>;
+export type ReportClientUpdateEventResponseDto = MutableDeep<SharedReportClientUpdateEventResponseDto>;
 export type ReviewHistoryDto = MutableDeep<SharedReviewHistoryDto>;
 export type ReviewPrecheckItemDto = MutableDeep<SharedReviewPrecheckItemDto>;
 export type PackageFileEntryDto = MutableDeep<SharedPackageFileEntryDto>;

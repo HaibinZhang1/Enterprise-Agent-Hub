@@ -1158,6 +1158,10 @@ export const P1_API_ROUTES = {
   authChangePassword: "/auth/change-password",
   desktopBootstrap: "/desktop/bootstrap",
   desktopLocalEvents: "/desktop/local-events",
+  clientUpdatesCheck: "/client-updates/check",
+  clientUpdateDownloadTicket: "/client-updates/releases/:releaseID/download-ticket",
+  clientUpdateDownload: "/client-updates/releases/:releaseID/download",
+  clientUpdateEvents: "/client-updates/events",
   skills: "/skills",
   skillLeaderboards: "/skills/leaderboards",
   skillDetail: "/skills/:skillID",
@@ -1177,6 +1181,13 @@ export const P1_API_ROUTES = {
   adminSkillDelist: "/admin/skills/:skillID/delist",
   adminSkillRelist: "/admin/skills/:skillID/relist",
   adminSkillArchive: "/admin/skills/:skillID",
+  adminClientUpdateReleases: "/admin/client-updates/releases",
+  adminClientUpdateReleaseDetail: "/admin/client-updates/releases/:releaseID",
+  adminClientUpdateArtifact: "/admin/client-updates/releases/:releaseID/artifact",
+  adminClientUpdatePublish: "/admin/client-updates/releases/:releaseID/publish",
+  adminClientUpdateRollout: "/admin/client-updates/releases/:releaseID/rollout",
+  adminClientUpdatePause: "/admin/client-updates/releases/:releaseID/pause",
+  adminClientUpdateYank: "/admin/client-updates/releases/:releaseID/yank",
   adminReviews: "/admin/reviews",
   adminReviewDetail: "/admin/reviews/:reviewID",
   adminReviewFiles: "/admin/reviews/:reviewID/files",
@@ -1210,6 +1221,17 @@ export type LocalEventDto = LocalEvent;
 export type DepartmentNodeDto = DepartmentNode;
 export type AdminUserDto = AdminUser;
 export type AdminSkillDto = AdminSkill;
+export type ClientUpdateReleaseSummaryDto = ClientUpdateReleaseSummary;
+export type ClientUpdateCheckRequestDto = ClientUpdateCheckRequest;
+export type ClientUpdateCheckResponseDto = ClientUpdateCheckResponse;
+export type ClientUpdateDownloadTicketResponseDto = ClientUpdateDownloadTicketResponse;
+export type ReportClientUpdateEventRequestDto = ReportClientUpdateEventRequest;
+export type ReportClientUpdateEventResponseDto = ReportClientUpdateEventResponse;
+export type CreateClientUpdateReleaseRequestDto = CreateClientUpdateReleaseRequest;
+export type RegisterClientUpdateArtifactRequestDto = RegisterClientUpdateArtifactRequest;
+export type PublishClientUpdateReleaseRequestDto = PublishClientUpdateReleaseRequest;
+export type UpdateClientUpdateRolloutRequestDto = UpdateClientUpdateRolloutRequest;
+export type ClientUpdateReleaseActionRequestDto = ClientUpdateReleaseActionRequest;
 export type SkillLeaderboardsResponseDto = SkillLeaderboardsResponse;
 export type ReviewItemDto = ReviewItem;
 export type ReviewHistoryDto = ReviewHistory;
