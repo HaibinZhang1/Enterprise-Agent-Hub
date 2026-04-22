@@ -72,6 +72,7 @@ export MINIO_ACCESS_KEY="${MINIO_ACCESS_KEY:-minioadmin}"
 export MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-change-me-minio-secret}"
 export MINIO_SKILL_PACKAGE_BUCKET="${MINIO_SKILL_PACKAGE_BUCKET:-skill-packages}"
 export MINIO_SKILL_ASSET_BUCKET="${MINIO_SKILL_ASSET_BUCKET:-skill-assets}"
+export MINIO_CLIENT_UPDATE_BUCKET="${MINIO_CLIENT_UPDATE_BUCKET:-client-updates}"
 export P1_LIVE_BASE_URL="${P1_LIVE_BASE_URL:-http://127.0.0.1:${API_PORT}}"
 
 retry_cmd 15 npm run migrate:dev --workspace @enterprise-agent-hub/api

@@ -131,6 +131,7 @@ try {
     MINIO_ROOT_PASSWORD: "change-me-minio-secret",
     MINIO_SKILL_PACKAGE_BUCKET: "skill-packages",
     MINIO_SKILL_ASSET_BUCKET: "skill-assets",
+    MINIO_CLIENT_UPDATE_BUCKET: "client-updates",
     LOCAL_PACKAGE_STORAGE_DIR: path.join(artifactDir, "runtime-package-storage"),
   };
 

@@ -134,10 +134,23 @@ export class HealthService {
     });
 
     try {
-      await minio.listBuckets();
+      for (const bucket of this.requiredMinioBuckets()) {
+        const exists = await minio.bucketExists(bucket);
+        if (!exists) {
+          return { status: 'unavailable', reason: `MinIO bucket ${bucket} is missing` };
+        }
+      }
       return { status: 'ok' };
     } catch {
-      return { status: 'unavailable', reason: 'MinIO bucket listing failed' };
+      return { status: 'unavailable', reason: 'MinIO bucket readiness check failed' };
     }
+  }
+
+  private requiredMinioBuckets(): string[] {
+    return [
+      this.config.get<string>('MINIO_SKILL_PACKAGE_BUCKET') ?? 'skill-packages',
+      this.config.get<string>('MINIO_SKILL_ASSET_BUCKET') ?? 'skill-assets',
+      this.config.get<string>('MINIO_CLIENT_UPDATE_BUCKET') ?? 'client-updates',
+    ];
   }
 }

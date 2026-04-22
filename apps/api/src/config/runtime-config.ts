@@ -65,11 +65,13 @@ export function validateRuntimeConfig(env: EnvRecord): EnvRecord {
   const minioSecretKey = asOptionalString(env.MINIO_SECRET_KEY);
   const packageBucket = asOptionalString(env.MINIO_SKILL_PACKAGE_BUCKET);
   const assetBucket = asOptionalString(env.MINIO_SKILL_ASSET_BUCKET);
+  const clientUpdateBucket = asOptionalString(env.MINIO_CLIENT_UPDATE_BUCKET);
 
   expectPositiveInteger(apiPort, "API_PORT", errors);
   expectPositiveInteger(minioPort, "MINIO_PORT", errors);
   expectBucketName(packageBucket, "MINIO_SKILL_PACKAGE_BUCKET", errors);
   expectBucketName(assetBucket, "MINIO_SKILL_ASSET_BUCKET", errors);
+  expectBucketName(clientUpdateBucket, "MINIO_CLIENT_UPDATE_BUCKET", errors);
 
   if (!databaseURL) {
     errors.push("DATABASE_URL is required");

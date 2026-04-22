@@ -4,3 +4,4 @@
 
 - `skill-packages`
 - `skill-assets`
+- `client-updates`

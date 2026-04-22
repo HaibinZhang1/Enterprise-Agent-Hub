@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ClientUpdatesModule } from './client-updates/client-updates.module';
 import { validateRuntimeConfig } from './config/runtime-config';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
@@ -16,6 +17,7 @@ import { SkillsModule } from './skills/skills.module';
     DatabaseModule,
     AuthModule,
     AdminModule,
+    ClientUpdatesModule,
     DesktopModule,
     SkillsModule,
     PublishingModule,
