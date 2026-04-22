@@ -14,12 +14,17 @@ test("desktop large-screen tokens cap and center the workspace shell", () => {
   expectBlock(/@media \(min-width:\s*1500px\)\s*\{[\s\S]*\.workspace-page\s*\{[\s\S]*width:\s*min\(1520px,\s*100%\);/, "ultra-wide workspace width cap should be explicit");
 });
 
-test("shared large-screen layout tightens community, local, publisher, and manage panes", () => {
-  expectBlock(/@media \(min-width:\s*1101px\)\s*\{[\s\S]*\.community-grid-layout,\s*[\s\S]*\.list-detail-shell,\s*[\s\S]*\.local-browser,\s*[\s\S]*\.publisher-page-layout,\s*[\s\S]*\.manage-hub-users\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.12fr\)\s+var\(--layout-inspector-width\);/, "large-screen two-pane grid should be shared across primary desktop surfaces");
+test("desktop density layout keeps shared two-pane rules across standard and large desktop widths", () => {
+  expectBlock(/@media \(min-width:\s*801px\)\s*\{[\s\S]*\.community-grid-layout,\s*[\s\S]*\.list-detail-shell,\s*[\s\S]*\.local-browser,\s*[\s\S]*\.publisher-page-layout,\s*[\s\S]*\.manage-hub-users\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.12fr\)\s+var\(--layout-inspector-width\);/, "desktop two-pane grid should stay shared across primary desktop surfaces before the 1100px fallback");
   expectBlock(/\.manage-pane-grid\.departments-workbench\s*\{[\s\S]*grid-template-columns:\s*minmax\(var\(--layout-rail-width\),\s*0\.72fr\)\s+minmax\(0,\s*1fr\)\s+var\(--layout-inspector-width\);/, "departments workbench should use explicit large-screen pane hierarchy");
 });
 
 test("community and local browsing opt into denser card and row container queries", () => {
+  expectBlock(/\.market-card-title strong\s*\{[\s\S]*font-size:\s*15px;[\s\S]*line-height:\s*1\.28;/, "community card titles should keep an explicit compact size before container switches");
+  expectBlock(/\.market-card-title p\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*1\.5;/, "community card descriptions should stay compact in two-column mode");
+  expectBlock(/\.list-row-copy strong\s*\{[\s\S]*font-size:\s*15px;[\s\S]*line-height:\s*1\.28;/, "local row titles should keep an explicit compact size before container switches");
+  expectBlock(/\.list-row-copy p\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*1\.5;/, "local row descriptions should stay compact when the pane narrows");
+  expectBlock(/\.unified-skill-inspector \.detail-block > p\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*1\.55;/, "inspector descriptions should stay compact instead of inheriting large default copy");
   expectBlock(/\.community-grid-layout\s*>\s*\.stage-panel\s*\{[\s\S]*container-type:\s*inline-size;[\s\S]*container-name:\s*market-pane;/, "community stage panel should expose market-pane container queries");
   expectBlock(/\.local-list-panel\s*\{[\s\S]*container-type:\s*inline-size;[\s\S]*container-name:\s*local-pane;/, "local list panel should expose local-pane container queries");
   expectBlock(/@container market-pane \(min-width:\s*760px\)\s*\{[\s\S]*\.market-grid\s*\{[\s\S]*grid-template-columns:\s*1fr;[\s\S]*gap:\s*12px;[\s\S]*\.market-card\s*\{[\s\S]*padding:\s*14px\s+14px\s+12px;/, "community browse cards should tighten inside the market container");
