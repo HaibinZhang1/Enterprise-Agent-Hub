@@ -306,6 +306,14 @@ export function deriveAppUpdateState(input: {
   checking?: boolean;
 }): AppUpdateState {
   const defaultState = defaultAppUpdateState(input.currentVersion);
+  if (input.cache && input.cache.currentVersion === input.currentVersion && input.cache.updateType === null) {
+    return {
+      ...defaultState,
+      lastCheckedAt: input.cache.lastCheckedAt ?? null,
+      lastError: input.lastError ?? null,
+      checking: input.checking ?? false
+    };
+  }
   const cachedSource = asAppUpdateSource(input.currentVersion, input.cache);
   const serverNotices = input.notifications.map(extractServerAppUpdateNotification).filter((notice): notice is ServerAppUpdateNotification => notice !== null);
   const matchedServerNotice =

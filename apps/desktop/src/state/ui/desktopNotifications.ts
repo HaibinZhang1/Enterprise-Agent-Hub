@@ -5,6 +5,7 @@ import {
   type AppUpdateState,
   type ServerAppUpdateNotification
 } from "./clientUpdates.ts";
+export type { AppUpdateState } from "./clientUpdates.ts";
 
 export type DesktopNotificationKind = "review_progress" | "skill_update" | "app_update";
 

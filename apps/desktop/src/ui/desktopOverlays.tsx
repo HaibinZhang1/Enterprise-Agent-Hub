@@ -712,27 +712,46 @@ function AppUpdateModal({ ui }: { ui: DesktopUIState }) {
 
   return (
     <ModalFrame title="软件更新" eyebrow="桌面客户端" onClose={ui.closeModal} narrow>
-      <div className="callout info">
+      <div className={ui.appUpdate.blocking ? "callout danger" : "callout info"}>
         <Download size={16} />
         <span>
-          <strong>发现新版本 {ui.appUpdate.latestVersion}</strong>
+          <strong>{ui.appUpdate.blocking ? "当前版本需要先升级" : `发现新版本 ${ui.appUpdate.latestVersion}`}</strong>
           <small>{ui.appUpdate.summary}</small>
         </span>
       </div>
       <div className="definition-grid">
         <div><dt>当前版本</dt><dd>{ui.appUpdate.currentVersion}</dd></div>
         <div><dt>最新版本</dt><dd>{ui.appUpdate.latestVersion}</dd></div>
+        <div><dt>发布 ID</dt><dd>{ui.appUpdate.releaseID ?? "待服务端提供"}</dd></div>
+        <div><dt>发布时间</dt><dd>{ui.appUpdate.publishedAt ? formatDate(ui.appUpdate.publishedAt, ui.language) : "待服务端提供"}</dd></div>
       </div>
       <div className="stack-list compact">
         {ui.appUpdate.highlights.map((highlight) => (
           <small key={highlight}>{highlight}</small>
         ))}
       </div>
+      {ui.appUpdate.lastError ? (
+        <div className="callout warning">
+          <AlertTriangle size={16} />
+          <span>
+            <strong>最近一次检查失败</strong>
+            <small>{ui.appUpdate.lastError}</small>
+          </span>
+        </div>
+      ) : null}
       <div className="inline-actions wrap">
         <button className="btn btn-primary" type="button" onClick={() => void ui.viewAppUpdate()}>
           {ui.appUpdate.actionLabel}
         </button>
-        <button className="btn" type="button" onClick={ui.closeModal}>稍后再说</button>
+        <button className="btn" type="button" onClick={() => void ui.recheckAppUpdate()}>
+          <RefreshCw size={14} />
+          重新检查
+        </button>
+        {ui.appUpdate.blocking ? (
+          <button className="btn" type="button" onClick={ui.closeModal}>关闭</button>
+        ) : (
+          <button className="btn" type="button" onClick={() => void ui.dismissOptionalAppUpdate().then(ui.closeModal)}>稍后提醒</button>
+        )}
       </div>
     </ModalFrame>
   );
@@ -775,7 +794,11 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
   });
   const activePanelMeta = settingsPanels.find((panel) => panel.id === activePanel) ?? settingsPanels[0];
   const agentBaseURL = ui.preferences.agentBaseURL || defaultAgentBaseURLs[ui.preferences.agentProvider];
-  const updateStatus = ui.appUpdate.available ? `可更新到 ${ui.appUpdate.latestVersion}` : "已是最新版本";
+  const updateStatus = ui.appUpdate.blocking
+    ? `${ui.appUpdate.reasonBadge ?? "需要升级"} · v${ui.appUpdate.latestVersion}`
+    : ui.appUpdate.available
+      ? `可更新到 ${ui.appUpdate.latestVersion}`
+      : "已是最新版本";
   const connectedServerAddress = connectedServiceURL({
     connectionStatus: workspace.bootstrap.connection.status,
     apiBaseURL: workspace.apiBaseURL
@@ -968,18 +991,37 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
                 <span>客户端更新</span>
                 <small>{updateStatus}</small>
               </div>
+              {ui.appUpdate.reasonBadge ? (
+                <div className="settings-meta-row">
+                  <span>限制原因</span>
+                  <small>{ui.appUpdate.reasonBadge}</small>
+                </div>
+              ) : null}
               {ui.appUpdate.available ? (
-                <div className="callout info">
+                <div className={ui.appUpdate.blocking ? "callout danger" : "callout info"}>
                   <Download size={16} />
                   <span>
-                    <strong>发现新版本 {ui.appUpdate.latestVersion}</strong>
-                    <small>{ui.appUpdate.summary}</small>
+                    <strong>{ui.appUpdate.blocking ? "当前版本需要先升级" : `发现新版本 ${ui.appUpdate.latestVersion}`}</strong>
+                    <small>{ui.appUpdate.releaseID ? `发布 ${ui.appUpdate.releaseID} · ${ui.appUpdate.summary}` : ui.appUpdate.summary}</small>
+                  </span>
+                </div>
+              ) : null}
+              {ui.appUpdate.lastError ? (
+                <div className="callout warning">
+                  <AlertTriangle size={16} />
+                  <span>
+                    <strong>最近一次检查失败</strong>
+                    <small>{ui.appUpdate.lastError}</small>
                   </span>
                 </div>
               ) : null}
               <div className="inline-actions wrap">
                 <button className="btn btn-primary" type="button" onClick={ui.openAppUpdateModal} disabled={!ui.appUpdate.available}>
                   查看更新
+                </button>
+                <button className="btn" type="button" onClick={() => void ui.recheckAppUpdate()}>
+                  <RefreshCw size={14} />
+                  重新检查
                 </button>
                 <button className="btn" type="button" onClick={() => void workspace.refreshBootstrap()}>
                   <RefreshCw size={14} />
@@ -1008,7 +1050,11 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
                 <article className="settings-about-card">
                   <span>当前版本</span>
                   <strong>v{ui.appUpdate.currentVersion}</strong>
-                  <small>{ui.appUpdate.available ? `可更新到 v${ui.appUpdate.latestVersion}` : "当前已是最新版本"}</small>
+                  <small>
+                    {ui.appUpdate.available
+                      ? `${ui.appUpdate.releaseID ? `发布 ${ui.appUpdate.releaseID} · ` : ""}可更新到 v${ui.appUpdate.latestVersion}`
+                      : "当前已是最新版本"}
+                  </small>
                 </article>
                 <article className="settings-about-card">
                   <span>运行模式</span>
