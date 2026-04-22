@@ -477,7 +477,9 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
       return;
     }
 
-    markAppUpdateRead();
+    if (!appUpdate.blocking) {
+      void dismissOptionalAppUpdate();
+    }
     setFlash({
       tone: "info",
       title: "更新入口待接入",
