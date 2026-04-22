@@ -1,19 +1,12 @@
 import type { LocalNotification } from "../../domain/p1.ts";
 import type { InstalledListFilter } from "./installedSkillsTypes.ts";
+import {
+  extractServerAppUpdateNotification,
+  type AppUpdateState,
+  type ServerAppUpdateNotification
+} from "./clientUpdates.ts";
 
 export type DesktopNotificationKind = "review_progress" | "skill_update" | "app_update";
-
-export interface AppUpdateState {
-  available: boolean;
-  currentVersion: string;
-  latestVersion: string;
-  summary: string;
-  highlights: string[];
-  occurredAt: string;
-  unread: boolean;
-  releaseURL: string | null;
-  actionLabel: "去更新" | "查看更新";
-}
 
 export interface DesktopNotificationItem {
   notificationID: string;
@@ -26,6 +19,8 @@ export interface DesktopNotificationItem {
   rawNotificationID: string | null;
   rawType: string | null;
   source: LocalNotification["source"] | "app_update";
+  releaseID: string | null;
+  latestVersion: string | null;
 }
 
 export interface DesktopNotificationLookup {
@@ -101,19 +96,40 @@ function matchReferenceID(input: string, pattern: RegExp) {
   return match?.[0] ?? null;
 }
 
-function createAppUpdateNotification(appUpdate: AppUpdateState): DesktopNotificationItem | null {
+function appUpdateTitle(appUpdate: AppUpdateState): string {
+  if (appUpdate.status === "unsupported_version") {
+    return `当前客户端版本 ${appUpdate.currentVersion} 已不受支持`;
+  }
+  if (appUpdate.status === "mandatory_update") {
+    return `必须升级到 ${appUpdate.latestVersion}`;
+  }
+  return `桌面客户端可更新到 ${appUpdate.latestVersion}`;
+}
+
+function appUpdateSummary(appUpdate: AppUpdateState, serverNotice: ServerAppUpdateNotification | null): string {
+  const releaseLabel = appUpdate.releaseID ? `发布 ${appUpdate.releaseID}` : null;
+  const base = serverNotice?.summary?.trim() || appUpdate.summary;
+  return releaseLabel ? `${releaseLabel} · ${base}` : base;
+}
+
+function createAppUpdateNotification(
+  appUpdate: AppUpdateState,
+  serverNotice: ServerAppUpdateNotification | null
+): DesktopNotificationItem | null {
   if (!appUpdate.available) return null;
   return {
-    notificationID: `app_update_${appUpdate.latestVersion}`,
+    notificationID: serverNotice?.notificationID ?? `app_update_${appUpdate.releaseID ?? appUpdate.latestVersion}`,
     kind: "app_update",
-    title: `桌面客户端可更新到 ${appUpdate.latestVersion}`,
-    summary: appUpdate.summary,
-    occurredAt: appUpdate.occurredAt,
+    title: appUpdateTitle(appUpdate),
+    summary: appUpdateSummary(appUpdate, serverNotice),
+    occurredAt: serverNotice?.occurredAt ?? appUpdate.occurredAt,
     unread: appUpdate.unread,
     relatedSkillID: null,
-    rawNotificationID: null,
-    rawType: "app_update",
-    source: "app_update"
+    rawNotificationID: serverNotice?.notificationID ?? null,
+    rawType: serverNotice ? String(serverNotice.status) : "app_update",
+    source: serverNotice?.source ?? "app_update",
+    releaseID: appUpdate.releaseID,
+    latestVersion: appUpdate.latestVersion
   };
 }
 
@@ -129,7 +145,9 @@ function mapRawNotification(notification: LocalNotification): DesktopNotificatio
       relatedSkillID: notification.relatedSkillID,
       rawNotificationID: notification.notificationID,
       rawType: String(notification.type),
-      source: notification.source
+      source: notification.source,
+      releaseID: null,
+      latestVersion: null
     };
   }
 
@@ -147,7 +165,9 @@ function mapRawNotification(notification: LocalNotification): DesktopNotificatio
     relatedSkillID: notification.relatedSkillID,
     rawNotificationID: notification.notificationID,
     rawType: String(notification.type),
-    source: notification.source
+    source: notification.source,
+    releaseID: null,
+    latestVersion: null
   };
 }
 
@@ -158,7 +178,12 @@ export function deriveDesktopNotifications(input: {
   const next = input.notifications
     .map(mapRawNotification)
     .filter((item): item is DesktopNotificationItem => item !== null);
-  const appUpdateNotification = createAppUpdateNotification(input.appUpdate);
+  const matchedServerNotice =
+    input.notifications
+      .map(extractServerAppUpdateNotification)
+      .filter((notice): notice is ServerAppUpdateNotification => notice !== null)
+      .find((notice) => notice.latestVersion === input.appUpdate.latestVersion && notice.releaseID === input.appUpdate.releaseID) ?? null;
+  const appUpdateNotification = createAppUpdateNotification(input.appUpdate, matchedServerNotice);
   if (appUpdateNotification) {
     next.push(appUpdateNotification);
   }
