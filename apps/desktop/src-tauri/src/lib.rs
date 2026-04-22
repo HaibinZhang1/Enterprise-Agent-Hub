@@ -80,6 +80,7 @@ pub fn run() {
 pub mod adapters;
 
 pub mod commands {
+    pub mod client_updates;
     pub mod distribution;
     pub mod local_state;
     pub mod local_state_types;

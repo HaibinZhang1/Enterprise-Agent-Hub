@@ -1,11 +1,25 @@
 import type { DownloadTicket, EnabledTarget, LocalBootstrap, LocalEvent, LocalNotification, LocalSkillInstall, ProjectConfig, ProjectDirectorySelection, RequestedMode, ScanTargetSummary, SkillSummary, TargetType, ToolConfig, ValidateTargetPathResult } from "../domain/p1.ts";
 import { getLocalBootstrap, listLocalInstalls } from "./tauriBridge/bootstrap.ts";
+import type {
+  ClientAppVersionInfo,
+  ClientUpdateArtifactInput,
+  ClientUpdateDownloadResult,
+  ClientUpdateLaunchInput,
+  ClientUpdateLaunchResult,
+  ClientUpdateVerificationResult,
+  ClientUpdateVerifyInput
+} from "./tauriBridge/clientUpdates.ts";
+import { downloadClientUpdate, getClientAppVersion, launchClientInstaller, verifyClientUpdate } from "./tauriBridge/clientUpdates.ts";
 import { saveProjectConfig, saveToolConfig, pickProjectDirectory } from "./tauriBridge/configOps.ts";
 import { disableSkill, enableSkill, importLocalSkill, installSkillPackage, uninstallSkill, updateSkillPackage } from "./tauriBridge/packageOps.ts";
 import { markLocalNotificationsRead, markOfflineEventsSynced, upsertLocalNotifications } from "./tauriBridge/notificationOps.ts";
 import { refreshToolDetection, scanLocalTargets, validateTargetPath } from "./tauriBridge/scanOps.ts";
 
 export interface DesktopBridge {
+  getClientAppVersion(): Promise<ClientAppVersionInfo>;
+  downloadClientUpdate(input: ClientUpdateArtifactInput): Promise<ClientUpdateDownloadResult>;
+  verifyClientUpdate(input: ClientUpdateVerifyInput): Promise<ClientUpdateVerificationResult>;
+  launchClientInstaller(input: ClientUpdateLaunchInput): Promise<ClientUpdateLaunchResult>;
   getLocalBootstrap(): Promise<LocalBootstrap>;
   installSkillPackage(downloadTicket: DownloadTicket): Promise<LocalSkillInstall>;
   updateSkillPackage(downloadTicket: DownloadTicket): Promise<LocalSkillInstall>;
@@ -26,6 +40,10 @@ export interface DesktopBridge {
 }
 
 export const desktopBridge: DesktopBridge = {
+  getClientAppVersion,
+  downloadClientUpdate,
+  verifyClientUpdate,
+  launchClientInstaller,
   getLocalBootstrap,
   installSkillPackage,
   updateSkillPackage,

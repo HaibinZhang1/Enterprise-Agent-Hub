@@ -1,5 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use enterprise_agent_hub_desktop::commands::client_updates::{
+    get_client_app_version as get_client_app_version_command,
+    launch_client_installer as launch_client_installer_command,
+    verify_client_update as verify_client_update_command, ClientAppVersionPayload,
+    ClientUpdateDownloadPayload, ClientUpdateDownloadResultPayload, ClientUpdateLaunchPayload,
+    ClientUpdateLaunchResultPayload, ClientUpdateVerificationPayload, ClientUpdateVerifyPayload,
+};
 use enterprise_agent_hub_desktop::commands::local_state::{
     DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, ImportLocalSkillPayload,
     LocalBootstrapPayload, LocalNotificationPayload, LocalSkillInstallPayload,
@@ -40,6 +47,33 @@ fn p1_window_start_dragging(window: tauri::Window) {
 #[tauri::command]
 fn get_local_bootstrap(state: State<'_, P1LocalState>) -> Result<LocalBootstrapPayload, String> {
     state.get_local_bootstrap()
+}
+
+#[tauri::command]
+fn get_client_app_version() -> Result<ClientAppVersionPayload, String> {
+    Ok(get_client_app_version_command())
+}
+
+#[tauri::command]
+fn download_client_update(
+    app: tauri::AppHandle,
+    input: ClientUpdateDownloadPayload,
+) -> Result<ClientUpdateDownloadResultPayload, String> {
+    enterprise_agent_hub_desktop::commands::client_updates::download_client_update(&app, input)
+}
+
+#[tauri::command]
+fn verify_client_update(
+    input: ClientUpdateVerifyPayload,
+) -> Result<ClientUpdateVerificationPayload, String> {
+    verify_client_update_command(input)
+}
+
+#[tauri::command]
+fn launch_client_installer(
+    input: ClientUpdateLaunchPayload,
+) -> Result<ClientUpdateLaunchResultPayload, String> {
+    launch_client_installer_command(input)
 }
 
 #[tauri::command]
@@ -207,6 +241,10 @@ fn main() {
             p1_window_maximize,
             p1_window_close,
             p1_window_start_dragging,
+            get_client_app_version,
+            download_client_update,
+            verify_client_update,
+            launch_client_installer,
             get_local_bootstrap,
             detect_tools,
             save_tool_config,

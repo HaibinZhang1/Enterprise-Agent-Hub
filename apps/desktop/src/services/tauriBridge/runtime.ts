@@ -1,5 +1,11 @@
 export type TauriInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 const DEFAULT_LOCAL_COMMAND_TIMEOUT_MS = 20_000;
+const importMetaEnv = (import.meta as ImportMeta & {
+  env?: {
+    DEV?: boolean;
+    VITE_P1_ALLOW_TAURI_MOCKS?: string;
+  };
+}).env;
 
 declare global {
   interface Window {
@@ -11,7 +17,7 @@ declare global {
   }
 }
 
-export const allowTauriMocks = import.meta.env.DEV && import.meta.env.VITE_P1_ALLOW_TAURI_MOCKS === "true";
+export const allowTauriMocks = Boolean(importMetaEnv?.DEV) && importMetaEnv?.VITE_P1_ALLOW_TAURI_MOCKS === "true";
 
 export const mockWait = (ms = 160) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
