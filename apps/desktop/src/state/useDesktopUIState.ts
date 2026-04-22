@@ -485,6 +485,23 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     });
   }, [appUpdate.blocking, appUpdate.releaseURL, dismissOptionalAppUpdate]);
 
+  const recheckAppUpdate = useCallback(async () => {
+    const refreshed = await refreshAppUpdate({ force: true });
+    if (refreshed) {
+      setFlash({
+        tone: "success",
+        title: "更新状态已刷新",
+        body: "已按最新服务端状态刷新桌面客户端更新信息。"
+      });
+      return;
+    }
+    setFlash({
+      tone: "warning",
+      title: "检查更新失败",
+      body: appUpdateError ?? "请稍后重试。"
+    });
+  }, [appUpdateError, refreshAppUpdate]);
+
   const markAllNotificationsRead = useCallback(async () => {
     if (appUpdate.available && !appUpdate.blocking) {
       await dismissOptionalAppUpdate();
@@ -669,6 +686,8 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     openSettingsModal,
     openAppUpdateModal,
     markAllNotificationsRead,
+    dismissOptionalAppUpdate,
+    recheckAppUpdate,
     viewAppUpdate,
     openConfirm,
     setNotificationFilter,
