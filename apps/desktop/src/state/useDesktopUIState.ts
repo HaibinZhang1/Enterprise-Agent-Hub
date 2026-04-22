@@ -236,6 +236,73 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     [appUpdateError, checkingAppUpdate, clientUpdateCache, workspace.notifications]
   );
 
+  const refreshAppUpdate = useCallback(async (options: { force?: boolean } = {}) => {
+    if (!workspace.loggedIn || workspace.bootstrap.connection.status !== "connected") {
+      clearRemoteWriteGuardStatus();
+      return null;
+    }
+
+    if (!options.force && shouldUseCachedClientUpdate(clientUpdateCache, packageInfo.version)) {
+      setAppUpdateError(null);
+      return clientUpdateCache;
+    }
+
+    setCheckingAppUpdate(true);
+    try {
+      const checkResult = await p1Client.checkClientUpdate({
+        currentVersion: packageInfo.version,
+        platform: "windows",
+        arch: "x64",
+        channel: "stable"
+      });
+      const nextCache = cacheClientUpdateCheck(checkResult, clientUpdateCache);
+      setClientUpdateCache(nextCache);
+      writeClientUpdateCache(nextCache);
+      setAppUpdateError(null);
+      return nextCache;
+    } catch (error) {
+      setAppUpdateError(error instanceof Error ? error.message : "检查更新失败，请稍后重试。");
+      return null;
+    } finally {
+      setCheckingAppUpdate(false);
+    }
+  }, [clientUpdateCache, workspace.bootstrap.connection.status, workspace.loggedIn]);
+
+  const dismissOptionalAppUpdate = useCallback(async () => {
+    if (!appUpdate.available || appUpdate.blocking) return;
+    const nextCache = dismissOptionalClientUpdate(clientUpdateCache, appUpdate);
+    setClientUpdateCache(nextCache);
+    writeClientUpdateCache(nextCache);
+
+    const serverNotificationIDs = workspace.notifications
+      .filter((notification) => {
+        const serverNotice = extractServerAppUpdateNotification(notification);
+        return serverNotice?.releaseID === appUpdate.releaseID && serverNotice.latestVersion === appUpdate.latestVersion;
+      })
+      .map((notification) => notification.notificationID);
+
+    if (serverNotificationIDs.length > 0) {
+      await workspace.markNotificationsRead(serverNotificationIDs);
+    }
+  }, [appUpdate, clientUpdateCache, workspace]);
+
+  useEffect(() => {
+    if (!workspace.loggedIn || workspace.bootstrap.connection.status !== "connected") {
+      clearRemoteWriteGuardStatus();
+      setCheckingAppUpdate(false);
+      return;
+    }
+    void refreshAppUpdate();
+  }, [refreshAppUpdate, workspace.bootstrap.connection.status, workspace.loggedIn]);
+
+  useEffect(() => {
+    if (workspace.loggedIn && workspace.bootstrap.connection.status === "connected" && (appUpdate.status === "mandatory_update" || appUpdate.status === "unsupported_version")) {
+      setRemoteWriteGuardStatus(appUpdate.status);
+      return;
+    }
+    clearRemoteWriteGuardStatus();
+  }, [appUpdate.status, workspace.bootstrap.connection.status, workspace.loggedIn]);
+
   const desktopNotifications = useMemo(
     () =>
       deriveDesktopNotifications({
