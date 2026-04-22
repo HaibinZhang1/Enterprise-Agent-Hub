@@ -101,7 +101,13 @@ function installFetchMock() {
       return jsonResponse({ unreadNotificationCount: 0 });
     }
 
-    if (path === "/client-updates/check?platform=windows&arch=x64&channel=stable&version=1.5.0" && method === "GET") {
+    if (path === "/client-updates/check" && method === "POST") {
+      const payload = JSON.parse(String(init?.body ?? "{}"));
+      assert.equal(payload.currentVersion, "1.5.0");
+      assert.equal(payload.platform, "windows");
+      assert.equal(payload.arch, "x64");
+      assert.equal(payload.channel, "stable");
+      assert.equal(payload.deviceID, "device-test-001");
       return jsonResponse({
         status: "update_available",
         currentVersion: "1.5.0",
@@ -116,9 +122,13 @@ function installFetchMock() {
 
     if (path === "/client-updates/releases/rel_01/download-ticket" && method === "POST") {
       return jsonResponse({
-        downloadURL: "https://downloads.example.com/client-updates/rel_01",
+        releaseID: "rel_01",
+        version: "1.6.0",
+        downloadURL: "/client-updates/releases/rel_01/download?ticket=ticket-123",
         expiresAt: "2026-04-22T12:15:00.000Z",
-        sha256: "hex-encoded-sha256",
+        packageName: "EnterpriseAgentHub_1.6.0_x64-setup.exe",
+        sizeBytes: 124000000,
+        sha256: "sha256:hex-encoded-sha256",
         signatureStatus: "signed"
       });
     }
@@ -173,14 +183,14 @@ test("remote-write allowlist stays verbatim while the desktop write guard is act
   );
   await assert.doesNotReject(() => p1Client.logout());
   await assert.doesNotReject(() => p1Client.markNotificationsRead(["notify-1"]));
-  await assert.doesNotReject(() => p1Client.checkClientUpdate({ currentVersion: "1.5.0" }));
+  await assert.doesNotReject(() => p1Client.checkClientUpdate({ currentVersion: "1.5.0", deviceID: "device-test-001" }));
   await assert.doesNotReject(() => p1Client.requestClientUpdateDownloadTicket("rel_01"));
-  await assert.doesNotReject(() => p1Client.reportClientUpdateEvent({ releaseID: "rel_01", eventType: "download_started" }));
+  await assert.doesNotReject(() => p1Client.reportClientUpdateEvent({ releaseID: "rel_01", eventType: "download_started", deviceID: "device-test-001", fromVersion: "1.5.0", toVersion: "1.6.0" }));
 
   assert.ok(fetchCalls.some((call) => call.url === "/auth/login" && call.method === "POST"));
   assert.ok(fetchCalls.some((call) => call.url === "/auth/logout" && call.method === "POST"));
   assert.ok(fetchCalls.some((call) => call.url === "/notifications/mark-read" && call.method === "POST"));
-  assert.ok(fetchCalls.some((call) => call.url.startsWith("/client-updates/check") && call.method === "GET"));
+  assert.ok(fetchCalls.some((call) => call.url === "/client-updates/check" && call.method === "POST"));
   assert.ok(fetchCalls.some((call) => call.url === "/client-updates/releases/rel_01/download-ticket" && call.method === "POST"));
   assert.ok(fetchCalls.some((call) => call.url === "/client-updates/events" && call.method === "POST"));
 });

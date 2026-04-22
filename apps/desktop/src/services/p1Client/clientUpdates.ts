@@ -1,4 +1,4 @@
-import { requestJSON, routePath } from "./core.ts";
+import { requestJSON, resolveAPIURL, routePath } from "./core.ts";
 
 export const CLIENT_UPDATE_ROUTES = {
   check: "/client-updates/check",
@@ -11,9 +11,13 @@ export type ClientUpdateType = "optional" | "mandatory" | "unsupported";
 
 export interface ClientUpdateCheckInput {
   currentVersion: string;
+  buildNumber?: string;
   platform?: "windows";
   arch?: "x64";
+  osVersion?: string;
   channel?: string;
+  deviceID: string;
+  dismissedVersion?: string | null;
 }
 
 export interface ClientUpdateCheckResponse {
@@ -36,8 +40,12 @@ export interface ClientUpdateCheckResponse {
 }
 
 export interface ClientUpdateDownloadTicket {
+  releaseID: string;
+  version: string;
   downloadURL: string;
   expiresAt: string;
+  packageName: string | null;
+  sizeBytes: number | null;
   sha256: string | null;
   signatureStatus: string | null;
 }
@@ -45,8 +53,10 @@ export interface ClientUpdateDownloadTicket {
 export interface ClientUpdateEventInput {
   releaseID: string;
   eventType: string;
-  deviceID?: string;
-  details?: Record<string, unknown>;
+  deviceID: string;
+  fromVersion: string;
+  toVersion?: string | null;
+  errorCode?: string | null;
 }
 
 type RawClientUpdateCheckResponse = Partial<
@@ -127,20 +137,30 @@ export function normalizeClientUpdateCheckResponse(
 export function createClientUpdatesClient() {
   return {
     async checkClientUpdate(input: ClientUpdateCheckInput): Promise<ClientUpdateCheckResponse> {
-      const params = new URLSearchParams({
-        platform: input.platform ?? "windows",
-        arch: input.arch ?? "x64",
-        channel: input.channel ?? "stable",
-        version: input.currentVersion
+      const rawResponse = await requestJSON<RawClientUpdateCheckResponse>(CLIENT_UPDATE_ROUTES.check, {
+        method: "POST",
+        body: JSON.stringify({
+          currentVersion: input.currentVersion,
+          buildNumber: input.buildNumber,
+          platform: input.platform ?? "windows",
+          arch: input.arch ?? "x64",
+          osVersion: input.osVersion,
+          channel: input.channel ?? "stable",
+          deviceID: input.deviceID,
+          dismissedVersion: input.dismissedVersion ?? null
+        })
       });
-      const rawResponse = await requestJSON<RawClientUpdateCheckResponse>(`${CLIENT_UPDATE_ROUTES.check}?${params.toString()}`);
       return normalizeClientUpdateCheckResponse(rawResponse, input);
     },
 
     async requestClientUpdateDownloadTicket(releaseID: string): Promise<ClientUpdateDownloadTicket> {
-      return requestJSON<ClientUpdateDownloadTicket>(routePath(CLIENT_UPDATE_ROUTES.downloadTicket, { releaseID }), {
+      const response = await requestJSON<ClientUpdateDownloadTicket>(routePath(CLIENT_UPDATE_ROUTES.downloadTicket, { releaseID }), {
         method: "POST"
       });
+      return {
+        ...response,
+        downloadURL: resolveAPIURL(response.downloadURL)
+      };
     },
 
     async reportClientUpdateEvent(input: ClientUpdateEventInput): Promise<{ ok: true }> {

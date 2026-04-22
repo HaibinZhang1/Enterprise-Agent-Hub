@@ -2,6 +2,7 @@ import type { LocalNotification } from "../../domain/p1.ts";
 import type { ClientUpdateCheckResponse, ClientUpdateStatus } from "../../services/p1Client.ts";
 
 export const CLIENT_UPDATE_CACHE_STORAGE_KEY = "enterprise-agent-hub:client-update-cache";
+export const CLIENT_UPDATE_DEVICE_ID_STORAGE_KEY = "enterprise-agent-hub:client-update-device-id";
 export const CLIENT_UPDATE_CACHE_MAX_AGE_MS = 30 * 60 * 1000;
 
 export interface ClientUpdateCache {
@@ -35,9 +36,10 @@ export interface AppUpdateState {
   occurredAt: string;
   unread: boolean;
   releaseURL: string | null;
-  actionLabel: "去更新" | "查看更新" | "重新检查";
+  actionLabel: "立即更新" | "重新检查";
   publishedAt: string | null;
   sizeBytes: number | null;
+  sha256: string | null;
   packageName: string | null;
   downloadTicketRequired: boolean;
   mandatory: boolean;
@@ -106,6 +108,24 @@ function isBlockingStatus(status: ClientUpdateStatus): boolean {
   return status === "mandatory_update" || status === "unsupported_version";
 }
 
+
+function generateClientUpdateDeviceID(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) {
+    return uuid;
+  }
+  return `desktop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function resolveClientUpdateDeviceID(): string {
+  if (!isStorageAvailable()) return "desktop_p1_default";
+  const existing = window.localStorage.getItem(CLIENT_UPDATE_DEVICE_ID_STORAGE_KEY)?.trim();
+  if (existing) return existing;
+  const next = generateClientUpdateDeviceID();
+  window.localStorage.setItem(CLIENT_UPDATE_DEVICE_ID_STORAGE_KEY, next);
+  return next;
+}
+
 function buildSummary(input: {
   status: ClientUpdateStatus;
   latestVersion: string;
@@ -152,6 +172,7 @@ function asAppUpdateSource(currentVersion: string, cache: ClientUpdateCache | nu
   occurredAt: string;
   publishedAt: string | null;
   sizeBytes: number | null;
+  sha256: string | null;
   packageName: string | null;
   downloadTicketRequired: boolean;
   lastCheckedAt: string | null;
@@ -168,6 +189,7 @@ function asAppUpdateSource(currentVersion: string, cache: ClientUpdateCache | nu
     occurredAt: cache.publishedAt ?? cache.lastCheckedAt ?? new Date(0).toISOString(),
     publishedAt: cache.publishedAt,
     sizeBytes: cache.sizeBytes,
+    sha256: cache.sha256,
     packageName: cache.packageName,
     downloadTicketRequired: cache.downloadTicketRequired,
     lastCheckedAt: cache.lastCheckedAt
@@ -190,6 +212,7 @@ export function defaultAppUpdateState(currentVersion: string): AppUpdateState {
     actionLabel: "重新检查",
     publishedAt: null,
     sizeBytes: null,
+    sha256: null,
     packageName: null,
     downloadTicketRequired: false,
     mandatory: false,
@@ -386,9 +409,10 @@ export function deriveAppUpdateState(input: {
     occurredAt: matchedServerNotice?.occurredAt ?? source.occurredAt,
     unread,
     releaseURL: source.releaseURL,
-    actionLabel: source.releaseURL ? "去更新" : "查看更新",
+    actionLabel: "立即更新",
     publishedAt: source.publishedAt,
     sizeBytes: source.sizeBytes,
+    sha256: input.cache?.sha256 ?? null,
     packageName: source.packageName,
     downloadTicketRequired: source.downloadTicketRequired,
     mandatory: source.status === "mandatory_update",

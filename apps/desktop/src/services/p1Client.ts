@@ -145,7 +145,7 @@ export interface P1Client {
   rejectReview(reviewID: string, comment: string): Promise<ReviewDetail>;
   checkClientUpdate(input: ClientUpdateCheckInput): Promise<ClientUpdateCheckResponse>;
   requestClientUpdateDownloadTicket(releaseID: string): Promise<ClientUpdateDownloadTicket>;
-  reportClientUpdateEvent(input: ClientUpdateEventInput & { deviceID?: string }): Promise<{ ok: true }>;
+  reportClientUpdateEvent(input: ClientUpdateEventInput): Promise<{ ok: true }>;
 }
 
 const authClient = createAuthClient();

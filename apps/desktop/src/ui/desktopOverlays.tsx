@@ -740,10 +740,10 @@ function AppUpdateModal({ ui }: { ui: DesktopUIState }) {
         </div>
       ) : null}
       <div className="inline-actions wrap">
-        <button className="btn btn-primary" type="button" onClick={() => void ui.viewAppUpdate()}>
+        <button className="btn btn-primary" type="button" onClick={() => void ui.viewAppUpdate()} disabled={ui.appUpdate.checking}>
           {ui.appUpdate.actionLabel}
         </button>
-        <button className="btn" type="button" onClick={() => void ui.recheckAppUpdate()}>
+        <button className="btn" type="button" onClick={() => void ui.recheckAppUpdate()} disabled={ui.appUpdate.checking}>
           <RefreshCw size={14} />
           重新检查
         </button>
@@ -1019,7 +1019,7 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
                 <button className="btn btn-primary" type="button" onClick={ui.openAppUpdateModal} disabled={!ui.appUpdate.available}>
                   查看更新
                 </button>
-                <button className="btn" type="button" onClick={() => void ui.recheckAppUpdate()}>
+                <button className="btn" type="button" onClick={() => void ui.recheckAppUpdate()} disabled={ui.appUpdate.checking}>
                   <RefreshCw size={14} />
                   重新检查
                 </button>

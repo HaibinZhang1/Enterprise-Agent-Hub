@@ -17,6 +17,7 @@ import {
 } from "../src/state/useDesktopUIState.ts";
 import { isSafeExternalURL } from "../src/services/externalLinks.ts";
 import { deriveDesktopNotifications, notificationBadgeLabel, resolveDesktopNotificationAction, type AppUpdateState } from "../src/state/ui/desktopNotifications.ts";
+import { defaultAppUpdateState } from "../src/state/ui/clientUpdates.ts";
 import { connectedServiceURL } from "../src/state/ui/aboutInfo.ts";
 import { deriveCommunityLeaderboards } from "../src/state/ui/communityLeaderboards.ts";
 import { buildTargetDrafts, collectInstalledSkillIssues, compareToolsByAvailability, matchesDiscoveredTargetFilter, matchesInstalledTargetFilter } from "../src/state/ui/installedSkillSelectors.ts";
@@ -227,15 +228,14 @@ test("legacy pages map into the new section model", () => {
 
 test("notification actions route old review and publisher events into the new IA targets", () => {
   const appUpdate: AppUpdateState = {
+    ...defaultAppUpdateState("0.1.0"),
     available: true,
-    currentVersion: "0.1.0",
     latestVersion: "0.1.3",
     summary: "更新说明",
     highlights: ["a"],
     occurredAt: "2026-04-18T09:00:00.000Z",
     unread: true,
-    releaseURL: null,
-    actionLabel: "查看更新"
+    actionLabel: "立即更新"
   };
   const notifications: LocalNotification[] = [
     {
@@ -480,15 +480,8 @@ test("settings navigation includes the about panel and current version", () => {
     hasAgentKey: false,
     connectionStatus: "offline",
     appUpdate: {
-      available: false,
-      currentVersion: "0.1.0",
-      latestVersion: "0.1.0",
-      summary: "当前已是最新版本",
-      highlights: [],
-      occurredAt: "2026-04-21T00:00:00.000Z",
-      unread: false,
-      releaseURL: null,
-      actionLabel: "查看更新"
+      ...defaultAppUpdateState("0.1.0"),
+      occurredAt: "2026-04-21T00:00:00.000Z"
     }
   });
 

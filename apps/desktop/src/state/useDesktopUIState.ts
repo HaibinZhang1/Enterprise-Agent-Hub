@@ -23,6 +23,7 @@ import {
   dismissOptionalClientUpdate,
   extractServerAppUpdateNotification,
   readClientUpdateCache,
+  resolveClientUpdateDeviceID,
   shouldUseCachedClientUpdate,
   writeClientUpdateCache,
   type AppUpdateState,
@@ -30,8 +31,9 @@ import {
 } from "./ui/clientUpdates.ts";
 import type { InstalledListFilter } from "./ui/installedSkillsTypes.ts";
 import type { DisplayLanguage } from "../ui/desktopShared.tsx";
-import { openExternalURL } from "../services/externalLinks.ts";
 import { clearRemoteWriteGuardStatus, p1Client, setRemoteWriteGuardStatus } from "../services/p1Client.ts";
+import { prepareClientUpdateInstall, launchPreparedClientUpdateInstall } from "../services/clientUpdateFlow.ts";
+import { desktopBridge } from "../services/tauriBridge.ts";
 import { themeLabel } from "../ui/themeLabels.ts";
 
 export { buildPublishPrecheck } from "./ui/publishPrecheck.ts";
@@ -210,6 +212,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
   const [flash, setFlash] = useState<FlashMessage | null>(null);
   const [clientUpdateCache, setClientUpdateCache] = useState<ClientUpdateCache | null>(() => readClientUpdateCache());
   const [checkingAppUpdate, setCheckingAppUpdate] = useState(false);
+  const [processingAppUpdate, setProcessingAppUpdate] = useState(false);
   const [appUpdateError, setAppUpdateError] = useState<string | null>(null);
 
   const language = useMemo<DisplayLanguage>(
@@ -231,9 +234,9 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
         cache: clientUpdateCache,
         notifications: workspace.notifications,
         lastError: appUpdateError,
-        checking: checkingAppUpdate
+        checking: checkingAppUpdate || processingAppUpdate
       }),
-    [appUpdateError, checkingAppUpdate, clientUpdateCache, workspace.notifications]
+    [appUpdateError, checkingAppUpdate, clientUpdateCache, processingAppUpdate, workspace.notifications]
   );
 
   const refreshAppUpdate = useCallback(async (options: { force?: boolean } = {}) => {
@@ -253,7 +256,9 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
         currentVersion: packageInfo.version,
         platform: "windows",
         arch: "x64",
-        channel: "stable"
+        channel: "stable",
+        deviceID: resolveClientUpdateDeviceID(),
+        dismissedVersion: clientUpdateCache?.dismissedVersion ?? null
       });
       const nextCache = cacheClientUpdateCheck(checkResult, clientUpdateCache);
       setClientUpdateCache(nextCache);
@@ -458,34 +463,120 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     presentBlockingModal({ type: "app_update" });
   }, [presentBlockingModal]);
 
-  const viewAppUpdate = useCallback(() => {
-    if (appUpdate.releaseURL && typeof window !== "undefined") {
-      void openExternalURL(appUpdate.releaseURL)
-        .then(() => {
-          if (!appUpdate.blocking) {
-            return dismissOptionalAppUpdate();
-          }
-          return undefined;
-        })
-        .catch((error) => {
-          setFlash({
-            tone: "warning",
-            title: "无法打开更新链接",
-            body: error instanceof Error ? error.message : "请稍后重试。"
-          });
-        });
+  const viewAppUpdate = useCallback(async () => {
+    if (processingAppUpdate) {
       return;
     }
 
-    if (!appUpdate.blocking) {
-      void dismissOptionalAppUpdate();
+    const releaseID = appUpdate.releaseID;
+    if (!appUpdate.available || !releaseID) {
+      setFlash({
+        tone: "warning",
+        title: "更新信息不完整",
+        body: "请先重新检查更新，再继续安装。"
+      });
+      return;
     }
-    setFlash({
-      tone: "info",
-      title: "更新入口待接入",
-      body: "当前版本先展示版本信息与更新说明，真实下载和升级流程后续接入。"
-    });
-  }, [appUpdate.blocking, appUpdate.releaseURL, dismissOptionalAppUpdate]);
+
+    const deviceID = resolveClientUpdateDeviceID();
+    setProcessingAppUpdate(true);
+    try {
+      setFlash({
+        tone: "info",
+        title: "正在准备升级",
+        body: "正在申请下载票据并校验更新包，请稍候。"
+      });
+      const prepared = await prepareClientUpdateInstall(
+        {
+          currentVersion: appUpdate.currentVersion,
+          latestVersion: appUpdate.latestVersion,
+          releaseID,
+          deviceID,
+          packageName: appUpdate.packageName,
+          sizeBytes: appUpdate.sizeBytes,
+          sha256: appUpdate.sha256
+        },
+        {
+          requestClientUpdateDownloadTicket: p1Client.requestClientUpdateDownloadTicket,
+          reportClientUpdateEvent: p1Client.reportClientUpdateEvent,
+          downloadClientUpdate: desktopBridge.downloadClientUpdate,
+          verifyClientUpdate: desktopBridge.verifyClientUpdate
+        }
+      );
+      setProcessingAppUpdate(false);
+      closeModal();
+      presentBlockingConfirm({
+        type: "confirm",
+        title: `安装桌面客户端 ${appUpdate.latestVersion}`,
+        body: "更新包已下载并通过校验。确认后将启动系统安装程序，安装过程中可能需要关闭当前客户端。",
+        confirmLabel: "启动安装程序",
+        tone: appUpdate.blocking ? "danger" : "primary",
+        detailLines: [
+          `当前版本：${appUpdate.currentVersion}`,
+          `目标版本：${appUpdate.latestVersion}`,
+          prepared.downloadTicket.packageName ? `安装包：${prepared.downloadTicket.packageName}` : null,
+          prepared.downloadTicket.sizeBytes ? `大小：${prepared.downloadTicket.sizeBytes} 字节` : null,
+          prepared.verificationResult.signatureStatus ? `签名状态：${prepared.verificationResult.signatureStatus}` : null
+        ].filter((line): line is string => Boolean(line)),
+        onConfirm: async () => {
+          setProcessingAppUpdate(true);
+          try {
+            await launchPreparedClientUpdateInstall(
+              {
+                currentVersion: appUpdate.currentVersion,
+                latestVersion: appUpdate.latestVersion,
+                releaseID,
+                deviceID,
+                packageName: appUpdate.packageName,
+                sizeBytes: appUpdate.sizeBytes,
+                sha256: appUpdate.sha256,
+                downloadResult: prepared.downloadResult
+              },
+              {
+                reportClientUpdateEvent: p1Client.reportClientUpdateEvent,
+                launchClientInstaller: desktopBridge.launchClientInstaller
+              }
+            );
+            closeModal();
+            setFlash({
+              tone: "success",
+              title: "安装程序已启动",
+              body: "安装完成并重新启动后，客户端会自动上报已安装版本并清除更新提示。"
+            });
+          } catch (error) {
+            setFlash({
+              tone: "warning",
+              title: "启动安装程序失败",
+              body: error instanceof Error ? error.message : "请稍后重试。"
+            });
+          } finally {
+            setProcessingAppUpdate(false);
+          }
+        }
+      });
+    } catch (error) {
+      setFlash({
+        tone: "warning",
+        title: "准备升级失败",
+        body: error instanceof Error ? error.message : "请稍后重试。"
+      });
+    } finally {
+      setProcessingAppUpdate(false);
+    }
+  }, [
+    appUpdate.available,
+    appUpdate.blocking,
+    appUpdate.currentVersion,
+    appUpdate.latestVersion,
+    appUpdate.packageName,
+    appUpdate.releaseID,
+    appUpdate.sha256,
+    appUpdate.sizeBytes,
+    closeModal,
+    p1Client,
+    presentBlockingConfirm,
+    processingAppUpdate
+  ]);
 
   const recheckAppUpdate = useCallback(async () => {
     const refreshed = await refreshAppUpdate({ force: true });
