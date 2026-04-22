@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { normalizePhoneNumber } from '../auth/phone-number';
-import { hashPassword } from '../auth/password';
+import { hashPassword, validatePasswordStrength } from '../auth/password';
 import { AdminRepository } from './admin.repository';
 import {
   assertAdminActor,
@@ -98,6 +98,10 @@ export class AdminWriteService {
     if (!username || !password || !input.departmentID || !input.role) {
       throw new BadRequestException('validation_failed');
     }
+    const validationMessage = validatePasswordStrength(password);
+    if (validationMessage) {
+      throw new BadRequestException(validationMessage);
+    }
     if (await this.repository.phoneNumberExists(phoneNumber)) {
       throw new BadRequestException('phone_number_already_exists');
     }
@@ -160,6 +164,31 @@ export class AdminWriteService {
       role: nextRole,
       adminLevel: nextAdminLevel,
     });
+  }
+
+  async changeUserPassword(
+    userID: string,
+    targetUserID: string,
+    input: { password?: string },
+  ): Promise<void> {
+    const actor = assertAdminActor(await this.repository.loadActor(userID));
+    const target = await this.repository.loadManagedUserByPhoneNumber(normalizePhoneNumber(targetUserID));
+    assertManagedUser(actor, target);
+
+    const password = input.password?.trim();
+    if (!password) {
+      throw new BadRequestException('validation_failed');
+    }
+    const validationMessage = validatePasswordStrength(password);
+    if (validationMessage) {
+      throw new BadRequestException(validationMessage);
+    }
+
+    await this.repository.updateUserPassword({
+      targetUserID: target.user_id,
+      passwordHash: hashPassword(password),
+    });
+    await this.authService.revokeAllSessionsForUser(target.user_id);
   }
 
   async freezeUser(

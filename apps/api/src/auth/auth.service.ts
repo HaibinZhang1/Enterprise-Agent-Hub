@@ -1,9 +1,9 @@
 import { randomBytes, createHash } from 'node:crypto';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { MenuPermission, UserSummary } from '../common/p1-contracts';
 import { DatabaseService } from '../database/database.service';
 import { PermissionResolverService } from './permission-resolver.service';
-import { verifyPassword } from './password';
+import { hashPassword, validatePasswordStrength, verifyPassword } from './password';
 import { P1_TOKEN_PREFIX } from './constants';
 import { normalizePhoneNumber } from './phone-number';
 
@@ -19,6 +19,11 @@ export interface LoginResponse {
   expiresAt: string;
   user: UserSummary;
   menuPermissions: MenuPermission[];
+}
+
+export interface ChangePasswordRequest {
+  currentPassword?: string;
+  nextPassword?: string;
 }
 
 export interface AuthenticatedSession {
@@ -88,6 +93,47 @@ export class AuthService {
     return { ok: true };
   }
 
+  async changePassword(
+    userID: string,
+    sessionID: string | null,
+    request: ChangePasswordRequest,
+  ): Promise<{ ok: true }> {
+    const currentPassword = request.currentPassword?.trim();
+    const nextPassword = request.nextPassword?.trim();
+    if (!currentPassword || !nextPassword) {
+      throw new BadRequestException('validation_failed');
+    }
+
+    const validationMessage = validatePasswordStrength(nextPassword);
+    if (validationMessage) {
+      throw new BadRequestException(validationMessage);
+    }
+
+    const user = await this.database.one<{ password_hash: string }>(
+      `
+      SELECT password_hash
+      FROM users
+      WHERE id = $1
+        AND status = 'active'
+      `,
+      [userID],
+    );
+    if (!user || !verifyPassword(currentPassword, user.password_hash)) {
+      throw new BadRequestException('当前密码错误');
+    }
+
+    await this.database.query(
+      `
+      UPDATE users
+      SET password_hash = $2
+      WHERE id = $1
+      `,
+      [userID, hashPassword(nextPassword)],
+    );
+    await this.revokeOtherSessionsForUser(userID, sessionID);
+    return { ok: true };
+  }
+
   async authenticateAccessToken(token: string): Promise<AuthenticatedSession> {
     const tokenHash = hashAccessToken(token);
     const session = await this.database.one<{
@@ -150,6 +196,17 @@ export class AuthService {
 
   async revokeAllSessionsForUser(userID: string): Promise<void> {
     await this.database.query('UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL', [userID]);
+  }
+
+  async revokeOtherSessionsForUser(userID: string, keepSessionID: string | null): Promise<void> {
+    if (!keepSessionID) {
+      await this.revokeAllSessionsForUser(userID);
+      return;
+    }
+    await this.database.query(
+      'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL AND id <> $2',
+      [userID, keepSessionID],
+    );
   }
 
   private async createSession(userID: string): Promise<{ rawToken: string; expiresAt: string }> {

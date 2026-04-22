@@ -117,6 +117,7 @@ export interface LocalBootstrap extends Omit<SharedLocalBootstrapResponse, "inst
 
 export interface SkillSummary extends Omit<SharedSkillSummary, "cannotInstallReason"> {
   localVersion: string | null;
+  localSourceType?: LocalSkillInstall["sourceType"] | null;
   canUpdate: boolean;
   cannotInstallReason?: ApiErrorCode | string;
   publishedAt: string;

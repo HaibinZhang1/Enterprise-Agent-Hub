@@ -157,6 +157,22 @@ export function useP1Workspace() {
     [market.setSelectedSkillID, openPage]
   );
 
+  const changeOwnPassword = useCallback(
+    async (input: { currentPassword: string; nextPassword: string }) => {
+      try {
+        await p1Client.changeOwnPassword(input);
+        return { ok: true as const };
+      } catch (error) {
+        await sessionFlow.handleRemoteError(error, { reopenLogin: true });
+        return {
+          ok: false as const,
+          error: error instanceof Error ? error.message : "修改密码失败，请稍后重试。"
+        };
+      }
+    },
+    [sessionFlow]
+  );
+
   return {
     authState: auth.authState,
     loggedIn: auth.authState === "authenticated",
@@ -194,6 +210,7 @@ export function useP1Workspace() {
     authError: auth.authError,
     login: sessionFlow.login,
     logout: sessionFlow.logout,
+    changeOwnPassword,
     refreshBootstrap: sessionFlow.refreshBootstrap,
     installOrUpdate: marketActions.installOrUpdate,
     importLocalSkill: marketActions.importLocalSkill,
@@ -250,6 +267,7 @@ export function useP1Workspace() {
       deleteDepartment: adminActions.deleteDepartment,
       createAdminUser: adminActions.createAdminUser,
       updateAdminUser: adminActions.updateAdminUser,
+      changeAdminUserPassword: adminActions.changeAdminUserPassword,
       freezeAdminUser: adminActions.freezeAdminUser,
       unfreezeAdminUser: adminActions.unfreezeAdminUser,
       deleteAdminUser: adminActions.deleteAdminUser,

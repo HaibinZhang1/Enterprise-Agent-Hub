@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 require("ts-node/register/transpile-only");
 
 const { BadRequestException, ForbiddenException } = require("@nestjs/common");
+const { PublishingPublicationService } = require("../src/publishing/publishing-publication.service.ts");
 const { PublishingSubmissionService } = require("../src/publishing/publishing-submission.service.ts");
 const { PublishingReviewService } = require("../src/publishing/publishing-review.service.ts");
 const {
@@ -270,6 +271,145 @@ test("PublishingSubmissionService rejects first publish when slug already exists
       ),
     BadRequestException
   );
+});
+
+test("PublishingSubmissionService allows first publish to reuse an archived slug", async () => {
+  let staged = false;
+  const { submissionService } = createServices({
+    publishingRepository: {
+      async loadActor() {
+        return {
+          userID: "u_author",
+          displayName: "作者",
+          departmentID: "dept_frontend",
+          departmentName: "前端组"
+        };
+      },
+      async loadSkillByID() {
+        return {
+          id: "skill-row-1",
+          skill_id: "prompt-guardrails",
+          author_id: "u_author",
+          status: "archived",
+          version: "1.0.0"
+        };
+      }
+    },
+    packageStorage: {
+      async stageSubmissionPackage() {
+        staged = true;
+        return {
+          bucket: "staged-review-packages",
+          objectKey: "reviews/review-1/package.zip",
+          sha256: "sha256:stage",
+          sizeBytes: 256,
+          fileCount: 1
+        };
+      }
+    }
+  });
+
+  const result = await submissionService.createSubmission(
+    "u_author",
+    {
+      submissionType: "publish",
+      skillID: "prompt-guardrails",
+      displayName: "提示词护栏模板",
+      description: "发布前检查提示词结构。",
+      version: "1.0.1",
+      visibilityLevel: "detail_visible",
+      scopeType: "current_department",
+      changelog: "归档后重新发布",
+      category: "开发",
+      tags: JSON.stringify(["提示"])
+    },
+    [{ originalname: "prompt-guardrails/SKILL.md", buffer: Buffer.from("# Skill") }]
+  );
+
+  assert.equal(staged, true);
+  assert.equal(result.actorUserID, "u_author");
+});
+
+test("PublishingPublicationService republishes archived skills back to published status", async () => {
+  const queries = [];
+  const publicationService = new PublishingPublicationService(
+    {
+      async transaction(callback) {
+        return callback({
+          async query(text, values = []) {
+            queries.push({ text, values });
+            if (/INSERT INTO skill_versions/.test(text)) {
+              return { rowCount: 1, rows: [] };
+            }
+            if (/INSERT INTO skill_packages/.test(text)) {
+              return { rowCount: 1, rows: [] };
+            }
+            return { rowCount: 1, rows: [] };
+          }
+        });
+      }
+    },
+    {
+      async loadSkillByID() {
+        return {
+          id: "skill-row-1",
+          skill_id: "prompt-guardrails",
+          display_name: "提示词护栏模板",
+          description: "旧描述",
+          author_id: "u_author",
+          department_id: "dept_frontend",
+          status: "archived",
+          visibility_level: "private",
+          category: "开发",
+          version: "1.0.0",
+          current_version_id: "version-1"
+        };
+      },
+      async insertHistory() {}
+    },
+    {
+      async copyObject() {},
+      packageBucket() {
+        return "skill-packages";
+      }
+    }
+  );
+
+  await publicationService.publishSubmission(
+    {
+      review_id: "review-1",
+      skill_id: "prompt-guardrails",
+      skill_display_name: "提示词护栏模板",
+      submitter_id: "u_author",
+      submitter_department_id: "dept_frontend",
+      requested_visibility_level: "detail_visible",
+      requested_scope_type: "current_department",
+      requested_department_ids: [],
+      current_version: "1.0.0",
+      review_type: "publish",
+      requested_version: "1.0.1",
+      staged_package_bucket: "staged-review-packages",
+      staged_package_object_key: "reviews/review-1/package.zip",
+      staged_package_sha256: "sha256:stage",
+      staged_package_size_bytes: 256,
+      staged_package_file_count: 1,
+      submission_payload: {
+        description: "新描述",
+        changelog: "归档后重新发布",
+        category: "开发",
+        tags: ["提示"],
+        compatibleTools: ["codex"],
+        compatibleSystems: ["windows"]
+      }
+    },
+    { userID: "u_admin" },
+    "通过审核"
+  );
+
+  const updateSkill = queries.find(({ text }) => /UPDATE skills/.test(text));
+  assert.ok(updateSkill);
+  assert.match(updateSkill.text, /status = \$6/);
+  assert.equal(updateSkill.values[5], "published");
 });
 
 test("PublishingSubmissionService lets authors delist and relist their own skills but blocks invalid transitions", async () => {

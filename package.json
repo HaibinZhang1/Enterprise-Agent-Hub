@@ -14,6 +14,8 @@
     "check:docs": "node scripts/checks/check-doc-structure.mjs",
     "check:env": "node scripts/checks/check-env-safety.mjs",
     "clean": "npm run clean --workspaces --if-present",
+    "desktop:dev": "npm run dev --workspace @enterprise-agent-hub/desktop",
+    "desktop:tauri:dev": "npm run tauri:dev --workspace @enterprise-agent-hub/desktop",
     "lint": "npm run lint --workspaces --if-present",
     "p1:full-closure": "node scripts/full-closure/run.mjs",
     "p1:live-smoke": "node scripts/verification/p1-live-smoke.mjs",

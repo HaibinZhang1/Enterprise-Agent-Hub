@@ -114,6 +114,7 @@ test('real admin users pane separates searchable governance from create-user flo
   assert.match(pane, /getAdminUserLastLoginAt\(selectedUser\)/);
   assert.match(pane, /createAdminUser/);
   assert.match(pane, /updateAdminUser\(selectedUser\.phoneNumber/);
+  assert.match(pane, /changeAdminUserPassword\(selectedUser\.phoneNumber/);
   assert.match(pane, /freezeAdminUser\(selectedUser\.phoneNumber\)/);
   assert.match(pane, /unfreezeAdminUser\(selectedUser\.phoneNumber\)/);
   assert.match(pane, /deleteAdminUser\(selectedUser\.phoneNumber\)/);

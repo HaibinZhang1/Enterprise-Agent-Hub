@@ -70,6 +70,15 @@ export class AdminService {
     return this.readService.listUsers(userID);
   }
 
+  async changeUserPassword(
+    userID: string,
+    targetUserID: string,
+    input: { password?: string },
+  ): Promise<AdminUserDto[]> {
+    await this.writeService.changeUserPassword(userID, targetUserID, input);
+    return this.readService.listUsers(userID);
+  }
+
   async freezeUser(
     userID: string,
     targetUserID: string,

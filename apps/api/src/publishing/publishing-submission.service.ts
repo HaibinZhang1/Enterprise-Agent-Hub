@@ -32,7 +32,7 @@ export class PublishingSubmissionService {
     const input = parseSubmissionInput(body);
     const currentSkill = await this.publishingRepository.loadSkillByID(input.skillID);
 
-    if (input.submissionType === 'publish' && currentSkill) {
+    if (input.submissionType === 'publish' && currentSkill && currentSkill.status !== 'archived') {
       throw new BadRequestException('validation_failed');
     }
     if (input.submissionType !== 'publish') {

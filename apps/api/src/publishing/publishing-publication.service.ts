@@ -95,6 +95,7 @@ export class PublishingPublicationService {
               description = $3,
               visibility_level = $4,
               category = $5,
+              status = $6,
               updated_at = now()
           WHERE id = $1
           `,
@@ -104,6 +105,7 @@ export class PublishingPublicationService {
             payload.description,
             review.requested_visibility_level ?? currentSkill.visibility_level,
             updatesMetadata ? payload.category || '其他' : currentSkill.category ?? '其他',
+            currentSkill.status === 'archived' ? 'published' : currentSkill.status,
           ],
         );
       }

@@ -64,6 +64,15 @@ export function createAuthClient() {
       }
     },
 
+    async changeOwnPassword(input: { currentPassword: string; nextPassword: string }): Promise<void> {
+      await requestJSON<{ ok: true }>(P1_API_ROUTES.authChangePassword, {
+        method: "POST",
+        body: JSON.stringify(input)
+      }).catch((error) => {
+        throw normalizePasswordChangeError(error);
+      });
+    },
+
     async bootstrap(): Promise<BootstrapContext> {
       return normalizeBootstrap(await requestJSON<ApiBootstrapResponse>(P1_API_ROUTES.desktopBootstrap));
     },
@@ -80,6 +89,19 @@ function normalizeLoginError(error: unknown): Error {
   }
   if (error.message.includes("用户名或密码错误")) {
     return new Error("手机号或密码错误。");
+  }
+  return error;
+}
+
+function normalizePasswordChangeError(error: unknown): Error {
+  if (!(error instanceof P1ApiError)) {
+    return error instanceof Error ? error : new Error("修改密码失败，请稍后重试。");
+  }
+  if (error.message.includes("当前密码错误")) {
+    return new Error("当前密码错误。");
+  }
+  if (error.message.includes("密码至少需要 12 位")) {
+    return new Error("密码至少需要 12 位，且必须包含大写字母、小写字母、数字和特殊字符。");
   }
   return error;
 }

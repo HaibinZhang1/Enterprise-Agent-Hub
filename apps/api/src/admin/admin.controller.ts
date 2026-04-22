@@ -81,6 +81,16 @@ export class AdminController {
     return this.adminService.updateUser(request.p1UserID ?? '', phoneNumber, body);
   }
 
+  @Post('users/:phoneNumber/password')
+  @RequireMenuPermission('admin_users')
+  changeUserPassword(
+    @Req() request: P1AuthenticatedRequest,
+    @Param('phoneNumber') phoneNumber: string,
+    @Body() body: { password?: string },
+  ) {
+    return this.adminService.changeUserPassword(request.p1UserID ?? '', phoneNumber, body);
+  }
+
   @Post('users/:phoneNumber/freeze')
   @RequireMenuPermission('admin_users')
   freezeUser(@Req() request: P1AuthenticatedRequest, @Param('phoneNumber') phoneNumber: string) {

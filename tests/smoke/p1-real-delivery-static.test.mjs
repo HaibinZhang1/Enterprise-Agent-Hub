@@ -42,9 +42,11 @@ test('Desktop client defaults to the real API surface and does not auto-fallback
   assert.doesNotMatch(p1Client, /\/api\/v1/);
   assert.doesNotMatch(p1Client, /fixtures\/p1SeedData/);
   assert.match(p1ClientCore, /VITE_DESKTOP_API_BASE_URL/);
-  assert.match(p1ClientCore, /http:\/\/127\.0\.0\.1:3000/);
+  assert.match(p1ClientCore, /requireAPIBase/);
+  assert.match(sharedContracts, /authChangePassword: "\/auth\/change-password"/);
   assert.match(p1ClientCore, /authorization/);
   assert.match(p1ClientAuth, /P1_API_ROUTES\.authLogin/);
+  assert.match(p1ClientAuth, /P1_API_ROUTES\.authChangePassword/);
   assert.match(p1ClientAuth, /P1_API_ROUTES\.desktopBootstrap/);
 });
 
@@ -98,7 +100,7 @@ test('React desktop app is split into shell, sections, overlays, and UI state co
   assert.match(desktopSectionsTsx, /ManageReviewsPane/);
   assert.match(desktopSectionsTsx, /ManageSection/);
   assert.match(desktopSectionsTsx, /LocalSection/);
-  assert.match(desktopSectionsTsx, /发布 Skill/);
+  assert.match(desktopSectionsTsx, /提交发布申请/);
   assert.match(desktopSectionsTsx, /openReviewDetail/);
   assert.match(desktopOverlaysTsx, /review-action-\$\{action\}/);
   assert.match(desktopOverlaysTsx, /approveReview/);
@@ -109,9 +111,12 @@ test('React desktop app is split into shell, sections, overlays, and UI state co
   assert.match(desktopSectionsTsx, /下架/);
   assert.match(desktopSectionsTsx, /上架/);
   assert.match(desktopSectionsTsx, /归档/);
+  assert.match(desktopSectionsTsx, /currentStatus !== "archived"/);
   assert.match(desktopShared, /reviewActionLabel/);
   assert.match(desktopOverlaysTsx, /TargetsModal/);
   assert.match(desktopOverlaysTsx, /ConnectionStatusModal/);
+  assert.match(desktopOverlaysTsx, /当前密码/);
+  assert.match(desktopOverlaysTsx, /保存新密码/);
   assert.match(desktopOverlaysTsx, /ToolEditorModal/);
   assert.match(desktopUiState, /buildPublishPrecheck/);
 });

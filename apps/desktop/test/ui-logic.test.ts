@@ -718,6 +718,72 @@ test("market skill derivation still filters and sorts by query and category", ()
   assert.equal(result[0]?.skillID, "review-helper");
 });
 
+test("market skill derivation excludes locally managed imports from community results", () => {
+  const result = deriveMarketSkills({
+    authState: "authenticated",
+    bootstrap: {
+      user: {
+        username: "lin",
+        phoneNumber: "13800001001",
+        role: "admin",
+        adminLevel: 4,
+        departmentID: "d1",
+        departmentName: "平台工程部",
+        locale: "zh-CN"
+      },
+      connection: {
+        status: "connected",
+        serverTime: "2026-04-18T10:00:00.000Z",
+        apiVersion: "1.0.0"
+      },
+      features: {
+        p1Desktop: true,
+        publishSkill: true,
+        reviewWorkbench: true,
+        adminManage: true,
+        mcpManage: false,
+        pluginManage: false
+      },
+      counts: {
+        installedCount: 1,
+        enabledCount: 0,
+        updateAvailableCount: 0,
+        unreadNotificationCount: 0
+      },
+      navigation: ["home", "market"],
+      menuPermissions: ["home", "market"]
+    },
+    filters: {
+      query: "",
+      department: "all",
+      compatibleTool: "all",
+      installed: "all",
+      enabled: "all",
+      accessScope: "include_public",
+      category: "all",
+      tags: [],
+      riskLevel: "all",
+      publishedWithin: "all",
+      updatedWithin: "all",
+      sort: "composite"
+    },
+    skills: [
+      baseSkill,
+      {
+        ...baseSkill,
+        skillID: "local-helper",
+        displayName: "Local Helper",
+        localVersion: "0.0.0-local",
+        localSourceType: "local_import",
+        authorName: "本地托管",
+        authorDepartment: "Central Store"
+      }
+    ]
+  });
+
+  assert.deepEqual(result.map((skill) => skill.skillID), ["review-helper"]);
+});
+
 test("community leaderboards expose hot fallback plus independent download and star rankings", () => {
   const skills: SkillSummary[] = [
     { ...baseSkill, skillID: "download-first", displayName: "下载最高", starCount: 10, downloadCount: 900 },

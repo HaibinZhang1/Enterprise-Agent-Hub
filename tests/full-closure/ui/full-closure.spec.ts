@@ -7,9 +7,9 @@ import path from "node:path";
 
 const artifactDir = requiredEnv("EAH_FULL_CLOSURE_ARTIFACT_DIR");
 const apiBaseURL = requiredEnv("EAH_FULL_CLOSURE_API_BASE_URL");
-const outsiderCredentials = { phoneNumber: "13800000007", username: "赵六", password: "demo123" };
-const adminCredentials = { phoneNumber: "13800000004", username: "前端组管理员", password: "demo123" };
-const authorCredentials = { phoneNumber: "13800000001", username: "张三", password: "demo123" };
+const outsiderCredentials = { phoneNumber: "13800000007", username: "赵六", password: "EAgentHub123!" };
+const adminCredentials = { phoneNumber: "13800000004", username: "前端组管理员", password: "EAgentHub123!" };
+const authorCredentials = { phoneNumber: "13800000001", username: "张三", password: "EAgentHub123!" };
 const runSuffix = Date.now().toString(36);
 
 test.describe.configure({ mode: "serial" });
@@ -106,7 +106,7 @@ test("author and reviewer can preview package docs and author can delist relist 
     await page.getByTestId("nav-market").click();
     await page.getByTestId("my-skills-published-tab").click();
     const publisherRow = page.locator(`[data-testid="publisher-skill-row"][data-skill-id="${skillID}"]`);
-    await publisherRow.getByRole("button", { name: "查看详情" }).click();
+    await publisherRow.click();
     await expect(page.getByTestId("package-file-list")).toContainText("SKILL.md");
     await page.locator('[data-testid="package-file-row"][data-file-path="assets/notes.txt"]').click();
     await expect(page.getByTestId("package-file-preview")).toContainText(`${skillID}:1.0.0`);

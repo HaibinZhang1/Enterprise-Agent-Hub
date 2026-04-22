@@ -6,11 +6,11 @@ const baseURL = normalizeBaseURL(process.env.P1_LIVE_BASE_URL ?? "http://127.0.0
 const requireHealthOk = process.env.P1_REQUIRE_HEALTH_OK !== "false";
 const normalCredentials = {
   phoneNumber: process.env.P1_LIVE_PHONE_NUMBER ?? "13800000001",
-  password: process.env.P1_LIVE_PASSWORD ?? "demo123"
+  password: process.env.P1_LIVE_PASSWORD ?? "EAgentHub123!"
 };
 const adminCredentials = {
   phoneNumber: process.env.P1_LIVE_ADMIN_PHONE_NUMBER ?? "13800000002",
-  password: process.env.P1_LIVE_ADMIN_PASSWORD ?? "demo123"
+  password: process.env.P1_LIVE_ADMIN_PASSWORD ?? "EAgentHub123!"
 };
 
 async function main() {

@@ -34,6 +34,7 @@ export interface P1Client {
   currentAPIBase(): string;
   login(input: { phoneNumber: string; password: string; serverURL: string }): Promise<BootstrapContext>;
   logout(): Promise<void>;
+  changeOwnPassword(input: { currentPassword: string; nextPassword: string }): Promise<void>;
   bootstrap(): Promise<BootstrapContext>;
   listSkills(filters: MarketFilters): Promise<SkillSummary[]>;
   listSkillLeaderboards(): Promise<SkillLeaderboardsResponse>;
@@ -50,6 +51,7 @@ export interface P1Client {
   listAdminUsers(): Promise<AdminUser[]>;
   createAdminUser(input: { username: string; phoneNumber: string; password: string; departmentID: string; role: "normal_user" | "admin"; adminLevel: number | null }): Promise<AdminUser[]>;
   updateAdminUser(phoneNumber: string, input: { username?: string; phoneNumber?: string; departmentID?: string; role?: "normal_user" | "admin"; adminLevel?: number | null }): Promise<AdminUser[]>;
+  changeAdminUserPassword(phoneNumber: string, password: string): Promise<AdminUser[]>;
   freezeAdminUser(phoneNumber: string): Promise<AdminUser[]>;
   unfreezeAdminUser(phoneNumber: string): Promise<AdminUser[]>;
   deleteAdminUser(phoneNumber: string): Promise<void>;

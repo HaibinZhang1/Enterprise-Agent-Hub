@@ -8,6 +8,7 @@ import type {
   SkillSummary
 } from "../../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../../domain/p1.ts";
+import { isCommunityVisibleSkill } from "../p1WorkspaceHelpers.ts";
 import { deriveDiscoveredLocalSkills } from "../../utils/discoveredLocalSkills.ts";
 import { guestNavigation } from "./workspaceTypes.ts";
 
@@ -55,6 +56,7 @@ export function deriveMarketSkills(input: {
   skills: SkillSummary[];
 }): SkillSummary[] {
   const { filters, skills } = input;
+  const communitySkills = skills.filter(isCommunityVisibleSkill);
   const query = filters.query.trim().toLocaleLowerCase();
   const publishedWindowDays = filters.publishedWithin === "7d" ? 7 : filters.publishedWithin === "30d" ? 30 : filters.publishedWithin === "90d" ? 90 : 0;
   const updatedWindowDays = filters.updatedWithin === "7d" ? 7 : filters.updatedWithin === "30d" ? 30 : filters.updatedWithin === "90d" ? 90 : 0;
@@ -70,7 +72,7 @@ export function deriveMarketSkills(input: {
     return score;
   }
 
-  const filtered = [...skills].filter((skill) => {
+  const filtered = [...communitySkills].filter((skill) => {
     const matchesInstalled =
       filters.installed === "all" || (filters.installed === "installed" ? skill.localVersion : !skill.localVersion);
     const matchesEnabled =
@@ -151,6 +153,7 @@ export function deriveWorkspaceState(input: {
     selectedSkillID,
     skills
   } = input;
+  const communitySkills = skills.filter(isCommunityVisibleSkill);
   const selectedSkill = skills.find((skill) => skill.skillID === selectedSkillID) ?? skills[0] ?? null;
   const selectedDepartment = findDepartment(departments, selectedDepartmentID) ?? departments[0] ?? null;
   const counts = {
@@ -163,11 +166,11 @@ export function deriveWorkspaceState(input: {
   const installedSkills = skills.filter((skill) => skill.localVersion !== null);
   const discoveredLocalSkills = deriveDiscoveredLocalSkills({
     installedSkills,
-    marketSkills: skills,
+    marketSkills: communitySkills,
     scanTargets
   });
   const visibleNavigation = deriveVisibleNavigation({ authState, bootstrap });
-  const departmentsFilter = [...new Set(skills.map((skill) => skill.authorDepartment).filter(Boolean))] as string[];
+  const departmentsFilter = [...new Set(communitySkills.map((skill) => skill.authorDepartment).filter(Boolean))] as string[];
   const compatibleTools = [...new Set(skills.flatMap((skill) => skill.compatibleTools))];
   const categories = [...SKILL_CATEGORIES];
   const tags = [...SKILL_TAGS];

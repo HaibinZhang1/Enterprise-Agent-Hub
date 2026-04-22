@@ -155,6 +155,15 @@ export function useWorkspaceAdminReviewActions(input: {
     [requireAuthenticatedAction, setAdminUsers]
   );
 
+  const changeAdminUserPassword = useCallback(
+    async (phoneNumber: string, password: string) => {
+      requireAuthenticatedAction("admin_users", async () => {
+        setAdminUsers(await p1Client.changeAdminUserPassword(phoneNumber, password));
+      });
+    },
+    [requireAuthenticatedAction, setAdminUsers]
+  );
+
   const freezeAdminUser = useCallback(
     async (phoneNumber: string) => {
       requireAuthenticatedAction("admin_users", async () => {
@@ -283,6 +292,7 @@ export function useWorkspaceAdminReviewActions(input: {
     approveReview,
     archiveAdminSkill,
     claimReview,
+    changeAdminUserPassword,
     createAdminUser,
     createDepartment,
     deleteAdminUser,

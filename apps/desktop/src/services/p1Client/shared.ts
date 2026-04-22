@@ -90,6 +90,7 @@ export function normalizeSkill(skill: ApiSkill): SkillSummary {
   return {
     ...skill,
     localVersion: skill.localVersion ?? null,
+    localSourceType: null,
     publishedAt: skill.publishedAt ?? skill.currentVersionUpdatedAt,
     tags: skill.tags ?? [],
     category: skill.category ?? "其他",

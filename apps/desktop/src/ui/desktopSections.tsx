@@ -26,6 +26,7 @@ import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
 import type { DesktopUIState } from "../state/useDesktopUIState.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
 import { downloadAuthenticatedFile } from "../services/p1Client.ts";
+import { isCommunityVisibleSkill } from "../state/p1WorkspaceHelpers.ts";
 import {
   deriveDepartmentWorkbench,
   filterAdminUsers,
@@ -72,6 +73,7 @@ import {
 } from "./desktopShared.tsx";
 import { iconToneForLabel } from "./iconTone.ts";
 import { AuthGateCard, InitialBadge, PackagePreviewPanel, SectionEmpty, SectionProps, SelectField, TagPill } from "./pageCommon.tsx";
+import { passwordPolicyHint, validatePasswordPolicy } from "../utils/passwordPolicy.ts";
 
 function formatMetricCount(value: number, language: "zh-CN" | "en-US") {
   return new Intl.NumberFormat(language, {
@@ -834,7 +836,7 @@ function CommunityLeaderboardList({
 
 function Leaderboard({ workspace, ui }: SectionProps) {
   const [activeLeaderboard, setActiveLeaderboard] = useState<CommunityLeaderboardKind>("hot");
-  const fallbackLeaderboards = useMemo(() => deriveCommunityLeaderboards(workspace.skills), [workspace.skills]);
+  const fallbackLeaderboards = useMemo(() => deriveCommunityLeaderboards(workspace.skills.filter(isCommunityVisibleSkill)), [workspace.skills]);
   const leaderboards = workspace.bootstrap.connection.status === "connected" ? workspace.leaderboards ?? fallbackLeaderboards : fallbackLeaderboards;
   const leaderboardSlides = [
     { kind: "hot", label: "热榜", icon: <CircleGauge size={14} />, skills: leaderboards.hot },
@@ -954,25 +956,7 @@ function CommunityPublisherWorkspace({
   ui,
   pane
 }: SectionProps & { pane: "publish" | "mine" }) {
-  const [draft, setDraft] = useState<PublishDraft>({
-	    submissionType: "publish",
-	    uploadMode: "none",
-	    packageName: "",
-	    skillEntryPath: null,
-	    skillID: "",
-	    displayName: "",
-    description: "",
-    version: "1.0.0",
-    scope: "current_department",
-    selectedDepartmentIDs: [],
-    visibility: "private",
-    changelog: "",
-    category: "",
-    tags: [],
-    compatibleTools: [],
-    compatibleSystems: ["windows"],
-    files: []
-  });
+  const [draft, setDraft] = useState<PublishDraft>(() => emptyPublishDraft());
 	  const [uploadEntries, setUploadEntries] = useState<UploadEntry[]>([]);
 	  const [tagInput, setTagInput] = useState("");
 	  const [toolInput, setToolInput] = useState("");
@@ -986,7 +970,14 @@ function CommunityPublisherWorkspace({
 		  const duplicatePublishedSlug =
 		    draft.submissionType === "publish" &&
 		    draft.skillID.trim().length > 0 &&
-		    workspace.skills.some((skill) => skill.skillID.toLocaleLowerCase() === draft.skillID.trim().toLocaleLowerCase());
+		    (
+          workspace.skills.some(
+            (skill) => isCommunityVisibleSkill(skill) && skill.skillID.toLocaleLowerCase() === draft.skillID.trim().toLocaleLowerCase()
+          ) ||
+          workspace.publisherData.publisherSkills.some(
+            (skill) => skill.skillID.toLocaleLowerCase() === draft.skillID.trim().toLocaleLowerCase() && skill.currentStatus !== "archived"
+          )
+        );
 
   const selectedPublisherSkill =
     workspace.publisherData.publisherSkills.find((skill) => skill.latestSubmissionID === workspace.publisherData.selectedPublisherSubmissionID)
@@ -1019,6 +1010,13 @@ function CommunityPublisherWorkspace({
     setTagInput(nextDraft.tags.join(", "));
     setToolInput(nextDraft.compatibleTools.join(", "));
     setSystemInput(nextDraft.compatibleSystems.join(", "));
+  }
+
+  function clearDraft() {
+    applyDraftLists(emptyPublishDraft());
+    setUploadEntries([]);
+    setUploadError(null);
+    setSubmitAttempted(false);
   }
 
   function resetDraft(submissionType: PublishDraft["submissionType"] = "publish", source?: PublisherSkillSummary) {
@@ -1173,6 +1171,7 @@ function CommunityPublisherWorkspace({
 	    try {
 	      const submitted = await workspace.publisherData.submitPublisherSubmission(formData);
 	      if (submitted !== false) {
+	        clearDraft();
 	        ui.openCommunityPane("mine");
 	      }
 	    } finally {
@@ -1202,8 +1201,8 @@ function CommunityPublisherWorkspace({
       <section className="stage-panel publish-center-shell">
         <form className="publish-form-scroll" data-testid="publish-form" onSubmit={submitDraft}>
           <div className="publish-title-block">
-            <h1>发布新技能</h1>
-            <p>上传您的 Skill 文件，审核通过后将同步展示在社区 Skill 广场。</p>
+            <h1>提交发布申请</h1>
+            <p>上传您的 Skill 文件。只有审核通过后，Skill 才会正式展示在社区 Skill 广场。</p>
           </div>
 
           <div className="field-stack">
@@ -1406,7 +1405,7 @@ function CommunityPublisherWorkspace({
 	            </div>
 	          ) : null}
 
-	          <div className="publish-submit-row">
+		          <div className="publish-submit-row">
 	            {submitAttempted && !canSubmitDraft ? (
 	              <div className="callout warning publish-submit-warning">
 	                <AlertTriangle size={16} />
@@ -1416,8 +1415,8 @@ function CommunityPublisherWorkspace({
 		                </span>
 	              </div>
 	            ) : null}
-	            <button className="btn btn-primary publish-submit-button" type="submit" data-testid="publish-submit" disabled={submitting}>{submitting ? "正在发布..." : "发布 Skill"}</button>
-	          </div>
+		            <button className="btn btn-primary publish-submit-button" type="submit" data-testid="publish-submit" disabled={submitting}>{submitting ? "正在提交..." : submitButtonLabel(draft.submissionType)}</button>
+		          </div>
         </form>
       </section>
     );
@@ -1428,13 +1427,7 @@ function CommunityPublisherWorkspace({
   return (
     <div className="publisher-detail-layout publisher-page-layout">
       <section className="stage-panel list-panel">
-        <div className="inline-actions wrap">
-          <button className="btn btn-primary" type="button" onClick={() => resetDraft("publish")}>
-            <Upload size={14} />
-            新建发布
-          </button>
-        </div>
-        {workspace.publisherData.publisherSkills.length === 0 ? <SectionEmpty title="还没有发布记录" body="点击新建发布，或上传 ZIP / 文件夹开始第一次提交流程。" /> : null}
+        {workspace.publisherData.publisherSkills.length === 0 ? <SectionEmpty title="还没有发布记录" body="从左侧“发布”入口上传 ZIP 或文件夹后，这里会展示你的提交记录和审核状态。" /> : null}
         <div className="stack-list">
           {workspace.publisherData.publisherSkills.map((skill) => {
             const canResubmit = ["returned_for_changes", "review_rejected", "withdrawn"].includes(skill.latestWorkflowState ?? "");
@@ -1446,23 +1439,11 @@ function CommunityPublisherWorkspace({
                   view={view}
                   active={selectedPublisherSkill?.skillID === skill.skillID}
                   onSelect={() => workspace.publisherData.setSelectedPublisherSubmissionID(skill.latestSubmissionID ?? null)}
-                  actions={
-                    <>
-                      {skill.latestSubmissionID ? (
-                        <button
-                          className="btn btn-small"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            workspace.publisherData.setSelectedPublisherSubmissionID(skill.latestSubmissionID ?? null);
-                          }}
-                        >
-                          查看详情
-                        </button>
-                      ) : null}
-                      <button
-                        className="btn btn-small"
-                        type="button"
+	                  actions={
+	                    <>
+	                      <button
+	                        className="btn btn-small"
+	                        type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           ui.openSkillDetail(skill.skillID, "community");
@@ -1473,10 +1454,10 @@ function CommunityPublisherWorkspace({
                       {canResubmit ? (
                         <button className="btn btn-small" type="button" onClick={(event) => { event.stopPropagation(); resetDraft(skill.latestSubmissionType ?? "publish", skill); }}>重新提交</button>
                       ) : null}
-                      {skill.publishedSkillExists ? (
-                        <>
-                          <button className="btn btn-small" type="button" onClick={(event) => { event.stopPropagation(); resetDraft("update", skill); }}>发布新版本</button>
-                          <button className="btn btn-small" type="button" onClick={(event) => { event.stopPropagation(); resetDraft("permission_change", skill); }}>修改权限</button>
+	                      {skill.publishedSkillExists && skill.currentStatus !== "archived" ? (
+	                        <>
+	                          <button className="btn btn-small" type="button" onClick={(event) => { event.stopPropagation(); resetDraft("update", skill); }}>发布新版本</button>
+	                          <button className="btn btn-small" type="button" onClick={(event) => { event.stopPropagation(); resetDraft("permission_change", skill); }}>修改权限</button>
                         </>
                       ) : null}
                       {skill.canWithdraw && skill.latestSubmissionID ? (
@@ -1512,15 +1493,15 @@ function CommunityPublisherWorkspace({
           as="section"
           className="wide publisher-summary-panel"
           view={selectedPublisherSkillView}
-          actions={
-            <>
-              <button className="btn" type="button" onClick={() => ui.openSkillDetail(selectedPublisherSkill.skillID, "community")}>
-                完整详情
-              </button>
-              {selectedPublisherSkill.publishedSkillExists ? (
-                <>
-                  <button className="btn btn-primary" type="button" onClick={() => resetDraft("update", selectedPublisherSkill)}>发布新版本</button>
-                  <button className="btn" type="button" onClick={() => resetDraft("permission_change", selectedPublisherSkill)}>修改权限</button>
+	          actions={
+	            <>
+	              <button className="btn" type="button" onClick={() => ui.openSkillDetail(selectedPublisherSkill.skillID, "community")}>
+	                完整详情
+	              </button>
+	              {selectedPublisherSkill.publishedSkillExists && selectedPublisherSkill.currentStatus !== "archived" ? (
+	                <>
+	                  <button className="btn btn-primary" type="button" onClick={() => resetDraft("update", selectedPublisherSkill)}>发布新版本</button>
+	                  <button className="btn" type="button" onClick={() => resetDraft("permission_change", selectedPublisherSkill)}>修改权限</button>
                 </>
               ) : null}
             </>
@@ -1588,6 +1569,34 @@ function CommunityPublisherWorkspace({
       )}
     </div>
   );
+}
+
+function emptyPublishDraft(): PublishDraft {
+  return {
+    submissionType: "publish",
+    uploadMode: "none",
+    packageName: "",
+    skillEntryPath: null,
+    skillID: "",
+    displayName: "",
+    description: "",
+    version: "1.0.0",
+    scope: "current_department",
+    selectedDepartmentIDs: [],
+    visibility: "private",
+    changelog: "",
+    category: "",
+    tags: [],
+    compatibleTools: [],
+    compatibleSystems: ["windows"],
+    files: []
+  };
+}
+
+function submitButtonLabel(submissionType: PublishDraft["submissionType"]): string {
+  if (submissionType === "update") return "提交版本更新";
+  if (submissionType === "permission_change") return "提交权限变更";
+  return "提交发布申请";
 }
 
 export function CommunitySection({ workspace, ui }: SectionProps) {
@@ -2905,6 +2914,10 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
     role: "normal_user" as "normal_user" | "admin",
     adminLevel: "4"
   });
+  const [passwordEdit, setPasswordEdit] = useState({
+    password: "",
+    confirmPassword: ""
+  });
 
   const departmentOptions = useMemo(() => flattenDepartments(workspace.adminData.departments), [workspace.adminData.departments]);
   const filteredUsers = useMemo(() => filterAdminUsers(workspace.adminData.adminUsers, userFilters), [userFilters, workspace.adminData.adminUsers]);
@@ -2931,7 +2944,17 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
       role: selectedUser.role,
       adminLevel: String(selectedUser.adminLevel ?? 4)
     });
+    setPasswordEdit({
+      password: "",
+      confirmPassword: ""
+    });
   }, [selectedUser]);
+
+  const createPasswordError = newUser.password.trim() ? validatePasswordPolicy(newUser.password) : null;
+  const nextPasswordError = passwordEdit.password.trim() ? validatePasswordPolicy(passwordEdit.password) : null;
+  const passwordMismatch = passwordEdit.confirmPassword.length > 0 && passwordEdit.password !== passwordEdit.confirmPassword;
+  const canSubmitPassword = Boolean(selectedUser && passwordEdit.password.trim() && passwordEdit.confirmPassword.trim() && !nextPasswordError && !passwordMismatch);
+  const canCreateUser = Boolean(newUser.departmentID && newUser.username.trim() && newUser.phoneNumber.trim() && newUser.password.trim() && !createPasswordError);
 
   return (
     <div className="manage-hub manage-hub-users users-workbench">
@@ -3067,6 +3090,19 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
                 <button className="btn" type="submit">保存资料</button>
               </form>
             </div>
+            <div className="detail-block inspector-subsection">
+              <h3>修改密码</h3>
+              <form className="form-stack compact" onSubmit={(event) => {
+                event.preventDefault();
+                if (!selectedUser || !canSubmitPassword) return;
+                void workspace.adminData.changeAdminUserPassword(selectedUser.phoneNumber, passwordEdit.password.trim());
+              }}>
+                <label className="field"><span>新密码</span><input value={passwordEdit.password} type="password" autoComplete="new-password" onChange={(event) => setPasswordEdit((current) => ({ ...current, password: event.target.value }))} /></label>
+                <label className="field"><span>确认新密码</span><input value={passwordEdit.confirmPassword} type="password" autoComplete="new-password" onChange={(event) => setPasswordEdit((current) => ({ ...current, confirmPassword: event.target.value }))} /></label>
+                <small className={passwordMismatch || nextPasswordError ? "field-hint warning" : "field-hint"}>{passwordMismatch ? "两次输入的密码不一致。" : nextPasswordError ?? `${passwordPolicyHint} 保存后该用户现有会话会立即失效。`}</small>
+                <button className="btn" type="submit" disabled={!canSubmitPassword}>保存新密码</button>
+              </form>
+            </div>
             <div className="detail-section">
               <strong>账号动作</strong>
               <p>{selectedUser.status === "frozen" ? "解冻后可恢复登录和会话续期。" : "冻结后立即使现有会话失效，并隐藏管理入口。"}</p>
@@ -3100,7 +3136,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
         <InlineModal title="新增用户" eyebrow="账号治理" onClose={() => setCreateUserModalOpen(false)}>
           <form className="form-stack compact" onSubmit={(event) => {
             event.preventDefault();
-            if (!newUser.departmentID || !newUser.username.trim() || !newUser.phoneNumber.trim() || !newUser.password.trim()) return;
+            if (!canCreateUser) return;
             void workspace.adminData.createAdminUser({
               username: newUser.username.trim(),
               phoneNumber: newUser.phoneNumber.trim(),
@@ -3115,6 +3151,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
             <label className="field"><span>用户名称</span><input value={newUser.username} onChange={(event) => setNewUser((current) => ({ ...current, username: event.target.value }))} autoFocus /></label>
             <label className="field"><span>手机号</span><input value={newUser.phoneNumber} inputMode="tel" autoComplete="tel" onChange={(event) => setNewUser((current) => ({ ...current, phoneNumber: event.target.value }))} /></label>
             <label className="field"><span>初始密码</span><input value={newUser.password} type="password" autoComplete="new-password" onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))} /></label>
+            <small className={createPasswordError ? "field-hint warning" : "field-hint"}>{createPasswordError ?? passwordPolicyHint}</small>
             <label className="field">
               <span>所属部门</span>
               <select value={newUser.departmentID} onChange={(event) => setNewUser((current) => ({ ...current, departmentID: event.target.value }))}>
@@ -3128,7 +3165,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
               <label className="field"><span>管理员等级</span><input value={newUser.adminLevel} onChange={(event) => setNewUser((current) => ({ ...current, adminLevel: event.target.value }))} /></label>
             ) : null}
             <div className="inline-actions wrap">
-              <button className="btn btn-primary" type="submit" disabled={!newUser.departmentID || !newUser.username.trim() || !newUser.phoneNumber.trim() || !newUser.password.trim()}>
+              <button className="btn btn-primary" type="submit" disabled={!canCreateUser}>
                 <Users size={14} />
                 创建用户
               </button>

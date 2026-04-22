@@ -24,18 +24,20 @@ These rules adapt the core ideas from `multica-ai/andrej-karpathy-skills`: reduc
 
 ## Build, Test, and Development Commands
 
-For the current design prototype:
+Default frontend development entrypoint:
 
 ```sh
-python3 -m http.server 8000 --directory docs/design-ui/layout-prototype
-open http://localhost:8000
+npm run desktop:dev
+npm run desktop:tauri:dev
 ```
+
+Use `npm run desktop:tauri:dev` for real desktop integration whenever possible. Do not start `docs/design-ui/layout-prototype/` unless the user explicitly asks to inspect the archived reference prototype.
 
 Canonical workspace commands are defined in the root `package.json`, for example `npm run lint`, `npm run typecheck`, `npm test`, and `npm run p1:full-closure`.
 
 ## Coding Style & Naming Conventions
 
-Use 2-space indentation for HTML, CSS, and JavaScript. Follow the existing JavaScript style in `docs/design-ui/layout-prototype/app.js`: `const`/`let`, camelCase variables, double-quoted strings, semicolons, and descriptive object field names. Keep CSS organized around custom properties in `:root`, reusable class selectors, and accessible focus/disabled states. Preserve the existing Chinese product copy unless a requirement document calls for a wording change.
+For `apps/desktop/`, follow the existing React/TypeScript/Tauri patterns and match the surrounding file style. Use 2-space indentation for HTML, CSS, and JavaScript when editing `docs/design-ui/layout-prototype/` only. In that prototype directory, follow the existing JavaScript style in `docs/design-ui/layout-prototype/app.js`: `const`/`let`, camelCase variables, double-quoted strings, semicolons, and descriptive object field names. Keep CSS organized around custom properties in `:root`, reusable class selectors, and accessible focus/disabled states. Preserve the existing Chinese product copy unless a requirement document calls for a wording change.
 
 ## Testing Guidelines
 

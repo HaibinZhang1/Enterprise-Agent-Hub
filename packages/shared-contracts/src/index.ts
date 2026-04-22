@@ -981,6 +981,7 @@ export const LOCAL_COMMAND_NAMES = Object.values(P1_LOCAL_COMMANDS) as readonly 
 export const P1_API_ROUTES = {
   authLogin: "/auth/login",
   authLogout: "/auth/logout",
+  authChangePassword: "/auth/change-password",
   desktopBootstrap: "/desktop/bootstrap",
   desktopLocalEvents: "/desktop/local-events",
   skills: "/skills",
@@ -995,6 +996,7 @@ export const P1_API_ROUTES = {
   adminDepartmentDetail: "/admin/departments/:departmentID",
   adminUsers: "/admin/users",
   adminUserDetail: "/admin/users/:phoneNumber",
+  adminUserPassword: "/admin/users/:phoneNumber/password",
   adminUserFreeze: "/admin/users/:phoneNumber/freeze",
   adminUserUnfreeze: "/admin/users/:phoneNumber/unfreeze",
   adminSkills: "/admin/skills",

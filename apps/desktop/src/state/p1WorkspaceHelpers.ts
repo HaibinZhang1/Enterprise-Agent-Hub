@@ -82,6 +82,7 @@ export function applyLocalInstallToSkill(skill: SkillSummary, install: LocalSkil
   return {
     ...skill,
     localVersion: install.localVersion,
+    localSourceType: install.sourceType,
     installState: enabledTargets.length > 0 ? "enabled" : "installed",
     enabledTargets,
     lastEnabledAt: enabledTargets[0]?.enabledAt ?? skill.lastEnabledAt,
@@ -100,6 +101,7 @@ export function localSummaryFromInstall(install: LocalSkillInstall): SkillSummar
     description: install.sourceType === "local_import" ? "从本地工具或项目目录纳入 Central Store 管理的 Skill。" : "本机已安装的 Skill。登录后可同步市场详情、通知和管理员功能。",
     version: install.localVersion,
     localVersion: install.localVersion,
+    localSourceType: install.sourceType,
     latestVersion: install.localVersion,
     status: "published",
     visibilityLevel: "detail_visible",
@@ -126,6 +128,10 @@ export function localSummaryFromInstall(install: LocalSkillInstall): SkillSummar
     enabledTargets,
     lastEnabledAt: enabledTargets[0]?.enabledAt ?? null
   };
+}
+
+export function isCommunityVisibleSkill(skill: SkillSummary): boolean {
+  return skill.localSourceType !== "local_import";
 }
 
 export function mergeLocalInstalls(skills: SkillSummary[], localBootstrap: LocalBootstrap): SkillSummary[] {

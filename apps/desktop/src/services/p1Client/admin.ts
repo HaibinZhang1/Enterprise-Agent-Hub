@@ -46,6 +46,13 @@ export function createAdminClient() {
       });
     },
 
+    async changeAdminUserPassword(phoneNumber: string, password: string): Promise<AdminUser[]> {
+      return requestJSON<AdminUser[]>(routePath(P1_API_ROUTES.adminUserPassword, { phoneNumber }), {
+        method: "POST",
+        body: JSON.stringify({ password })
+      });
+    },
+
     async freezeAdminUser(phoneNumber: string): Promise<AdminUser[]> {
       return requestJSON<AdminUser[]>(routePath(P1_API_ROUTES.adminUserFreeze, { phoneNumber }), {
         method: "POST"

@@ -25,6 +25,7 @@ import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
 import { connectedServiceURL, ENTERPRISE_AGENT_HUB_GITHUB_URL } from "../state/ui/aboutInfo.ts";
 import { downloadAuthenticatedFile } from "../services/p1Client.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath, previewCentralStorePath } from "../utils/platformPaths.ts";
+import { passwordPolicyHint, validatePasswordPolicy } from "../utils/passwordPolicy.ts";
 import {
   flattenDepartments,
   formatDate,
@@ -561,6 +562,26 @@ function ProjectEditorModal({ ui }: { ui: DesktopUIState }) {
 }
 
 function ConnectionStatusModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: DesktopUIState }) {
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    nextPassword: "",
+    confirmPassword: ""
+  });
+  const [submittingPassword, setSubmittingPassword] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (ui.modal.type !== "connection_status") {
+      setPasswordForm({
+        currentPassword: "",
+        nextPassword: "",
+        confirmPassword: ""
+      });
+      setSubmittingPassword(false);
+      setPasswordFeedback(null);
+    }
+  }, [ui.modal.type]);
+
   if (ui.modal.type !== "connection_status") return null;
   const status = workspace.bootstrap.connection.status;
   const roleText = roleLabel(workspace.currentUser, ui.language);
@@ -577,6 +598,45 @@ function ConnectionStatusModal({ workspace, ui }: { workspace: P1WorkspaceState;
   const statusToneClass = status === "connected" ? "success" : status === "connecting" ? "info" : "warning";
   const adminLevelLabel = workspace.currentUser.adminLevel ? `L${workspace.currentUser.adminLevel}` : "-";
   const serviceTime = workspace.bootstrap.connection.serverTime ? formatDate(workspace.bootstrap.connection.serverTime, ui.language) : "-";
+  const nextPasswordError = passwordForm.nextPassword.trim() ? validatePasswordPolicy(passwordForm.nextPassword) : null;
+  const passwordMismatch =
+    passwordForm.confirmPassword.length > 0 && passwordForm.nextPassword !== passwordForm.confirmPassword;
+  const canSubmitPassword = Boolean(
+    workspace.loggedIn &&
+    passwordForm.currentPassword.trim() &&
+    passwordForm.nextPassword.trim() &&
+    passwordForm.confirmPassword.trim() &&
+    !nextPasswordError &&
+    !passwordMismatch
+  );
+
+  async function submitPasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSubmitPassword || submittingPassword) return;
+    setSubmittingPassword(true);
+    setPasswordFeedback(null);
+    const result = await workspace.changeOwnPassword({
+      currentPassword: passwordForm.currentPassword,
+      nextPassword: passwordForm.nextPassword.trim()
+    });
+    setSubmittingPassword(false);
+    if (!result.ok) {
+      setPasswordFeedback({
+        tone: "warning",
+        message: result.error
+      });
+      return;
+    }
+    setPasswordForm({
+      currentPassword: "",
+      nextPassword: "",
+      confirmPassword: ""
+    });
+    setPasswordFeedback({
+      tone: "success",
+      message: "密码已更新，当前登录保持有效，其他会话已失效。"
+    });
+  }
 
   return (
     <ModalFrame title="我的信息" eyebrow="账号概览" onClose={ui.closeModal} narrow>
@@ -614,6 +674,22 @@ function ConnectionStatusModal({ workspace, ui }: { workspace: P1WorkspaceState;
           <div><dt>界面语言</dt><dd>{workspace.currentUser.locale}</dd></div>
         </div>
       </div>
+      {workspace.loggedIn ? (
+        <div className="detail-block inspector-subsection">
+          <h3>修改密码</h3>
+          <form className="form-stack compact" onSubmit={submitPasswordChange}>
+            <label className="field"><span>当前密码</span><input value={passwordForm.currentPassword} type="password" autoComplete="current-password" onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} /></label>
+            <label className="field"><span>新密码</span><input value={passwordForm.nextPassword} type="password" autoComplete="new-password" onChange={(event) => setPasswordForm((current) => ({ ...current, nextPassword: event.target.value }))} /></label>
+            <label className="field"><span>确认新密码</span><input value={passwordForm.confirmPassword} type="password" autoComplete="new-password" onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} /></label>
+            <small className={passwordFeedback?.tone === "warning" || passwordMismatch || nextPasswordError ? "field-hint warning" : passwordFeedback?.tone === "success" ? "field-hint success" : "field-hint"}>
+              {passwordFeedback?.message ?? (passwordMismatch ? "两次输入的新密码不一致。" : nextPasswordError ?? passwordPolicyHint)}
+            </small>
+            <button className="btn btn-primary" type="submit" disabled={!canSubmitPassword || submittingPassword}>
+              {submittingPassword ? "正在保存..." : "保存新密码"}
+            </button>
+          </form>
+        </div>
+      ) : null}
       <div className="inline-actions wrap">
         {workspace.loggedIn ? (
           <button className="btn btn-primary" type="button" onClick={() => void workspace.refreshBootstrap()}>

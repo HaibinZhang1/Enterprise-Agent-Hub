@@ -303,6 +303,17 @@ export class AdminRepository {
     ).then(() => undefined);
   }
 
+  updateUserPassword(input: { targetUserID: string; passwordHash: string }): Promise<void> {
+    return this.database.query(
+      `
+      UPDATE users
+      SET password_hash = $2
+      WHERE id = $1
+      `,
+      [input.targetUserID, input.passwordHash],
+    ).then(() => undefined);
+  }
+
   async phoneNumberExists(phoneNumber: string, excludedUserID: string | null = null): Promise<boolean> {
     const result = await this.database.one<{ exists: boolean }>(
       `
