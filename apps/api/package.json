@@ -14,6 +14,10 @@
     "start:dev": "ts-node src/main.ts",
     "migrate": "node dist/scripts/migrate.js",
     "seed": "node dist/scripts/seed.js",
+    "client-update:publish": "ts-node src/scripts/client-update-publish.ts",
+    "client-update:rollout": "ts-node src/scripts/client-update-rollout.ts",
+    "client-update:pause": "ts-node src/scripts/client-update-pause.ts",
+    "client-update:yank": "ts-node src/scripts/client-update-yank.ts",
     "migrate:dev": "ts-node src/scripts/migrate.ts",
     "seed:dev": "ts-node src/scripts/seed.ts"
   },
