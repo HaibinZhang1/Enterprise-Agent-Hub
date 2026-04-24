@@ -307,6 +307,41 @@ fn saves_manual_tool_config_and_restores_it_from_bootstrap() {
 }
 
 #[test]
+fn clears_custom_directory_config_without_breaking_bootstrap() {
+    let _lock = ENV_LOCK.lock().expect("lock env");
+    let temp = TestTemp::new("local-state-tool-delete");
+    let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+    let manual_skills_path = temp.path.join("shared-skills");
+
+    state
+        .save_tool_config(ToolConfigInputPayload {
+            tool_id: "custom_directory".to_string(),
+            name: Some("团队共享目录".to_string()),
+            config_path: "手动维护".to_string(),
+            skills_path: manual_skills_path.to_string_lossy().to_string(),
+            enabled: Some(true),
+        })
+        .expect("save custom directory");
+
+    state
+        .delete_tool_config("custom_directory".to_string())
+        .expect("clear custom directory");
+
+    let bootstrap = state.get_local_bootstrap().expect("bootstrap after delete");
+    let custom_directory = bootstrap
+        .tools
+        .iter()
+        .find(|tool| tool.tool_id == "custom_directory")
+        .expect("custom directory tool");
+    assert_eq!(custom_directory.configured_path, None);
+    assert_ne!(
+        custom_directory.skills_path,
+        manual_skills_path.to_string_lossy().to_string()
+    );
+    assert_eq!(custom_directory.enabled_skill_count, 0);
+}
+
+#[test]
 fn keeps_manual_tool_paths_after_detection_refresh() {
     let _lock = ENV_LOCK.lock().expect("lock env");
     let temp = TestTemp::new("local-state-tool-refresh");
@@ -409,6 +444,103 @@ fn reports_project_path_status_in_bootstrap() {
         .as_deref()
         .unwrap_or_default()
         .contains("不存在"));
+}
+
+#[test]
+fn deletes_project_configs_without_enabled_skills() {
+    let _lock = ENV_LOCK.lock().expect("lock env");
+    let temp = TestTemp::new("local-state-project-delete");
+    let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+    let project_root = temp.path.join("EnterpriseAgentHub");
+
+    state
+        .save_project_config(ProjectConfigInputPayload {
+            project_id: Some("enterprise-agent-hub".to_string()),
+            name: "Enterprise Agent Hub".to_string(),
+            project_path: project_root.to_string_lossy().to_string(),
+            skills_path: project_root
+                .join(".codex/skills")
+                .to_string_lossy()
+                .to_string(),
+            enabled: Some(true),
+        })
+        .expect("save project");
+
+    state
+        .delete_project_config("enterprise-agent-hub".to_string())
+        .expect("delete project");
+
+    let bootstrap = state.get_local_bootstrap().expect("bootstrap after project delete");
+    assert!(bootstrap.projects.is_empty());
+}
+
+#[test]
+fn blocks_deleting_targets_with_enabled_skills() {
+    let _lock = ENV_LOCK.lock().expect("lock env");
+    let temp = TestTemp::new("local-state-delete-blockers");
+    let package_bytes = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../api/src/database/seeds/packages/codex-review-helper/1.2.0/package.zip"),
+    )
+    .expect("read seed package zip");
+    let package_url = serve_once(package_bytes.clone());
+    let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+    let project_root = temp.path.join("EnterpriseAgentHub");
+
+    state
+        .save_tool_config(ToolConfigInputPayload {
+            tool_id: "codex".to_string(),
+            name: None,
+            config_path: "".to_string(),
+            skills_path: temp.path.join("codex-skills").to_string_lossy().to_string(),
+            enabled: Some(true),
+        })
+        .expect("save codex tool config");
+    state
+        .save_project_config(ProjectConfigInputPayload {
+            project_id: Some("enterprise-agent-hub".to_string()),
+            name: "Enterprise Agent Hub".to_string(),
+            project_path: project_root.to_string_lossy().to_string(),
+            skills_path: project_root
+                .join(".codex/skills")
+                .to_string_lossy()
+                .to_string(),
+            enabled: Some(true),
+        })
+        .expect("save project config");
+    state
+        .install_skill_package(seed_download_ticket(&package_bytes, package_url))
+        .expect("install skill");
+    state
+        .enable_skill(
+            "codex-review-helper".to_string(),
+            "1.2.0".to_string(),
+            "tool".to_string(),
+            "codex".to_string(),
+            Some("copy".to_string()),
+            None,
+        )
+        .expect("enable tool target");
+    state
+        .enable_skill(
+            "codex-review-helper".to_string(),
+            "1.2.0".to_string(),
+            "project".to_string(),
+            "enterprise-agent-hub".to_string(),
+            Some("copy".to_string()),
+            None,
+        )
+        .expect("enable project target");
+
+    let tool_error = state
+        .delete_tool_config("codex".to_string())
+        .expect_err("tool delete should be blocked");
+    assert!(tool_error.contains("已启用 Skill"));
+
+    let project_error = state
+        .delete_project_config("enterprise-agent-hub".to_string())
+        .expect_err("project delete should be blocked");
+    assert!(project_error.contains("已启用 Skill"));
 }
 
 #[test]

@@ -115,11 +115,11 @@ export class PublishingPrecheckService {
         UPDATE review_items
         SET precheck_results = $2::jsonb,
             workflow_state = $3,
-            review_status = CASE WHEN $4 THEN 'reviewed' ELSE 'pending' END,
+            review_status = 'pending',
             updated_at = now()
         WHERE id = $1
         `,
-        [reviewID, JSON.stringify(items), autoApprove ? 'published' : nextWorkflow, autoApprove],
+        [reviewID, JSON.stringify(items), nextWorkflow],
       );
       await this.publishingRepository.insertHistory(
         client,

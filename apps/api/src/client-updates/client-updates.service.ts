@@ -233,11 +233,11 @@ export class ClientUpdatesService {
     ticket: string | undefined,
     requesterUserID: string | null,
   ): Promise<{ stream: Readable; fileName: string; contentLength: number }> {
-    if (!ticket || !requesterUserID) {
+    if (!ticket) {
       throw new ForbiddenException('permission_denied');
     }
     const ticketRow = await this.repository.findDownloadTicket(releaseID, ticket);
-    if (!ticketRow || ticketRow.user_id !== requesterUserID) {
+    if (!ticketRow || (requesterUserID && ticketRow.user_id !== requesterUserID)) {
       throw new ForbiddenException('permission_denied');
     }
     const release = await this.repository.loadReleaseOrThrow(releaseID);

@@ -439,6 +439,7 @@ export interface SkillSummary {
   readonly tags?: readonly string[];
   readonly category?: string;
   readonly starCount: number;
+  readonly starred: boolean;
   readonly downloadCount: number;
   readonly riskLevel?: RiskLevel;
 }
@@ -1083,11 +1084,21 @@ export interface ProjectDirectorySelection {
   readonly projectPath: string;
 }
 
+export interface DeleteToolConfigRequest {
+  readonly toolID: string;
+}
+
+export interface DeleteProjectConfigRequest {
+  readonly projectID: string;
+}
+
 export interface LocalCommandRequestMap {
   readonly get_local_bootstrap: undefined;
   readonly detect_tools: ScanToolsRequest;
   readonly save_tool_config: SaveToolConfigRequest;
+  readonly delete_tool_config: DeleteToolConfigRequest;
   readonly save_project_config: SaveProjectConfigRequest;
+  readonly delete_project_config: DeleteProjectConfigRequest;
   readonly validate_target_path: ValidateTargetPathRequest;
   readonly install_skill_package: InstallSkillPackageRequest;
   readonly update_skill_package: UpdateSkillPackageRequest;
@@ -1112,7 +1123,9 @@ export interface LocalCommandResponseMap {
   readonly get_local_bootstrap: LocalBootstrapResponse;
   readonly detect_tools: readonly ToolConfig[];
   readonly save_tool_config: ToolConfig;
+  readonly delete_tool_config: void;
   readonly save_project_config: ProjectConfig;
+  readonly delete_project_config: void;
   readonly validate_target_path: ValidateTargetPathResponse;
   readonly install_skill_package: LocalSkillInstall;
   readonly update_skill_package: LocalSkillInstall;
@@ -1134,7 +1147,9 @@ export const P1_LOCAL_COMMANDS = {
   getLocalBootstrap: "get_local_bootstrap",
   detectTools: "detect_tools",
   saveToolConfig: "save_tool_config",
+  deleteToolConfig: "delete_tool_config",
   saveProjectConfig: "save_project_config",
+  deleteProjectConfig: "delete_project_config",
   validateTargetPath: "validate_target_path",
   installSkillPackage: "install_skill_package",
   updateSkillPackage: "update_skill_package",

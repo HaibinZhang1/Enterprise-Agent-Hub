@@ -26,8 +26,8 @@ export class SkillsRepository {
     return result.rows;
   }
 
-  async findSkill(skillID: string): Promise<SkillRow> {
-    const row = (await this.loadSkillRows(skillID))[0];
+  async findSkill(skillID: string, requesterUserID?: string): Promise<SkillRow> {
+    const row = (await this.loadSkillRows(skillID, requesterUserID))[0];
     if (!row) {
       throw new NotFoundException('skill_not_found');
     }
@@ -178,8 +178,9 @@ export class SkillsRepository {
     return Number(count?.count ?? 0);
   }
 
-  private async loadSkillRows(skillID?: string): Promise<SkillRow[]> {
+  private async loadSkillRows(skillID?: string, requesterUserID?: string): Promise<SkillRow[]> {
     const values = skillID ? [skillID] : [];
+    const requesterStarParam = requesterUserID ? `$${values.push(requesterUserID)}` : null;
     const result = await this.database.query<SkillRow>(
       `
       SELECT
@@ -205,6 +206,7 @@ export class SkillsRepository {
         auth.scope_department_ids,
         auth.scope_department_paths,
         (SELECT count(*) FROM skill_stars stars WHERE stars.skill_id = s.id) AS star_count,
+        ${requesterStarParam ? `(requester_star.user_id IS NOT NULL)` : 'false'} AS starred,
         (SELECT count(*) FROM download_events downloads WHERE downloads.skill_id = s.id) AS download_count
       FROM skills s
       JOIN skill_versions v ON v.id = s.current_version_id
@@ -212,6 +214,7 @@ export class SkillsRepository {
       LEFT JOIN departments d ON d.id = s.department_id
       LEFT JOIN skill_tags st ON st.skill_id = s.id
       LEFT JOIN skill_tool_compatibilities tc ON tc.skill_id = s.id
+      ${requesterStarParam ? `LEFT JOIN skill_stars requester_star ON requester_star.skill_id = s.id AND requester_star.user_id = ${requesterStarParam}` : ''}
       LEFT JOIN LATERAL (
         SELECT
           sa.scope_type,
@@ -225,7 +228,7 @@ export class SkillsRepository {
         LIMIT 1
       ) auth ON true
       ${skillID ? 'WHERE s.skill_id = $1' : ''}
-      GROUP BY s.id, v.id, u.username, d.name, auth.scope_type, auth.scope_department_ids, auth.scope_department_paths
+      GROUP BY s.id, v.id, u.username, d.name, auth.scope_type, auth.scope_department_ids, auth.scope_department_paths${requesterStarParam ? ', requester_star.user_id' : ''}
       ORDER BY s.updated_at DESC
       `,
       values,

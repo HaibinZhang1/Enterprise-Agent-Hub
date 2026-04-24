@@ -13,8 +13,11 @@ test('client update API routes are centralized in shared contracts and implement
   assert.match(sharedContracts, /adminClientUpdatePublish: "\/admin\/client-updates\/releases\/:releaseID\/publish"/);
 
   assert.match(controller, /@Controller\('client-updates'\)/);
+  assert.doesNotMatch(controller, /@Controller\('client-updates'\)\s*@UseGuards\(P1AuthGuard\)\s*export class/s);
+  assert.match(controller, /@UseGuards\(P1AuthGuard\)\s*@Post\('check'\)/);
   assert.match(controller, /@Post\('check'\)/);
   assert.match(controller, /@Post\('releases\/:releaseID\/download-ticket'\)/);
+  assert.match(controller, /@Get\('releases\/:releaseID\/download'\)/);
   assert.match(adminController, /@Controller\('admin\/client-updates'\)/);
   assert.match(adminController, /@Post\('releases'\)/);
   assert.match(adminController, /@Post\('releases\/:releaseID\/publish'\)/);

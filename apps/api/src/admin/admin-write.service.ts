@@ -56,7 +56,12 @@ export class AdminWriteService {
     }
 
     const target = await this.repository.loadDepartment(departmentID);
-    if (!isWithinScope(target.path, actor.departmentPath) || target.id === actor.departmentID) {
+    const canRenameOwnRootDepartment =
+      target.id === actor.departmentID && actor.adminLevel === 1 && target.level === 0;
+    if (
+      (!isWithinScope(target.path, actor.departmentPath) && !canRenameOwnRootDepartment) ||
+      (target.id === actor.departmentID && !canRenameOwnRootDepartment)
+    ) {
       throw new ForbiddenException('permission_denied');
     }
 

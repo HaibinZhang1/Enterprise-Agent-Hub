@@ -148,3 +148,11 @@ test('ClientUpdatesService.issueDownloadTicket issues a ticket-backed download U
   assert.match(result.downloadURL, /\/client-updates\/releases\/rel-1\/download\?ticket=ticket-123/);
   assert.equal(result.signatureStatus, 'signed');
 });
+
+test('ClientUpdatesService.downloadRelease accepts a valid ticket without bearer identity', async () => {
+  const service = createService();
+  const result = await service.downloadRelease('rel-1', 'ticket-123', null);
+
+  assert.equal(result.fileName, 'EnterpriseAgentHub_1.6.0_x64-setup.exe');
+  assert.equal(result.contentLength, 2);
+});

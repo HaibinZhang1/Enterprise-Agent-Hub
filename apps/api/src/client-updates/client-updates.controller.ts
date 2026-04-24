@@ -12,13 +12,13 @@ import type {
 import { ClientUpdatesService } from './client-updates.service';
 
 @Controller('client-updates')
-@UseGuards(P1AuthGuard)
 export class ClientUpdatesController {
   constructor(
     private readonly clientUpdates: ClientUpdatesService,
     private readonly authService: AuthService,
   ) {}
 
+  @UseGuards(P1AuthGuard)
   @Post('check')
   check(
     @Req() request: P1AuthenticatedRequest,
@@ -27,6 +27,7 @@ export class ClientUpdatesController {
     return this.clientUpdates.check(request.p1UserID ?? '', body);
   }
 
+  @UseGuards(P1AuthGuard)
   @Post('releases/:releaseID/download-ticket')
   issueDownloadTicket(
     @Req() request: P1AuthenticatedRequest,
@@ -35,6 +36,7 @@ export class ClientUpdatesController {
     return this.clientUpdates.issueDownloadTicket(request.p1UserID ?? '', releaseID);
   }
 
+  @UseGuards(P1AuthGuard)
   @Post('events')
   reportEvent(
     @Req() request: P1AuthenticatedRequest,

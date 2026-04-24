@@ -120,11 +120,11 @@ export function useWorkspaceAdminReviewActions(input: {
   const updateDepartment = useCallback(
     async (departmentID: string, name: string) => {
       requireAuthenticatedAction("admin_departments", async () => {
-        const nextDepartments = await p1Client.updateDepartment(departmentID, { name });
-        setDepartments(nextDepartments);
+        await p1Client.updateDepartment(departmentID, { name });
+        await refreshManageData();
       });
     },
-    [requireAuthenticatedAction, setDepartments]
+    [refreshManageData, requireAuthenticatedAction]
   );
 
   const deleteDepartment = useCallback(

@@ -10,7 +10,7 @@ import type {
   ClientUpdateVerifyInput
 } from "./tauriBridge/clientUpdates.ts";
 import { downloadClientUpdate, getClientAppVersion, launchClientInstaller, verifyClientUpdate } from "./tauriBridge/clientUpdates.ts";
-import { saveProjectConfig, saveToolConfig, pickProjectDirectory } from "./tauriBridge/configOps.ts";
+import { deleteProjectConfig, deleteToolConfig, saveProjectConfig, saveToolConfig, pickProjectDirectory } from "./tauriBridge/configOps.ts";
 import { disableSkill, enableSkill, importLocalSkill, installSkillPackage, uninstallSkill, updateSkillPackage } from "./tauriBridge/packageOps.ts";
 import { markLocalNotificationsRead, markOfflineEventsSynced, upsertLocalNotifications } from "./tauriBridge/notificationOps.ts";
 import { refreshToolDetection, scanLocalTargets, validateTargetPath } from "./tauriBridge/scanOps.ts";
@@ -25,7 +25,9 @@ export interface DesktopBridge {
   updateSkillPackage(downloadTicket: DownloadTicket): Promise<LocalSkillInstall>;
   importLocalSkill(input: { targetType: TargetType; targetID: string; relativePath: string; skillID: string; conflictStrategy: "rename" | "replace" }): Promise<LocalSkillInstall>;
   saveToolConfig(tool: { toolID: string; name?: string; configPath: string; skillsPath: string; enabled?: boolean }): Promise<ToolConfig>;
+  deleteToolConfig(toolID: string): Promise<void>;
   saveProjectConfig(project: { projectID?: string; name: string; projectPath: string; skillsPath: string; enabled?: boolean }): Promise<ProjectConfig>;
+  deleteProjectConfig(projectID: string): Promise<void>;
   uninstallSkill(skillID: string): Promise<{ removedTargetIDs: string[]; failedTargetIDs: string[]; event: LocalEvent }>;
   enableSkill(input: { skill: SkillSummary; targetType: TargetType; targetID: string; requestedMode: RequestedMode; allowOverwrite?: boolean }): Promise<{ target: EnabledTarget; event: LocalEvent }>;
   disableSkill(input: { skill: SkillSummary; targetID: string; targetType?: TargetType }): Promise<{ event: LocalEvent }>;
@@ -49,7 +51,9 @@ export const desktopBridge: DesktopBridge = {
   updateSkillPackage,
   importLocalSkill,
   saveToolConfig,
+  deleteToolConfig,
   saveProjectConfig,
+  deleteProjectConfig,
   uninstallSkill,
   enableSkill,
   disableSkill,

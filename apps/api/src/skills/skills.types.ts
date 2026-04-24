@@ -47,6 +47,7 @@ export interface SkillRow {
   scope_department_ids: string[] | null;
   scope_department_paths: string[] | null;
   star_count: string;
+  starred: boolean;
   download_count: string;
 }
 

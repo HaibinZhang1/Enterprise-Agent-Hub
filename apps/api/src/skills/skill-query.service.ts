@@ -29,7 +29,7 @@ export class SkillQueryService {
 
   async leaderboards(userID?: string): Promise<SkillLeaderboardsResponse> {
     const requester = userID ? await this.authorization.loadRequesterScope(userID) : undefined;
-    const rows = await this.repository.listSkillLeaderboards(buildSkillLeaderboardQueryPlan(LEADERBOARD_WINDOW_DAYS));
+    const rows = await this.repository.listSkillLeaderboards(buildSkillLeaderboardQueryPlan(LEADERBOARD_WINDOW_DAYS, { requester }));
     const items = rows.map((row) => this.toLeaderboardItem(row, requester));
 
     return {
@@ -42,8 +42,8 @@ export class SkillQueryService {
   }
 
   async detail(skillID: string, userID?: string): Promise<SkillDetail | SkillSummary> {
-    const row = await this.repository.findSkill(skillID);
     const requester = userID ? await this.authorization.loadRequesterScope(userID) : undefined;
+    const row = await this.repository.findSkill(skillID, requester?.user_id);
     const summary = this.toSummary(row, requester);
     if (summary.detailAccess === 'none') {
       throw new ForbiddenException('permission_denied');
@@ -78,6 +78,7 @@ export class SkillQueryService {
       tags: row.tags ?? [],
       category: row.category ?? '其他',
       starCount: Number(row.star_count),
+      starred: Boolean(row.starred),
       downloadCount: Number(row.download_count),
       riskLevel: (row.risk_level ?? 'unknown') as SkillSummary['riskLevel'],
     };

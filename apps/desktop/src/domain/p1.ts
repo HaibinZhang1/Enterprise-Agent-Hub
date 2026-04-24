@@ -115,7 +115,7 @@ export interface LocalBootstrap extends Omit<SharedLocalBootstrapResponse, "inst
   offlineEvents: LocalEvent[];
 }
 
-export interface SkillSummary extends Omit<SharedSkillSummary, "cannotInstallReason"> {
+export interface SkillSummary extends Omit<SharedSkillSummary, "cannotInstallReason" | "starred"> {
   localVersion: string | null;
   localSourceType?: LocalSkillInstall["sourceType"] | null;
   canUpdate: boolean;

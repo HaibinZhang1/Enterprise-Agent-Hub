@@ -75,7 +75,8 @@ test('real admin workbench read queries and mappers populate enriched fields fro
 
 test('real admin workbench write paths preserve existing governance safeguards', () => {
   assert.match(adminWriteService, /createDepartment[\s\S]*isWithinScope\(parent\.path, actor\.departmentPath, true\)/);
-  assert.match(adminWriteService, /updateDepartment[\s\S]*target\.id === actor\.departmentID/);
+  assert.match(adminWriteService, /updateDepartment[\s\S]*canRenameOwnRootDepartment/);
+  assert.match(adminWriteService, /adminLevel === 1[\s\S]*target\.level === 0/);
   assert.match(adminWriteService, /deleteDepartment[\s\S]*loadDepartmentBlockers/);
   assert.match(adminWriteService, /createUser[\s\S]*assertAssignableRole/);
   assert.match(adminWriteService, /updateUser[\s\S]*assertManagedUser/);
@@ -130,6 +131,8 @@ test('real admin departments pane makes the tree the primary surface and project
   assert.match(pane, /getDepartmentAdminCount\(row\.department/);
   assert.match(pane, /workspace\.adminData\.adminUsers/);
   assert.match(pane, /workspace\.adminData\.adminSkills/);
+  assert.match(pane, /维护集团节点/);
+  assert.match(pane, /新增一级部门/);
   assert.match(pane, /createDepartment\(createParentDepartment\.departmentID/);
   assert.match(pane, /updateDepartment\(selectedDepartment\.departmentID/);
   assert.match(pane, /deleteDepartment\(selectedDepartment\.departmentID\)/);

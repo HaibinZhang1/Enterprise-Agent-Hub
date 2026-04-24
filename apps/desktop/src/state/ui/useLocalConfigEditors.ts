@@ -28,8 +28,16 @@ export function useLocalConfigEditors(input: {
   closeModal: () => void;
   setModal: (modal: DesktopModalState) => void;
   setFlash: (flash: { tone: "info" | "warning" | "danger" | "success"; title: string; body: string } | null) => void;
+  openConfirm: (input: {
+    title: string;
+    body: string;
+    confirmLabel: string;
+    tone: "primary" | "danger";
+    detailLines?: string[];
+    onConfirm?: () => Promise<void> | void;
+  }) => void;
 }) {
-  const { workspace, closeModal, setModal, setFlash } = input;
+  const { workspace, closeModal, setModal, setFlash, openConfirm } = input;
   const [toolDraft, setToolDraft] = useState<ToolDraft>(defaultToolDraft);
   const [projectDraft, setProjectDraft] = useState<ProjectDraft>(defaultProjectDraft);
 
@@ -145,6 +153,103 @@ export function useLocalConfigEditors(input: {
     });
   }, [closeModal, projectDraft, setFlash, workspace]);
 
+  const confirmDeleteToolConfig = useCallback((toolID: string) => {
+    const tool = workspace.tools.find((item) => item.toolID === toolID);
+    if (!tool) {
+      return;
+    }
+    if (tool.toolID === "custom_directory" && !tool.configuredPath && !tool.skillsPath.trim()) {
+      setFlash({
+        tone: "info",
+        title: "当前没有可清空的自定义目录",
+        body: "先填写并保存自定义目录后，才需要执行清空配置。"
+      });
+      return;
+    }
+    if (tool.enabledSkillCount > 0) {
+      setFlash({
+        tone: "warning",
+        title: "暂时不能删除工具",
+        body: "请先停用该工具下已启用的 Skill，再删除或恢复默认配置。"
+      });
+      return;
+    }
+
+    const resetOnly = tool.toolID !== "custom_directory";
+    openConfirm({
+      title: resetOnly ? `恢复 ${tool.displayName} 默认配置` : `清空 ${tool.displayName}`,
+      body: resetOnly ? "这会移除当前工具的手动路径配置，并恢复为自动检测/默认配置。" : "这会清空当前自定义目录配置，并恢复到默认的空白添加状态。",
+      confirmLabel: resetOnly ? "恢复默认" : "清空配置",
+      tone: "danger",
+      detailLines: [
+        `工具：${tool.displayName}`,
+        `skills 路径：${tool.skillsPath || "未配置"}`,
+        `已启用 Skill：${tool.enabledSkillCount}`
+      ],
+      onConfirm: async () => {
+        closeModal();
+        try {
+          await workspace.deleteToolConfig(tool.toolID);
+          setFlash({
+            tone: "success",
+            title: resetOnly ? "工具配置已恢复默认" : "自定义目录已清空",
+            body: resetOnly ? "手动配置已移除，当前工具已回到自动检测结果。" : "当前自定义目录已恢复为空白默认配置。"
+          });
+        } catch (error) {
+          setFlash({
+            tone: "warning",
+            title: resetOnly ? "恢复默认失败" : "清空配置失败",
+            body: error instanceof Error ? error.message : "请稍后重试。"
+          });
+        }
+      }
+    });
+  }, [closeModal, openConfirm, setFlash, workspace]);
+
+  const confirmDeleteProjectConfig = useCallback((projectID: string) => {
+    const project = workspace.projects.find((item) => item.projectID === projectID);
+    if (!project) {
+      return;
+    }
+    if (project.enabledSkillCount > 0) {
+      setFlash({
+        tone: "warning",
+        title: "暂时不能删除项目",
+        body: "请先停用该项目下已启用的 Skill，再删除项目配置。"
+      });
+      return;
+    }
+
+    openConfirm({
+      title: `删除项目 ${project.name}`,
+      body: "这会从本地 SQLite 中删除项目配置，但不会自动删除项目目录中的其他文件。",
+      confirmLabel: "删除项目",
+      tone: "danger",
+      detailLines: [
+        `项目路径：${project.projectPath}`,
+        `skills 路径：${project.skillsPath}`,
+        `已启用 Skill：${project.enabledSkillCount}`
+      ],
+      onConfirm: async () => {
+        closeModal();
+        try {
+          await workspace.deleteProjectConfig(project.projectID);
+          setFlash({
+            tone: "success",
+            title: "项目已删除",
+            body: "项目配置已从本地 SQLite 删除。"
+          });
+        } catch (error) {
+          setFlash({
+            tone: "warning",
+            title: "删除项目失败",
+            body: error instanceof Error ? error.message : "请稍后重试。"
+          });
+        }
+      }
+    });
+  }, [closeModal, openConfirm, setFlash, workspace]);
+
   return {
     toolDraft,
     projectDraft,
@@ -153,6 +258,8 @@ export function useLocalConfigEditors(input: {
     openToolEditor,
     openProjectEditor,
     pickProjectDirectoryForDraft,
+    confirmDeleteToolConfig,
+    confirmDeleteProjectConfig,
     submitToolDraft,
     submitProjectDraft,
   };

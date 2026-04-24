@@ -36,6 +36,7 @@ function skillRow(overrides = {}) {
     scope_department_ids: null,
     scope_department_paths: null,
     star_count: '12',
+    starred: false,
     download_count: '33',
     total_count: '1',
     ...overrides,
@@ -119,8 +120,11 @@ test('buildSkillListQueryPlan pushes authenticated visibility rules into SQL', (
   assert.match(plan.text, /unnest\(auth\.scope_department_paths\)/);
   assert.match(plan.text, /auth\.scope_type IS NULL AND s\.visibility_level = 'public_installable'/);
   assert.match(plan.text, /s\.visibility_level <> 'private'/);
+  assert.match(plan.text, /LEFT JOIN skill_stars requester_star/);
+  assert.match(plan.text, /requester_star\.user_id = \$6/);
+  assert.match(plan.text, /requester_star\.user_id IS NOT NULL/);
   assert.doesNotMatch(plan.text, /s\.visibility_level IN \('public_installable', 'detail_visible', 'summary_visible'\)/);
-  assert.deepEqual(plan.values, ['dept-child', 'company/product/frontend', 'company/product/frontend', 25, 50]);
+  assert.deepEqual(plan.values, ['dept-child', 'company/product/frontend', 'company/product/frontend', 25, 50, 'user-1']);
 });
 
 test('buildSkillListQueryPlan filters by any selected Chinese tag', () => {
@@ -211,7 +215,29 @@ test('SkillsService.list executes a paged SQL plan and maps rows to summaries', 
   assert.equal(page.items[0].canInstall, true);
   assert.equal(page.items[0].installState, 'not_installed');
   assert.equal(page.items[0].starCount, 12);
+  assert.equal(page.items[0].starred, false);
   assert.equal(page.items[0].downloadCount, 33);
+});
+
+test('SkillsService.list restores requester starred state from rows', async () => {
+  const repository = {
+    async listSkills() {
+      return [skillRow({ starred: true })];
+    },
+    async loadRequesterScope(userID) {
+      assert.equal(userID, 'user-1');
+      return {
+        user_id: 'user-1',
+        department_id: 'dept-frontend',
+        department_path: 'company/product/frontend',
+      };
+    },
+  };
+
+  const service = skillsServiceForRepository(repository);
+  const page = await service.list({ page: '1', pageSize: '5' }, 'user-1');
+
+  assert.equal(page.items[0].starred, true);
 });
 
 test('SkillsService.detail returns README content and published version history for full access', async () => {

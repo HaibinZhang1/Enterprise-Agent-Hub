@@ -35,8 +35,12 @@ test("cut-slice route and Tauri command names are centralized", () => {
   assert.equal(P1_API_ROUTES.adminReviews, "/admin/reviews");
   assert.equal(P1_API_ROUTES.publisherSkills, "/publisher/skills");
   assert.equal(P1_LOCAL_COMMANDS.detectTools, "detect_tools");
+  assert.equal(P1_LOCAL_COMMANDS.deleteToolConfig, "delete_tool_config");
+  assert.equal(P1_LOCAL_COMMANDS.deleteProjectConfig, "delete_project_config");
   assert.ok(LOCAL_COMMAND_NAMES.includes("install_skill_package"));
   assert.ok(LOCAL_COMMAND_NAMES.includes("enable_skill"));
+  assert.ok(LOCAL_COMMAND_NAMES.includes("delete_tool_config"));
+  assert.ok(LOCAL_COMMAND_NAMES.includes("delete_project_config"));
   assert.ok(LOCAL_COMMAND_NAMES.includes("mark_offline_events_synced"));
 });
 

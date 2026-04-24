@@ -18,3 +18,11 @@ test('admin user password management uses a dedicated route and revokes active s
   assert.match(writeService, /revokeAllSessionsForUser\(target\.user_id\)/);
   assert.match(repository, /updateUserPassword\(input: \{ targetUserID: string; passwordHash: string \}\)/);
 });
+
+test('department rename keeps subtree guard but allows level-1 admins to rename the root node they own', () => {
+  assert.match(writeService, /async updateDepartment\(/);
+  assert.match(writeService, /canRenameOwnRootDepartment/);
+  assert.match(writeService, /actor\.adminLevel === 1 && target\.level === 0/);
+  assert.match(writeService, /!isWithinScope\(target\.path, actor\.departmentPath\) && !canRenameOwnRootDepartment/);
+  assert.match(writeService, /target\.id === actor\.departmentID && !canRenameOwnRootDepartment/);
+});

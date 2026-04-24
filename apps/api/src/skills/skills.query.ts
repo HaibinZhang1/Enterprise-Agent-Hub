@@ -89,6 +89,12 @@ export function buildSkillListQueryPlan(query: SkillListQuery, options: SkillLis
   const orderByClause = buildSkillOrderClause(query.sort ?? "composite", searchParam);
   const limitParam = push(pageSize);
   const offsetParam = push(offset);
+  const requesterStarParam = options.requester ? push(options.requester.user_id) : null;
+  const requesterStarJoin = requesterStarParam
+    ? `LEFT JOIN skill_stars requester_star ON requester_star.skill_id = s.id AND requester_star.user_id = ${requesterStarParam}`
+    : "";
+  const requesterStarSelect = requesterStarParam ? "(requester_star.user_id IS NOT NULL)" : "false";
+  const requesterStarGroupBy = requesterStarParam ? ",\n          requester_star.user_id" : "";
 
   return {
     page,
@@ -130,6 +136,7 @@ export function buildSkillListQueryPlan(query: SkillListQuery, options: SkillLis
           auth.scope_department_ids,
           auth.scope_department_paths,
           COALESCE(stars.star_count, 0)::text AS star_count,
+          ${requesterStarSelect} AS starred,
           COALESCE(downloads.download_count, 0)::text AS download_count,
           doc.document,
           ${searchParam ? `ts_rank_cd(doc.search_vector, websearch_to_tsquery('simple', ${searchParam}))` : "0"} AS search_rank
@@ -154,6 +161,7 @@ export function buildSkillListQueryPlan(query: SkillListQuery, options: SkillLis
         LEFT JOIN skill_search_documents doc ON doc.skill_id = s.id
         LEFT JOIN star_counts stars ON stars.skill_id = s.id
         LEFT JOIN download_counts downloads ON downloads.skill_id = s.id
+        ${requesterStarJoin}
         WHERE ${whereClause}
         GROUP BY
           s.id,
@@ -166,7 +174,7 @@ export function buildSkillListQueryPlan(query: SkillListQuery, options: SkillLis
           doc.document,
           doc.search_vector,
           stars.star_count,
-          downloads.download_count
+          downloads.download_count${requesterStarGroupBy}
       )
       SELECT
         base.id,
@@ -191,6 +199,7 @@ export function buildSkillListQueryPlan(query: SkillListQuery, options: SkillLis
         base.scope_department_ids,
         base.scope_department_paths,
         base.star_count,
+        base.starred,
         base.download_count,
         count(*) OVER()::text AS total_count
       FROM base
@@ -201,9 +210,21 @@ export function buildSkillListQueryPlan(query: SkillListQuery, options: SkillLis
   };
 }
 
-export function buildSkillLeaderboardQueryPlan(windowDays = 7): SkillLeaderboardQueryPlan {
+export function buildSkillLeaderboardQueryPlan(windowDays = 7, options: SkillListQueryOptions = {}): SkillLeaderboardQueryPlan {
+  const values: unknown[] = [windowDays];
+  const push = (value: unknown): string => {
+    values.push(value);
+    return `$${values.length}`;
+  };
+  const requesterStarParam = options.requester ? push(options.requester.user_id) : null;
+  const requesterStarJoin = requesterStarParam
+    ? `LEFT JOIN skill_stars requester_star ON requester_star.skill_id = s.id AND requester_star.user_id = ${requesterStarParam}`
+    : "";
+  const requesterStarSelect = requesterStarParam ? "(requester_star.user_id IS NOT NULL)" : "false";
+  const requesterStarGroupBy = requesterStarParam ? ",\n        requester_star.user_id" : "";
+
   return {
-    values: [windowDays],
+    values,
     text: `
       WITH star_counts AS (
         SELECT skill_id, count(*)::bigint AS star_count
@@ -252,6 +273,7 @@ export function buildSkillLeaderboardQueryPlan(windowDays = 7): SkillLeaderboard
         auth.scope_department_ids,
         auth.scope_department_paths,
         COALESCE(stars.star_count, 0)::text AS star_count,
+        ${requesterStarSelect} AS starred,
         COALESCE(downloads.download_count, 0)::text AS download_count,
         COALESCE(recent_stars.recent_star_count, 0)::text AS recent_star_count,
         COALESCE(recent_downloads.recent_download_count, 0)::text AS recent_download_count,
@@ -289,6 +311,7 @@ export function buildSkillLeaderboardQueryPlan(windowDays = 7): SkillLeaderboard
       LEFT JOIN download_counts downloads ON downloads.skill_id = s.id
       LEFT JOIN recent_star_counts recent_stars ON recent_stars.skill_id = s.id
       LEFT JOIN recent_download_counts recent_downloads ON recent_downloads.skill_id = s.id
+      ${requesterStarJoin}
       WHERE s.status = 'published'
         AND s.visibility_level <> 'private'
       GROUP BY
@@ -302,7 +325,7 @@ export function buildSkillLeaderboardQueryPlan(windowDays = 7): SkillLeaderboard
         stars.star_count,
         downloads.download_count,
         recent_stars.recent_star_count,
-        recent_downloads.recent_download_count
+        recent_downloads.recent_download_count${requesterStarGroupBy}
     `
   };
 }

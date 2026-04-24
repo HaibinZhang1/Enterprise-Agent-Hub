@@ -75,6 +75,10 @@ impl P1LocalState {
         configuration::save_tool_config(self, input)
     }
 
+    pub fn delete_tool_config(&self, tool_id: String) -> Result<(), String> {
+        configuration::delete_tool_config(self, tool_id)
+    }
+
     pub fn install_skill_package(
         &self,
         download_ticket: DownloadTicketPayload,
@@ -105,6 +109,13 @@ impl P1LocalState {
         input: ProjectConfigInputPayload,
     ) -> Result<ProjectConfigPayload, String> {
         configuration::save_project_config(self, input)
+    }
+
+    pub fn delete_project_config(
+        &self,
+        project_id: String,
+    ) -> Result<(), String> {
+        configuration::delete_project_config(self, project_id)
     }
 
     pub fn validate_target_path(&self, path: String) -> Result<ValidateTargetPathPayload, String> {

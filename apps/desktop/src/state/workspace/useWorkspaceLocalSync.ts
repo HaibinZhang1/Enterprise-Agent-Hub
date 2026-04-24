@@ -8,6 +8,38 @@ import { scanTargetsErrorMessage, scanTargetsSummaryMessage } from "./scanProgre
 import type { HandleRemoteError } from "./workspaceTypes.ts";
 import { emptyLocalNotifications } from "./workspaceTypes.ts";
 
+interface SyncPendingOfflineEventsInput {
+  authState: AuthState;
+  connectionStatus: BootstrapContext["connection"]["status"];
+  offlineEvents: LocalEvent[];
+  handleRemoteError: HandleRemoteError;
+  refreshLocalBootstrap: () => Promise<LocalBootstrap>;
+  setOfflineEvents: Dispatch<SetStateAction<LocalEvent[]>>;
+  syncLocalEvents: typeof p1Client.syncLocalEvents;
+  markOfflineEventsSynced: typeof desktopBridge.markOfflineEventsSynced;
+}
+
+export async function syncPendingOfflineEvents(input: SyncPendingOfflineEventsInput): Promise<boolean> {
+  if (input.authState !== "authenticated" || input.connectionStatus !== "connected" || input.offlineEvents.length === 0) {
+    return false;
+  }
+
+  try {
+    const response = await input.syncLocalEvents(input.offlineEvents);
+    if (response.acceptedEventIDs.length === 0) {
+      return false;
+    }
+    const markedEventIDs = await input.markOfflineEventsSynced(response.acceptedEventIDs);
+    const syncedEventIDs = new Set(markedEventIDs.length > 0 ? markedEventIDs : response.acceptedEventIDs);
+    input.setOfflineEvents((current) => current.filter((event) => !syncedEventIDs.has(event.eventID)));
+    await input.refreshLocalBootstrap();
+    return true;
+  } catch (error) {
+    await input.handleRemoteError(error);
+    return false;
+  }
+}
+
 export function useWorkspaceLocalSyncState() {
   const [tools, setTools] = useState<LocalBootstrap["tools"]>([]);
   const [projects, setProjects] = useState<LocalBootstrap["projects"]>([]);
@@ -74,9 +106,11 @@ export function useWorkspaceLocalSyncActions(input: {
   bootstrap: BootstrapContext;
   handleRemoteError: HandleRemoteError;
   notifications: LocalNotification[];
+  offlineEvents: LocalEvent[];
   refreshLocalBootstrap: () => Promise<LocalBootstrap>;
   refreshLocalScans: () => Promise<ScanTargetSummary[]>;
   setNotifications: Dispatch<SetStateAction<LocalNotification[]>>;
+  setOfflineEvents: Dispatch<SetStateAction<LocalEvent[]>>;
   setProjects: Dispatch<SetStateAction<LocalBootstrap["projects"]>>;
   setTools: Dispatch<SetStateAction<LocalBootstrap["tools"]>>;
   updateSkillProgress: (nextProgress: OperationProgress) => void;
@@ -86,13 +120,37 @@ export function useWorkspaceLocalSyncActions(input: {
     bootstrap,
     handleRemoteError,
     notifications,
+    offlineEvents,
     refreshLocalBootstrap,
     refreshLocalScans,
     setNotifications,
+    setOfflineEvents,
     setProjects,
     setTools,
     updateSkillProgress
   } = input;
+  const offlineEventsSyncingRef = useRef(false);
+
+  const syncOfflineEvents = useCallback(async () => {
+    if (offlineEventsSyncingRef.current) {
+      return false;
+    }
+    offlineEventsSyncingRef.current = true;
+    try {
+      return await syncPendingOfflineEvents({
+        authState,
+        connectionStatus: bootstrap.connection.status,
+        offlineEvents,
+        handleRemoteError,
+        refreshLocalBootstrap,
+        setOfflineEvents,
+        syncLocalEvents: p1Client.syncLocalEvents,
+        markOfflineEventsSynced: desktopBridge.markOfflineEventsSynced
+      });
+    } finally {
+      offlineEventsSyncingRef.current = false;
+    }
+  }, [authState, bootstrap.connection.status, handleRemoteError, offlineEvents, refreshLocalBootstrap, setOfflineEvents]);
 
   const markNotificationsRead = useCallback(
     async (notificationIDs: string[] | "all") => {
@@ -139,6 +197,16 @@ export function useWorkspaceLocalSyncActions(input: {
       setTools(localBootstrap.tools);
       await refreshLocalScans();
       return saved;
+    },
+    [refreshLocalBootstrap, refreshLocalScans, setTools]
+  );
+
+  const deleteToolConfig = useCallback(
+    async (toolID: string) => {
+      await desktopBridge.deleteToolConfig(toolID);
+      const localBootstrap = await refreshLocalBootstrap();
+      setTools(localBootstrap.tools);
+      await refreshLocalScans();
     },
     [refreshLocalBootstrap, refreshLocalScans, setTools]
   );
@@ -199,13 +267,26 @@ export function useWorkspaceLocalSyncActions(input: {
     [refreshLocalBootstrap, refreshLocalScans, setProjects]
   );
 
+  const deleteProjectConfig = useCallback(
+    async (projectID: string) => {
+      await desktopBridge.deleteProjectConfig(projectID);
+      const localBootstrap = await refreshLocalBootstrap();
+      await refreshLocalScans();
+      setProjects(localBootstrap.projects);
+    },
+    [refreshLocalBootstrap, refreshLocalScans, setProjects]
+  );
+
   return {
+    deleteProjectConfig,
+    deleteToolConfig,
     markNotificationsRead,
     pickProjectDirectory,
     refreshTools,
     saveProjectConfig,
     saveToolConfig,
     scanLocalTargets,
+    syncOfflineEvents,
     validateTargetPath
   };
 }

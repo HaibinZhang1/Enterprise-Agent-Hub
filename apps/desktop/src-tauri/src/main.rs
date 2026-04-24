@@ -92,6 +92,15 @@ fn save_tool_config(
 
 #[allow(non_snake_case)]
 #[tauri::command]
+fn delete_tool_config(
+    state: State<'_, P1LocalState>,
+    toolID: String,
+) -> Result<(), String> {
+    state.delete_tool_config(toolID)
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
 fn install_skill_package(
     state: State<'_, P1LocalState>,
     downloadTicket: DownloadTicketPayload,
@@ -146,6 +155,15 @@ fn save_project_config(
     project: ProjectConfigInputPayload,
 ) -> Result<ProjectConfigPayload, String> {
     state.save_project_config(project)
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn delete_project_config(
+    state: State<'_, P1LocalState>,
+    projectID: String,
+) -> Result<(), String> {
+    state.delete_project_config(projectID)
 }
 
 #[allow(non_snake_case)]
@@ -248,10 +266,12 @@ fn main() {
             get_local_bootstrap,
             detect_tools,
             save_tool_config,
+            delete_tool_config,
             install_skill_package,
             update_skill_package,
             import_local_skill,
             save_project_config,
+            delete_project_config,
             uninstall_skill,
             enable_skill,
             disable_skill,

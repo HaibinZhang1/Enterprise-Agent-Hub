@@ -9,6 +9,7 @@ const { BadRequestException, ForbiddenException } = require("@nestjs/common");
 const { PublishingPublicationService } = require("../src/publishing/publishing-publication.service.ts");
 const { PublishingSubmissionService } = require("../src/publishing/publishing-submission.service.ts");
 const { PublishingReviewService } = require("../src/publishing/publishing-review.service.ts");
+const { PublishingPrecheckService } = require("../src/publishing/publishing-precheck.service.ts");
 const {
   compareSemver,
   isPermissionExpansion,
@@ -138,6 +139,88 @@ function createReviewService({
     publication
   );
 }
+
+test("PublishingPrecheckService keeps auto-approved reviews pending until publish succeeds", async () => {
+  const updates = [];
+  const history = [];
+  const jobRuns = [];
+  const published = [];
+  const reviewBeforePrecheck = {
+    review_id: "rv_auto",
+    skill_id: "prompt-guardrails",
+    skill_display_name: "Prompt Guardrails",
+    description: "Guardrails",
+    submitter_id: "u_admin",
+    submitter_role: "admin",
+    submitter_admin_level: 1,
+    submitter_department_id: "dept-1",
+    review_type: "permission_change",
+    workflow_state: "system_prechecking",
+    review_status: "pending",
+    current_version: "1.0.0",
+    requested_version: null,
+    requested_visibility_level: "public_installable",
+    requested_scope_type: "all_employees",
+    staged_package_size_bytes: null,
+    staged_package_file_count: null,
+  };
+  const reviewAfterPrecheck = {
+    ...reviewBeforePrecheck,
+    workflow_state: "pending_review",
+  };
+  let loadReviewCount = 0;
+  const service = new PublishingPrecheckService(
+    {
+      async transaction(callback) {
+        return callback({
+          async query(text, values = []) {
+            updates.push({ text, values });
+            return { rowCount: 1, rows: [] };
+          }
+        });
+      }
+    },
+    {
+      async loadReview() {
+        loadReviewCount += 1;
+        return loadReviewCount === 1 ? reviewBeforePrecheck : reviewAfterPrecheck;
+      },
+      async loadSkillByID() {
+        return { skill_id: "prompt-guardrails", version: "1.0.0" };
+      },
+      async recordJobRun(reviewID, status) {
+        jobRuns.push({ reviewID, status });
+      },
+      async insertHistory(_client, reviewID, actorID, action, comment) {
+        history.push({ reviewID, actorID, action, comment });
+      }
+    },
+    {
+      async shouldAutoApprove() {
+        return true;
+      }
+    },
+    {
+      async readReviewPackageBuffer() {
+        throw new Error("permission_change should not read package");
+      }
+    },
+    {
+      async publishSubmission(review, actor, comment) {
+        published.push({ review, actor, comment });
+      }
+    }
+  );
+
+  await service.processSystemPrecheck("rv_auto");
+
+  assert.match(updates[0].text, /workflow_state = \$3/);
+  assert.match(updates[0].text, /review_status = 'pending'/);
+  assert.equal(updates[0].values[2], "pending_review");
+  assert.equal(published[0].review.workflow_state, "pending_review");
+  assert.deepEqual(jobRuns.map((job) => job.status), ["running", "finished"]);
+  assert.equal(history[0].action, "system_precheck_passed");
+});
 
 test("publishing utils parse frontmatter and detect semver expansion rules", () => {
   const frontmatter = parseSimpleFrontmatter(`---

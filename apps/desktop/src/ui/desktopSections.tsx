@@ -621,7 +621,7 @@ function HomeHero({ workspace, ui }: SectionProps) {
           </div>
           <div className="home-quick-strip" aria-label="快捷入口">
             {quickActions.map((action) => (
-              <button key={action.key} className="home-quick-action" type="button" onClick={action.onClick}>
+              <button key={action.key} className={`home-quick-action home-quick-action-${action.key}`} type="button" onClick={action.onClick}>
                 <span className="home-quick-action-main">
                   {action.icon}
                   <strong>{action.label}</strong>
@@ -780,6 +780,7 @@ function Leaderboard({ workspace, ui }: SectionProps) {
           <button
             key={kind}
             className={activeLeaderboard === kind ? "leaderboard-tab active" : "leaderboard-tab"}
+            data-leaderboard-kind={kind}
             type="button"
             onClick={() => setActiveLeaderboard(kind)}
             aria-pressed={activeLeaderboard === kind}
@@ -1131,190 +1132,223 @@ function CommunityPublisherWorkspace({
             <p>上传您的 Skill 文件。只有审核通过后，Skill 才会正式展示在社区 Skill 广场。</p>
           </div>
 
-          <div className="field-stack">
-            <label className="publish-label">Skill 文件 <span className="required-mark">*</span></label>
-	            <section
-	              className={dropActive ? "publish-dropzone active" : "publish-dropzone"}
-	              onDragEnter={(event) => {
-	                event.preventDefault();
-	                setDropActive(true);
-	              }}
-	              onDragOver={(event) => {
-	                event.preventDefault();
-	                event.dataTransfer.dropEffect = "copy";
-	              }}
-	              onDragLeave={(event) => {
-	                if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-	                setDropActive(false);
-	              }}
-	              onDrop={(event) => void handleDrop(event)}
-	            >
-	              <div className="publish-dropzone-icon">↑</div>
-	              <strong>{draft.files.length > 0 ? `已选择 ${draft.files.length} 个文件` : "拖拽文件夹或 zip 包到此处"}</strong>
-	              <p>{draft.files.length > 0 ? draft.files.slice(0, 3).map((file) => file.relativePath).join("、") : "请确保文件夹或压缩包中包含 SKILL.md 文件（最多 100 个，总大小不超过 5.00 MB）"}</p>
-	              {draft.skillEntryPath ? <TagPill tone="success">已解析 {draft.skillEntryPath}</TagPill> : null}
-		              {uploadError ? (
-		                <div className="callout warning publish-upload-callout">
-		                  <AlertTriangle size={16} />
-		                  <span>
-		                    <strong>上传未通过预检查</strong>
-		                    <small>{uploadError}</small>
-		                  </span>
-		                </div>
-	              ) : null}
-	              <div className="publish-upload-actions">
-                <label className="btn btn-primary">
-                  选择文件夹
-                  <input type="file" multiple {...folderInputProps} data-testid="publish-folder-input" onChange={handleFolderUpload} style={{ display: "none" }} />
-                </label>
-                <label className="btn">
-                  选择 zip 文件
-                  <input type="file" accept=".zip,application/zip" data-testid="publish-zip-input" onChange={handleZipUpload} style={{ display: "none" }} />
-                </label>
-              </div>
-            </section>
-          </div>
+          <div className="publish-workbench">
+            <div className="publish-primary-column">
+              <section className="publish-form-section publish-upload-section" aria-labelledby="publish-package-heading">
+                <div className="publish-section-head">
+                  <h2 id="publish-package-heading">Skill 文件</h2>
+                  <p>上传文件夹或 zip 包，系统会从 SKILL.md 读取基础元数据。</p>
+                </div>
+                <section
+                  className={dropActive ? "publish-dropzone active" : "publish-dropzone"}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setDropActive(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                  }}
+                  onDragLeave={(event) => {
+                    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+                    setDropActive(false);
+                  }}
+                  onDrop={(event) => void handleDrop(event)}
+                >
+                  <div className="publish-dropzone-icon"><Upload size={30} strokeWidth={1.9} /></div>
+                  <strong>{draft.files.length > 0 ? `已选择 ${draft.files.length} 个文件` : "拖拽文件夹或 zip 包到此处"}</strong>
+                  <p>{draft.files.length > 0 ? draft.files.slice(0, 3).map((file) => file.relativePath).join("、") : "请确保文件夹或压缩包中包含 SKILL.md 文件（最多 100 个，总大小不超过 5.00 MB）"}</p>
+                  {draft.skillEntryPath ? <TagPill tone="success">已解析 {draft.skillEntryPath}</TagPill> : null}
+                  {uploadError ? (
+                    <div className="callout warning publish-upload-callout">
+                      <AlertTriangle size={16} />
+                      <span>
+                        <strong>上传未通过预检查</strong>
+                        <small>{uploadError}</small>
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className="publish-upload-actions">
+                    <label className="btn btn-primary">
+                      <FolderPlus size={16} />
+                      选择文件夹
+                      <input type="file" multiple {...folderInputProps} data-testid="publish-folder-input" onChange={handleFolderUpload} style={{ display: "none" }} />
+                    </label>
+                    <label className="btn">
+                      <Upload size={16} />
+                      选择 zip 文件
+                      <input type="file" accept=".zip,application/zip" data-testid="publish-zip-input" onChange={handleZipUpload} style={{ display: "none" }} />
+                    </label>
+                  </div>
+                </section>
+              </section>
 
-          <div className="field-stack">
-            <label className="publish-label">提交类型 <span className="required-mark">*</span></label>
-            <select value={draft.submissionType} onChange={(event) => resetDraft(event.target.value as PublishDraft["submissionType"], selectedPublisherSkill ?? undefined)}>
-              <option value="publish">首次发布</option>
-              <option value="update">更新发布</option>
-              <option value="permission_change">权限变更</option>
-            </select>
-          </div>
+              <section className="publish-form-section" aria-labelledby="publish-basic-heading">
+                <div className="publish-section-head">
+                  <h2 id="publish-basic-heading">基础信息</h2>
+                  <p>名称、版本和变更说明会进入审核单与社区展示。</p>
+                </div>
+                <div className="publish-identity-grid">
+                  <div className="field-stack">
+                    <label className="publish-label">提交类型 <span className="required-mark">*</span></label>
+                    <select value={draft.submissionType} onChange={(event) => resetDraft(event.target.value as PublishDraft["submissionType"], selectedPublisherSkill ?? undefined)}>
+                      <option value="publish">首次发布</option>
+                      <option value="update">更新发布</option>
+                      <option value="permission_change">权限变更</option>
+                    </select>
+                  </div>
 
-	          <div className="field-stack">
-	            <label className="publish-label">Slug <span className="required-mark">*</span></label>
-	            <input
-	              className={draft.skillID.trim() && !slugValidation.valid ? "field-invalid" : ""}
-	              data-testid="publish-skill-id"
-	              value={draft.skillID}
-	              placeholder="Skill 的唯一标识符，仅允许小写字母、数字和连字符"
-	              disabled={draft.submissionType !== "publish"}
-	              aria-invalid={draft.skillID.trim() ? !slugValidation.valid : undefined}
-	              onBlur={() => setDraft((current) => ({ ...current, skillID: current.skillID.trim() }))}
-	              onChange={(event) => setDraft((current) => ({ ...current, skillID: event.target.value }))}
-	            />
-	            <small className={slugValidation.valid ? "field-hint success" : "field-hint warning"}>{slugValidation.message}</small>
-	          </div>
+                  <div className="field-stack">
+                    <label className="publish-label">版本号 <span className="required-mark">*</span></label>
+                    <input data-testid="publish-version" value={draft.version} disabled={draft.submissionType === "permission_change"} onChange={(event) => setDraft((current) => ({ ...current, version: event.target.value }))} />
+                  </div>
 
-          <div className="field-stack">
-            <label className="publish-label">显示名称 <span className="required-mark">*</span></label>
-            <input data-testid="publish-display-name" value={draft.displayName} placeholder="Skill 显示名称" onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} />
-          </div>
+                  <div className="field-stack">
+                    <label className="publish-label">Slug <span className="required-mark">*</span></label>
+                    <input
+                      className={draft.skillID.trim() && !slugValidation.valid ? "field-invalid" : ""}
+                      data-testid="publish-skill-id"
+                      value={draft.skillID}
+                      placeholder="Skill 的唯一标识符，仅允许小写字母、数字和连字符"
+                      disabled={draft.submissionType !== "publish"}
+                      aria-invalid={draft.skillID.trim() ? !slugValidation.valid : undefined}
+                      onBlur={() => setDraft((current) => ({ ...current, skillID: current.skillID.trim() }))}
+                      onChange={(event) => setDraft((current) => ({ ...current, skillID: event.target.value }))}
+                    />
+                    <small className={slugValidation.valid ? "field-hint success" : "field-hint warning"}>{slugValidation.message}</small>
+                  </div>
 
-          <div className="field-stack">
-            <label className="publish-label">描述</label>
-            <textarea data-testid="publish-description" value={draft.description} placeholder="该描述会从 SKILL.md 文件的 description 字段中自动提取，也支持手动修改" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
-          </div>
+                  <div className="field-stack">
+                    <label className="publish-label">显示名称 <span className="required-mark">*</span></label>
+                    <input data-testid="publish-display-name" value={draft.displayName} placeholder="Skill 显示名称" onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} />
+                  </div>
 
-          <div className="field-stack">
-            <label className="publish-label">版本号 <span className="required-mark">*</span></label>
-            <input data-testid="publish-version" value={draft.version} disabled={draft.submissionType === "permission_change"} onChange={(event) => setDraft((current) => ({ ...current, version: event.target.value }))} />
-          </div>
+                  <div className="field-stack publish-field-wide">
+                    <label className="publish-label">描述</label>
+                    <textarea data-testid="publish-description" value={draft.description} placeholder="该描述会从 SKILL.md 文件的 description 字段中自动提取，也支持手动修改" onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} />
+                  </div>
 
-          <div className="field-stack">
-            <label className="publish-label">公开级别 <span className="required-mark">*</span></label>
-            <div className="publish-select-shell">
-              <div className="publish-select-value">
-                <strong>{publishVisibilityLabel(draft.visibility, ui.language)}</strong>
-                <p>可选：非公开、摘要公开、详情公开、全员可安装。</p>
-              </div>
-              <select aria-label="公开级别" value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as PublishDraft["visibility"] }))}>
-                <option value="private">默认不公开</option>
-                <option value="summary_visible">摘要公开</option>
-                <option value="detail_visible">详情公开</option>
-                <option value="public_installable">全员可安装</option>
-              </select>
+                  <div className="field-stack publish-field-wide">
+                    <label className="publish-label">变更说明</label>
+                    <textarea data-testid="publish-changelog" value={draft.changelog} placeholder="描述本次版本的主要变更内容" disabled={draft.submissionType === "permission_change"} onChange={(event) => setDraft((current) => ({ ...current, changelog: event.target.value }))} />
+                  </div>
+                </div>
+              </section>
             </div>
-          </div>
 
-          <div className="field-stack">
-            <label className="publish-label">授权范围</label>
-            <div className="publish-select-shell">
-              <div className="publish-select-value">
-                <strong>{scopeLabel(draft.scope, ui.language)}</strong>
-                <p>决定哪些部门或员工可见、可安装。</p>
-              </div>
-              <select aria-label="授权范围" value={draft.scope} onChange={(event) => setDraft((current) => ({ ...current, scope: event.target.value as PublishDraft["scope"] }))}>
-                <option value="current_department">本部门</option>
-                <option value="department_tree">本部门及下级部门</option>
-                <option value="selected_departments">指定多个部门</option>
-                <option value="all_employees">全员可用</option>
-              </select>
-            </div>
-          </div>
+            <aside className="publish-secondary-column" aria-label="发布范围与分类">
+              <section className="publish-form-section" aria-labelledby="publish-scope-heading">
+                <div className="publish-section-head">
+                  <h2 id="publish-scope-heading">公开与授权</h2>
+                  <p>控制谁能看到、谁能安装。</p>
+                </div>
+                <div className="publish-scope-stack">
+                  <div className="field-stack">
+                    <label className="publish-label">公开级别 <span className="required-mark">*</span></label>
+                    <div className="publish-select-shell">
+                      <div className="publish-select-value">
+                        <strong>{publishVisibilityLabel(draft.visibility, ui.language)}</strong>
+                        <p>可选：非公开、摘要公开、详情公开、全员可安装。</p>
+                      </div>
+                      <select aria-label="公开级别" value={draft.visibility} onChange={(event) => setDraft((current) => ({ ...current, visibility: event.target.value as PublishDraft["visibility"] }))}>
+                        <option value="private">默认不公开</option>
+                        <option value="summary_visible">摘要公开</option>
+                        <option value="detail_visible">详情公开</option>
+                        <option value="public_installable">全员可安装</option>
+                      </select>
+                    </div>
+                  </div>
 
-          {draft.scope === "selected_departments" ? (
-            <div className="field-stack">
-              <label className="publish-label">指定部门</label>
-              <select
-                multiple
-                value={draft.selectedDepartmentIDs}
-                onChange={(event) => {
-                  const values = Array.from(event.target.selectedOptions).map((option) => option.value);
-                  setDraft((current) => ({ ...current, selectedDepartmentIDs: values }));
-                }}
-              >
-                {flattenDepartments(workspace.adminData.departments).map((department) => (
-                  <option key={department.departmentID} value={department.departmentID}>{department.path}</option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+                  <div className="field-stack">
+                    <label className="publish-label">授权范围</label>
+                    <div className="publish-select-shell">
+                      <div className="publish-select-value">
+                        <strong>{scopeLabel(draft.scope, ui.language)}</strong>
+                        <p>决定哪些部门或员工可见、可安装。</p>
+                      </div>
+                      <select aria-label="授权范围" value={draft.scope} onChange={(event) => setDraft((current) => ({ ...current, scope: event.target.value as PublishDraft["scope"] }))}>
+                        <option value="current_department">本部门</option>
+                        <option value="department_tree">本部门及下级部门</option>
+                        <option value="selected_departments">指定多个部门</option>
+                        <option value="all_employees">全员可用</option>
+                      </select>
+                    </div>
+                  </div>
 
-          <div className="field-stack">
-            <label className="publish-label">变更说明</label>
-            <textarea data-testid="publish-changelog" value={draft.changelog} placeholder="描述本次版本的主要变更内容" disabled={draft.submissionType === "permission_change"} onChange={(event) => setDraft((current) => ({ ...current, changelog: event.target.value }))} />
-          </div>
+                  {draft.scope === "selected_departments" ? (
+                    <div className="field-stack">
+                      <label className="publish-label">指定部门</label>
+                      <select
+                        multiple
+                        value={draft.selectedDepartmentIDs}
+                        onChange={(event) => {
+                          const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+                          setDraft((current) => ({ ...current, selectedDepartmentIDs: values }));
+                        }}
+                      >
+                        {flattenDepartments(workspace.adminData.departments).map((department) => (
+                          <option key={department.departmentID} value={department.departmentID}>{department.path}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
 
-          <div className="publish-meta-grid">
-            <label className="field-stack">
-              <span className="publish-label">分类</span>
-              <select data-testid="publish-category" value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}>
-                <option value="">请选择分类</option>
-                {SKILL_CATEGORIES.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </label>
-            <div className="field-stack publish-tag-select">
-              <span className="publish-label">标签</span>
-              <div className="tag-row compact" data-testid="publish-tags" aria-label="发布标签">
-                {SKILL_TAGS.map((tag) => {
-                  const active = draft.tags.includes(tag);
-                  const disabled = !active && draft.tags.length >= 5;
-                  return (
-                    <button
-                      key={tag}
-                      className={active ? "tag-filter active" : "tag-filter"}
-                      type="button"
-                      disabled={disabled}
-                      aria-pressed={active}
-                      onClick={() => {
-                        setDraft((current) => {
-                          const tags = toggleStringItem(current.tags, tag, 5);
-                          setTagInput(tags.join(", "));
-                          return { ...current, tags };
-                        });
-                      }}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-              <small className="field-hint">选择 1-5 个中文短标签。</small>
-            </div>
-            <label className="field-stack">
-              <span className="publish-label">适用工具</span>
-              <input data-testid="publish-tools" value={toolInput} placeholder="codex, claude" onChange={(event) => { const value = event.target.value; setToolInput(value); setDraft((current) => ({ ...current, compatibleTools: splitCSV(value) })); }} />
-            </label>
-            <label className="field-stack">
-              <span className="publish-label">适用系统</span>
-              <input data-testid="publish-systems" value={systemInput} placeholder="windows, macos" onChange={(event) => { const value = event.target.value; setSystemInput(value); setDraft((current) => ({ ...current, compatibleSystems: splitCSV(value) })); }} />
-            </label>
+              <section className="publish-form-section" aria-labelledby="publish-taxonomy-heading">
+                <div className="publish-section-head">
+                  <h2 id="publish-taxonomy-heading">分类与兼容性</h2>
+                  <p>用于社区筛选、搜索和安装前判断。</p>
+                </div>
+                <div className="publish-meta-grid">
+                  <label className="field-stack">
+                    <span className="publish-label">分类</span>
+                    <select data-testid="publish-category" value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))}>
+                      <option value="">请选择分类</option>
+                      {SKILL_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="field-stack publish-tag-select">
+                    <span className="publish-label">标签</span>
+                    <div className="tag-row compact" data-testid="publish-tags" aria-label="发布标签">
+                      {SKILL_TAGS.map((tag) => {
+                        const active = draft.tags.includes(tag);
+                        const disabled = !active && draft.tags.length >= 5;
+                        return (
+                          <button
+                            key={tag}
+                            className={active ? "tag-filter active" : "tag-filter"}
+                            type="button"
+                            disabled={disabled}
+                            aria-pressed={active}
+                            onClick={() => {
+                              setDraft((current) => {
+                                const tags = toggleStringItem(current.tags, tag, 5);
+                                setTagInput(tags.join(", "));
+                                return { ...current, tags };
+                              });
+                            }}
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <small className="field-hint">选择 1-5 个中文短标签。</small>
+                  </div>
+                  <label className="field-stack">
+                    <span className="publish-label">适用工具</span>
+                    <input data-testid="publish-tools" value={toolInput} placeholder="codex, claude" onChange={(event) => { const value = event.target.value; setToolInput(value); setDraft((current) => ({ ...current, compatibleTools: splitCSV(value) })); }} />
+                  </label>
+                  <label className="field-stack">
+                    <span className="publish-label">适用系统</span>
+                    <input data-testid="publish-systems" value={systemInput} placeholder="windows, macos" onChange={(event) => { const value = event.target.value; setSystemInput(value); setDraft((current) => ({ ...current, compatibleSystems: splitCSV(value) })); }} />
+                  </label>
+                </div>
+              </section>
+            </aside>
           </div>
 
 	          {shouldShowPrecheckIssues ? (
@@ -1598,7 +1632,7 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
   };
 
   return (
-    <div className="stage-page workspace-page">
+    <div className="stage-page workspace-page community-page">
       <div className="workspace-layout">
         <aside className="workspace-sidebar">
           <div className="sidebar-title">社区入口</div>
@@ -2039,6 +2073,22 @@ function LocalToolsAndProjects({
                       >
                         编辑路径
                       </button>
+                      <button
+                        className="btn btn-small"
+                        type="button"
+                        disabled={(() => {
+                          const tool = workspace.tools.find((item) => item.toolID === entity.id);
+                          if (!tool) return true;
+                          if (tool.enabledSkillCount > 0) return true;
+                          return tool.toolID === "custom_directory" && !tool.configuredPath && !tool.skillsPath.trim();
+                        })()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          ui.confirmDeleteToolConfig(entity.id);
+                        }}
+                      >
+                        删除
+                      </button>
                     </>
                   ) : null}
                   {pane === "projects" ? (
@@ -2055,6 +2105,17 @@ function LocalToolsAndProjects({
                         }}
                       >
                         启用管理
+                      </button>
+                      <button
+                        className="btn btn-small"
+                        type="button"
+                        disabled={(workspace.projects.find((item) => item.projectID === entity.id)?.enabledSkillCount ?? 0) > 0}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          ui.confirmDeleteProjectConfig(entity.id);
+                        }}
+                      >
+                        删除
                       </button>
                     </>
                   ) : null}
@@ -2125,7 +2186,7 @@ export function LocalSection({ workspace, ui }: SectionProps) {
   ] as const;
 
   return (
-    <div className="stage-page workspace-page">
+    <div className="stage-page workspace-page local-page">
       <div className="workspace-layout workspace-grid local-workspace">
         <aside className="workspace-sidebar side-switcher">
           <div className="sidebar-title">本地入口</div>
@@ -2632,6 +2693,7 @@ function ManageDepartmentsPane({ workspace }: { workspace: P1WorkspaceState }) {
   const directManagers = directUsers.filter((user) => user.role === "admin");
   const canDeleteDepartment = Boolean(selectedDepartment && selectedDepartment.level > 0 && departmentWorkbench.childDepartments.length === 0 && directUsers.length === 0);
   const createParentDepartment = selectedDepartment ?? workspace.adminData.departments[0] ?? null;
+  const createActionLabel = createParentDepartment?.level === 0 ? "新增一级部门" : "新增下级部门";
 
   const toggleDepartmentExpanded = (departmentID: string) => {
     setExpandedDepartmentIDs((current) => {
@@ -2649,7 +2711,7 @@ function ManageDepartmentsPane({ workspace }: { workspace: P1WorkspaceState }) {
           <div className="manage-list-toolbar-row">
             <button className="btn btn-primary" type="button" onClick={() => setCreateModalOpen(true)} disabled={!createParentDepartment}>
               <Plus size={14} />
-              新增部门
+              {createActionLabel}
             </button>
           </div>
         </div>
@@ -2801,29 +2863,27 @@ function ManageDepartmentsPane({ workspace }: { workspace: P1WorkspaceState }) {
                 ))}
               </div>
             </div>
-            {selectedDepartment.level > 0 ? (
-              <div className="detail-block inspector-subsection">
-                <h3>维护部门</h3>
-                <form className="inline-form" onSubmit={(event) => {
-                  event.preventDefault();
-                  if (renameName.trim().length === 0) return;
-                  void workspace.adminData.updateDepartment(selectedDepartment.departmentID, renameName.trim());
-                }}>
-                  <input value={renameName} onChange={(event) => setRenameName(event.target.value)} />
-                  <button className="btn" type="submit">保存</button>
-                </form>
-              </div>
-            ) : null}
+            <div className="detail-block inspector-subsection">
+              <h3>{selectedDepartment.level === 0 ? "维护集团节点" : "维护部门"}</h3>
+              <form className="inline-form" onSubmit={(event) => {
+                event.preventDefault();
+                if (renameName.trim().length === 0) return;
+                void workspace.adminData.updateDepartment(selectedDepartment.departmentID, renameName.trim());
+              }}>
+                <input value={renameName} onChange={(event) => setRenameName(event.target.value)} />
+                <button className="btn" type="submit">保存</button>
+              </form>
+            </div>
             <div className="danger-panel">
               <strong>危险区</strong>
-              <p>{canDeleteDepartment ? "当前节点为空，可执行删除。" : "当前节点不可删除。根节点只读；非空节点需要先清空下级部门和直属用户。"}</p>
+              <p>{canDeleteDepartment ? "当前节点为空，可执行删除。" : "当前节点不可删除。根节点禁止删除；非空节点需要先清空下级部门和直属用户。"}</p>
               <button className="btn btn-danger" type="button" disabled={!canDeleteDepartment} onClick={() => selectedDepartment && void workspace.adminData.deleteDepartment(selectedDepartment.departmentID)}>删除部门</button>
             </div>
           </>
         )}
       </aside>
       {createModalOpen ? (
-        <InlineModal title="新增下级部门" eyebrow="部门结构" onClose={() => setCreateModalOpen(false)}>
+        <InlineModal title={createActionLabel} eyebrow="部门结构" onClose={() => setCreateModalOpen(false)}>
           <form className="form-stack compact" onSubmit={(event) => {
             event.preventDefault();
             if (!createParentDepartment || createName.trim().length === 0) return;
@@ -2840,12 +2900,12 @@ function ManageDepartmentsPane({ workspace }: { workspace: P1WorkspaceState }) {
             </div>
             <label className="field">
               <span>部门名称</span>
-              <input value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder="输入下级部门名称" autoFocus />
+              <input value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder={createParentDepartment?.level === 0 ? "输入一级部门名称" : "输入下级部门名称"} autoFocus />
             </label>
             <div className="inline-actions wrap">
               <button className="btn btn-primary" type="submit" disabled={!createParentDepartment || createName.trim().length === 0}>
                 <Plus size={14} />
-                创建部门
+                {createParentDepartment?.level === 0 ? "创建一级部门" : "创建部门"}
               </button>
               <button className="btn" type="button" onClick={() => setCreateModalOpen(false)}>取消</button>
             </div>
@@ -3190,14 +3250,14 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
 export function ManageSection({ workspace, ui }: SectionProps) {
   if (!workspace.isAdminConnected) {
     return (
-      <div className="stage-page workspace-page">
+      <div className="stage-page workspace-page manage-page">
         <AuthGateCard title="管理入口仅对在线管理员开放" body="登录并保持连接后，可统一处理审核、Skills、部门和用户。" onLogin={() => workspace.requireAuth("review")} />
       </div>
     );
   }
 
   return (
-    <div className="stage-page workspace-page">
+    <div className="stage-page workspace-page manage-page">
       <div className="workspace-layout">
         <ManageSidebar ui={ui} />
         <div className="workspace-main">

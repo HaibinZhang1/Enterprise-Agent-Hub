@@ -40,6 +40,21 @@ export async function saveToolConfig(tool: { toolID: string; name?: string; conf
   };
 }
 
+export async function deleteToolConfig(toolID: string): Promise<void> {
+  const invoke = getInvoke();
+  if (invoke) {
+    await invoke(P1_LOCAL_COMMANDS.deleteToolConfig, { toolID });
+    return;
+  }
+  if (isBrowserPreviewMode()) {
+    throw pendingLocalCommand("delete_tool_config");
+  }
+  if (!allowTauriMocks) {
+    await requireInvoke();
+  }
+  await mockWait(120);
+}
+
 export async function saveProjectConfig(project: { projectID?: string; name: string; projectPath: string; skillsPath: string; enabled?: boolean }): Promise<ProjectConfig> {
   const invoke = getInvoke();
   if (invoke) {
@@ -64,6 +79,21 @@ export async function saveProjectConfig(project: { projectID?: string; name: str
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+}
+
+export async function deleteProjectConfig(projectID: string): Promise<void> {
+  const invoke = getInvoke();
+  if (invoke) {
+    await invoke(P1_LOCAL_COMMANDS.deleteProjectConfig, { projectID });
+    return;
+  }
+  if (isBrowserPreviewMode()) {
+    throw pendingLocalCommand("delete_project_config");
+  }
+  if (!allowTauriMocks) {
+    await requireInvoke();
+  }
+  await mockWait(120);
 }
 
 export async function pickProjectDirectory(): Promise<ProjectDirectorySelection | null> {

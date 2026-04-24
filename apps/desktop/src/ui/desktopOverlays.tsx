@@ -471,7 +471,7 @@ function LocalImportModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: 
   );
 }
 
-function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
+function ToolEditorModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: DesktopUIState }) {
   if (ui.modal.type !== "tool_editor") return null;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -484,6 +484,7 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
     ui.toolDraft.configPath.trim().length > 0 ||
     ui.toolDraft.skillsPath.trim().length > 0;
   const customDirectory = ui.toolDraft.toolID === "custom_directory";
+  const currentTool = ui.toolDraft.toolID ? workspace.tools.find((tool) => tool.toolID === ui.toolDraft.toolID) ?? null : null;
   const draftToolID = ui.toolDraft.toolID ?? "custom_directory";
   const configPlaceholder = customDirectory ? "例如 ~/.codex/config.json" : defaultToolConfigPath(draftToolID);
   const skillsPlaceholder = customDirectory ? "例如 ~/.codex/skills" : defaultToolSkillsPath(draftToolID);
@@ -511,6 +512,16 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
         </label>
         <div className="inline-actions wrap">
           <button className="btn btn-primary" type="submit">{editing ? "保存工具配置" : "保存自定义目录"}</button>
+          {currentTool && editing ? (
+            <button
+              className="btn btn-danger"
+              type="button"
+              disabled={currentTool.enabledSkillCount > 0 || (currentTool.toolID === "custom_directory" && !currentTool.configuredPath && !currentTool.skillsPath.trim())}
+              onClick={() => ui.confirmDeleteToolConfig(currentTool.toolID)}
+            >
+              {currentTool.toolID === "custom_directory" ? "清空配置" : "恢复默认"}
+            </button>
+          ) : null}
           <button className="btn" type="button" onClick={ui.closeModal}>取消</button>
         </div>
       </form>
@@ -518,7 +529,7 @@ function ToolEditorModal({ ui }: { ui: DesktopUIState }) {
   );
 }
 
-function ProjectEditorModal({ ui }: { ui: DesktopUIState }) {
+function ProjectEditorModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: DesktopUIState }) {
   if (ui.modal.type !== "project_editor") return null;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -527,6 +538,7 @@ function ProjectEditorModal({ ui }: { ui: DesktopUIState }) {
   }
 
   const editing = Boolean(ui.projectDraft.projectID);
+  const currentProject = ui.projectDraft.projectID ? workspace.projects.find((project) => project.projectID === ui.projectDraft.projectID) ?? null : null;
   const skillsPlaceholder = defaultProjectSkillsPath(ui.projectDraft.projectPath);
 
   return (
@@ -554,6 +566,16 @@ function ProjectEditorModal({ ui }: { ui: DesktopUIState }) {
         </label>
         <div className="inline-actions wrap">
           <button className="btn btn-primary" type="submit">{editing ? "保存项目" : "添加项目"}</button>
+          {currentProject ? (
+            <button
+              className="btn btn-danger"
+              type="button"
+              disabled={currentProject.enabledSkillCount > 0}
+              onClick={() => ui.confirmDeleteProjectConfig(currentProject.projectID)}
+            >
+              删除项目
+            </button>
+          ) : null}
           <button className="btn" type="button" onClick={ui.closeModal}>取消</button>
         </div>
       </form>
@@ -2332,8 +2354,8 @@ export function DesktopOverlays({ workspace, ui }: { workspace: P1WorkspaceState
         <ProgressModal workspace={workspace} ui={ui} />
         <TargetsModal workspace={workspace} ui={ui} />
         <LocalImportModal workspace={workspace} ui={ui} />
-        <ToolEditorModal ui={ui} />
-        <ProjectEditorModal ui={ui} />
+        <ToolEditorModal workspace={workspace} ui={ui} />
+        <ProjectEditorModal workspace={workspace} ui={ui} />
         <ConnectionStatusModal workspace={workspace} ui={ui} />
         <AppUpdateModal ui={ui} />
         <SettingsModal workspace={workspace} ui={ui} />

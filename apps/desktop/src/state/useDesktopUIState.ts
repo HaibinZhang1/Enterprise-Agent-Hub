@@ -227,6 +227,19 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     document.documentElement.lang = language;
   }, [language, preferences]);
 
+  useEffect(() => {
+    if (!preferences.syncLocalEvents) return;
+    if (!workspace.loggedIn || workspace.bootstrap.connection.status !== "connected") return;
+    if (workspace.offlineEvents.length === 0) return;
+    void workspace.syncOfflineEvents();
+  }, [
+    preferences.syncLocalEvents,
+    workspace.bootstrap.connection.status,
+    workspace.loggedIn,
+    workspace.offlineEvents.length,
+    workspace.syncOfflineEvents
+  ]);
+
   const appUpdate = useMemo(
     () =>
       deriveAppUpdateState({
@@ -724,7 +737,8 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     workspace,
     closeModal,
     setModal: presentBlockingModal,
-    setFlash
+    setFlash,
+    openConfirm
   });
 
   return {
@@ -790,6 +804,8 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     openToolEditor: localConfigEditors.openToolEditor,
     openProjectEditor: localConfigEditors.openProjectEditor,
     pickProjectDirectoryForDraft: localConfigEditors.pickProjectDirectoryForDraft,
+    confirmDeleteToolConfig: localConfigEditors.confirmDeleteToolConfig,
+    confirmDeleteProjectConfig: localConfigEditors.confirmDeleteProjectConfig,
     setToolDraft: localConfigEditors.setToolDraft,
     setProjectDraft: localConfigEditors.setProjectDraft,
     submitToolDraft: localConfigEditors.submitToolDraft,
