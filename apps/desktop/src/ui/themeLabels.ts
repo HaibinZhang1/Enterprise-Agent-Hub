@@ -6,14 +6,10 @@ export function themeLabel(theme: PreferenceState["theme"], language: DisplayLan
   return language === "en-US"
     ? {
         classic: "Classic",
-        fresh: "Fresh",
-        contrast: "Contrast",
         dark: "Dark"
       }[theme]
     : {
         classic: "经典白",
-        fresh: "清爽蓝",
-        contrast: "高对比",
         dark: "暗色"
       }[theme];
 }

@@ -779,8 +779,6 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
 
   const themeOptions = [
     { value: "classic", description: localize(ui.language, "冷白背景，保持企业工作台的标准对比。", "Cool white background with standard enterprise workspace contrast.") },
-    { value: "fresh", description: localize(ui.language, "更轻一点的蓝感背景，适合长时间浏览。", "A lighter blue-tinted workspace for long browsing sessions.") },
-    { value: "contrast", description: localize(ui.language, "提高层级对比，适合信息密度更高的场景。", "Higher layer contrast for dense information work.") },
     { value: "dark", description: localize(ui.language, "深色全局界面，适合低光环境和长时间工作。", "A global dark interface for low-light and long-session work.") }
   ] as const;
   const knownAgentBaseURLs = Object.values(defaultAgentBaseURLs).filter(Boolean);
@@ -1040,6 +1038,13 @@ function SettingsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Des
                   <p>统一承载本地 Skill、社区浏览、管理能力与桌面更新的企业桌面工作台。</p>
                 </div>
                 <span className="pill tone-info">v{ui.appUpdate.currentVersion}</span>
+              </section>
+              <section className="settings-about-hero">
+                <div>
+                  <div className="eyebrow">问题反馈</div>
+                  <h4>聊天工具联系 Zhanghaibin</h4>
+                  <p>遇到问题或有改进建议时，请通过聊天工具反馈。</p>
+                </div>
               </section>
               <div className="settings-about-grid">
                 <article className="settings-about-card">

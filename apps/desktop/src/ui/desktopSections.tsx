@@ -97,8 +97,9 @@ function ScanLocalTargetsButton({
   label?: string;
 }) {
   const scanning = isScanningLocalTargets(workspace);
+  const buttonClassName = [className, scanning ? "is-busy" : ""].filter(Boolean).join(" ");
   return (
-    <button className={className} type="button" onClick={() => void workspace.scanLocalTargets()} disabled={scanning}>
+    <button className={buttonClassName} type="button" onClick={() => void workspace.scanLocalTargets()} disabled={scanning} aria-busy={scanning}>
       <RefreshCw size={14} />
       {scanning ? "扫描中..." : label}
     </button>
@@ -532,95 +533,31 @@ function HomeHero({ workspace, ui }: SectionProps) {
   ];
   const connected = workspace.loggedIn && workspace.bootstrap.connection.status === "connected";
   const accessLabel = connected ? "在线权限" : "完全访问权限";
-  const communitySkillCount = workspace.skills.filter((skill) => skill.localVersion === null).length;
   const installedSkillCount = workspace.skills.filter((skill) => skill.localVersion !== null).length;
   const discoveredSkillCount = workspace.discoveredLocalSkills.length;
-  const localStatusLabel = discoveredSkillCount > 0 ? `${discoveredSkillCount} 个待处理本地条目` : "本地目录暂无待处理项";
-  const communityStatusLabel = connected ? "社区数据已同步" : workspace.loggedIn ? "离线时使用缓存数据" : "游客模式使用缓存数据";
-  const publishTitle = connected ? "生成发布前检查" : workspace.loggedIn ? "恢复连接后发布团队技能" : "登录后发布团队技能";
-  const publishBody = connected
-    ? "先整理一份检查清单，再进入发布中心补充元数据和变更说明。"
-    : workspace.loggedIn
-      ? "当前处于离线状态，可先整理问题，恢复连接后再进入发布中心提交。"
-      : "登录企业服务后即可进入发布中心，上传 Skill 文件夹或 zip 包。";
-  const publishMetrics = connected
-    ? [`${workspace.projects.length} 个项目入口`, `${workspace.tools.length} 个工具落点`]
-    : workspace.loggedIn
-      ? ["离线时可先整理提交内容", "恢复连接后进入发布中心"]
-      : ["登录企业服务后可发布", "支持文件夹与 zip 包"];
-  const capabilityCards = [
+  const localStatusLabel = discoveredSkillCount > 0 ? `${discoveredSkillCount} 待处理` : `${installedSkillCount} 已纳管`;
+  const publishStatusLabel = connected ? "发布中心" : workspace.loggedIn ? "恢复连接后" : "登录后";
+  const quickActions = [
     {
       key: "community",
-      icon: <Sparkles size={18} />,
-      title: "继续在社区探索",
-      body: "把当前提问带入 Skills 市场，继续筛选、对比和安装。",
-      metrics: [communityStatusLabel, `${communitySkillCount} 个可浏览 Skills`],
-      actions: (
-        <>
-          <button className="btn btn-primary" type="button" onClick={() => ui.openCommunityPane("skills")}>
-            打开社区
-          </button>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => {
-              workspace.setFilters((current) => ({ ...current, query: starterPrompts[0] }));
-              ui.openCommunityPane("skills");
-            }}
-          >
-            用此问题搜索
-          </button>
-        </>
-      )
+      icon: <Sparkles size={16} />,
+      label: "社区",
+      meta: connected ? "在线市场" : "缓存市场",
+      onClick: () => ui.openCommunityPane("skills")
     },
     {
       key: "local",
-      icon: <PackageCheck size={18} />,
-      title: "检查本地启用状态",
-      body: "查看已纳管 Skills、本地发现结果，以及工具和项目的 Skills 落点。",
-      metrics: [`${installedSkillCount} 个已纳管 Skills`, localStatusLabel],
-      actions: (
-        <>
-          <button className="btn btn-primary" type="button" onClick={() => ui.openLocalPane("skills")}>
-            打开本地
-          </button>
-          <ScanLocalTargetsButton workspace={workspace} />
-        </>
-      )
+      icon: <PackageCheck size={16} />,
+      label: "本地",
+      meta: localStatusLabel,
+      onClick: () => ui.openLocalPane("skills")
     },
     {
       key: "publish",
-      icon: <ClipboardCheck size={18} />,
-      title: publishTitle,
-      body: publishBody,
-      metrics: publishMetrics,
-      actions: connected ? (
-        <>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => workspace.setFilters((current) => ({ ...current, query: starterPrompts[1] }))}
-          >
-            生成清单
-          </button>
-          <button className="btn" type="button" onClick={() => ui.openCommunityPane("publish")}>
-            进入发布中心
-          </button>
-        </>
-      ) : (
-        <>
-          <button className="btn btn-primary" type="button" onClick={() => workspace.requireAuth("publisher")}>
-            登录企业服务
-          </button>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => workspace.setFilters((current) => ({ ...current, query: starterPrompts[1] }))}
-          >
-            先整理问题
-          </button>
-        </>
-      )
+      icon: <Upload size={16} />,
+      label: "发布",
+      meta: publishStatusLabel,
+      onClick: () => (connected ? ui.openCommunityPane("publish") : workspace.requireAuth("publisher"))
     }
   ];
 
@@ -634,9 +571,8 @@ function HomeHero({ workspace, ui }: SectionProps) {
       <section className="hero-surface hero-feature-home">
         <div className="hero-copy hero-copy-home">
           <div className="home-copy-block">
-            <span className="eyebrow home-eyebrow">Desktop AI Workspace</span>
             <h1>Agent 探索</h1>
-            <p>从工作区、本地文件和已安装技能开始一次更聚焦的提问。</p>
+            <p>输入目标，接上工作区、本地文件和已安装 Skills。</p>
           </div>
           <form className="prompt-composer" onSubmit={submit}>
             <div className="prompt-composer-shell">
@@ -683,25 +619,15 @@ function HomeHero({ workspace, ui }: SectionProps) {
               ))}
             </div>
           </div>
-          <div className="home-capability-grid">
-            {capabilityCards.map((card) => (
-              <section key={card.key} className="home-capability-card">
-                <div className="home-capability-head">
-                  <span className="home-capability-icon">{card.icon}</span>
-                  <div className="home-capability-copy">
-                    <strong>{card.title}</strong>
-                    <p>{card.body}</p>
-                  </div>
-                </div>
-                <div className="home-capability-metrics">
-                  {card.metrics.map((item) => (
-                    <span key={item} className="home-capability-metric">{item}</span>
-                  ))}
-                </div>
-                <div className="home-capability-actions">
-                  {card.actions}
-                </div>
-              </section>
+          <div className="home-quick-strip" aria-label="快捷入口">
+            {quickActions.map((action) => (
+              <button key={action.key} className="home-quick-action" type="button" onClick={action.onClick}>
+                <span className="home-quick-action-main">
+                  {action.icon}
+                  <strong>{action.label}</strong>
+                </span>
+                <small>{action.meta}</small>
+              </button>
             ))}
           </div>
         </div>
@@ -1600,9 +1526,38 @@ function submitButtonLabel(submissionType: PublishDraft["submissionType"]): stri
 }
 
 export function CommunitySection({ workspace, ui }: SectionProps) {
-  const [tagsExpanded, setTagsExpanded] = useState(false);
-  const categories = ["all", ...workspace.categories];
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const activeTags = workspace.filters.tags;
+  const frequentCategories = useMemo<string[]>(() => {
+    const categoryCounts = new Map<string, number>();
+
+    for (const skill of workspace.skills) {
+      if (!isCommunityVisibleSkill(skill)) continue;
+      categoryCounts.set(skill.category, (categoryCounts.get(skill.category) ?? 0) + 1);
+    }
+
+    const rankedCategories = [...workspace.categories].sort((left, right) => {
+      const countDelta = (categoryCounts.get(right) ?? 0) - (categoryCounts.get(left) ?? 0);
+      if (countDelta !== 0) return countDelta;
+      return workspace.categories.indexOf(left) - workspace.categories.indexOf(right);
+    });
+    const categoriesWithResults = rankedCategories.filter((category) => (categoryCounts.get(category) ?? 0) > 0);
+
+    return (categoriesWithResults.length >= 4 ? categoriesWithResults : rankedCategories).slice(0, 4);
+  }, [workspace.categories, workspace.skills]);
+  const primaryCategories: string[] = ["all", ...frequentCategories];
+  const visibleCategoryFilters =
+    workspace.filters.category !== "all" && !primaryCategories.includes(workspace.filters.category)
+      ? [...primaryCategories, workspace.filters.category]
+      : primaryCategories;
+  const allCategories: string[] = ["all", ...workspace.categories];
+  const allCategoryFilters =
+    workspace.filters.category !== "all" && !allCategories.includes(workspace.filters.category)
+      ? [...allCategories, workspace.filters.category]
+      : allCategories;
+  const hiddenCategoryFilterActive = workspace.filters.category !== "all" && !frequentCategories.includes(workspace.filters.category);
+  const hiddenFilterCount = activeTags.length + (hiddenCategoryFilterActive ? 1 : 0);
+  const moreFiltersActive = filtersExpanded || hiddenFilterCount > 0;
   const isCommunityResultsEmpty = workspace.marketSkills.length === 0;
   const communityScopeLabel = workspace.loggedIn
     ? workspace.bootstrap.connection.status === "connected"
@@ -1626,6 +1581,21 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
     { id: "publish", label: "发布", icon: <Upload size={16} /> },
     { id: "mine", label: "我的", icon: <Users size={16} /> }
   ] as const;
+  const renderCategoryFilter = (category: string) => {
+    const active = workspace.filters.category === category;
+    const label = category === "all" ? "全部" : category;
+
+    return (
+      <button
+        key={category}
+        className={active ? "tag-filter active" : "tag-filter"}
+        type="button"
+        onClick={() => workspace.setFilters((current) => ({ ...current, category }))}
+      >
+        {label}
+      </button>
+    );
+  };
 
   return (
     <div className="stage-page workspace-page">
@@ -1695,59 +1665,54 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
                     <option value="relevance">相关度</option>
                   </select>
                 </div>
-                <div className="tag-row">
-                  {categories.map((category) => {
-                    const active = workspace.filters.category === category;
-                    const label = category === "all" ? "全部" : category;
-                    return (
-                      <button
-                        key={category}
-                        className={active ? "tag-filter active" : "tag-filter"}
-                        type="button"
-                        onClick={() => workspace.setFilters((current) => ({ ...current, category }))}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
+                <div className="tag-row community-primary-filters">
+                  {visibleCategoryFilters.map(renderCategoryFilter)}
                   <button
-                    className={tagsExpanded || activeTags.length > 0 ? "tag-filter tag-disclosure active" : "tag-filter tag-disclosure"}
+                    className={moreFiltersActive ? "tag-filter tag-disclosure active" : "tag-filter tag-disclosure"}
                     type="button"
-                    aria-expanded={tagsExpanded}
-                    aria-label={`${tagsExpanded ? "收起" : "展开"}标签筛选`}
-                    onClick={() => setTagsExpanded((current) => !current)}
+                    aria-expanded={filtersExpanded}
+                    aria-label={`${filtersExpanded ? "收起" : "展开"}更多筛选`}
+                    onClick={() => setFiltersExpanded((current) => !current)}
                   >
-                    <span>{tagsExpanded ? "收起标签" : "展开标签"}{activeTags.length > 0 ? ` ${activeTags.length}` : ""}</span>
+                    <span>更多筛选{hiddenFilterCount > 0 ? ` ${hiddenFilterCount}` : ""}</span>
                     <ChevronDown size={14} aria-hidden="true" />
                   </button>
                 </div>
-                {tagsExpanded ? (
-                <div className="filter-block">
-                  <span className="filter-label">标签</span>
-                  <div className="tag-row compact">
-                    <button
-                      className={activeTags.length === 0 ? "tag-filter active" : "tag-filter"}
-                      type="button"
-                      onClick={() => workspace.setFilters((current) => ({ ...current, tags: [] }))}
-                    >
-                      全部标签
-                    </button>
-                    {workspace.tags.map((tag) => {
-                      const active = activeTags.includes(tag);
-                      return (
+                {filtersExpanded ? (
+                  <div className="more-filter-panel">
+                    <div className="filter-block">
+                      <span className="filter-label">完整分类</span>
+                      <div className="tag-row compact">
+                        {allCategoryFilters.map(renderCategoryFilter)}
+                      </div>
+                    </div>
+                    <div className="filter-block">
+                      <span className="filter-label">标签</span>
+                      <div className="tag-row compact">
                         <button
-                          key={tag}
-                          className={active ? "tag-filter active" : "tag-filter"}
+                          className={activeTags.length === 0 ? "tag-filter active" : "tag-filter"}
                           type="button"
-                          aria-pressed={active}
-                          onClick={() => workspace.setFilters((current) => ({ ...current, tags: toggleStringItem(current.tags, tag) }))}
+                          onClick={() => workspace.setFilters((current) => ({ ...current, tags: [] }))}
                         >
-                          {tag}
+                          全部标签
                         </button>
-                      );
-                    })}
+                        {workspace.tags.map((tag) => {
+                          const active = activeTags.includes(tag);
+                          return (
+                            <button
+                              key={tag}
+                              className={active ? "tag-filter active" : "tag-filter"}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => workspace.setFilters((current) => ({ ...current, tags: toggleStringItem(current.tags, tag) }))}
+                            >
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                </div>
                 ) : null}
               </section>
               <div className="community-grid-layout" data-empty={isCommunityResultsEmpty ? "true" : undefined}>
@@ -2260,7 +2225,7 @@ export function LocalSection({ workspace, ui }: SectionProps) {
               ) : selectedDiscoveredSkill ? (
                 <LocalDiscoveredSkillDetail workspace={workspace} ui={ui} skill={selectedDiscoveredSkill} />
               ) : (
-                <aside className="detail-panel inspector-panel detail-placeholder-panel"><SectionEmpty title="选择一个 Skill 查看详情" body="右侧会集中展示版本、范围、风险摘要和下一步动作。" compact align="start" /></aside>
+                <aside className="detail-panel inspector-panel detail-placeholder-panel"><SectionEmpty title="选择一个 Skill 查看详情" body="详情区会集中展示版本、范围、风险摘要和下一步动作。" compact align="start" /></aside>
               )}
             </div>
           ) : null}
@@ -2587,7 +2552,7 @@ function ManageSkillsPane({ workspace, ui }: SectionProps) {
       </section>
       {!selectedSkill || !selectedSkillView ? (
         <aside className="detail-panel inspector-panel manage-summary-panel">
-          <SectionEmpty title="选择一个 Skill 查看详情" body="右侧会展示发布者、风险、公开级别和可执行治理动作。" compact align="start" />
+          <SectionEmpty title="选择一个 Skill 查看详情" body="详情区会展示发布者、风险、公开级别和可执行治理动作。" compact align="start" />
         </aside>
       ) : (
         <UnifiedSkillInspector
@@ -2813,7 +2778,7 @@ function ManageDepartmentsPane({ workspace }: { workspace: P1WorkspaceState }) {
       </section>
       <aside className="stage-panel manage-inspector-panel">
         {!selectedDepartment ? (
-          <SectionEmpty title="选择一个部门查看详情" body="右侧会展示层级、管理员、治理范围和维护动作。" compact align="start" />
+          <SectionEmpty title="选择一个部门查看详情" body="详情区会展示层级、管理员、治理范围和维护动作。" compact align="start" />
         ) : (
           <>
             <div className="detail-block">
@@ -2918,6 +2883,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
     password: "",
     confirmPassword: ""
   });
+  const [deleteConfirmPhoneNumber, setDeleteConfirmPhoneNumber] = useState<string | null>(null);
 
   const departmentOptions = useMemo(() => flattenDepartments(workspace.adminData.departments), [workspace.adminData.departments]);
   const filteredUsers = useMemo(() => filterAdminUsers(workspace.adminData.adminUsers, userFilters), [userFilters, workspace.adminData.adminUsers]);
@@ -2948,6 +2914,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
       password: "",
       confirmPassword: ""
     });
+    setDeleteConfirmPhoneNumber(null);
   }, [selectedUser]);
 
   const createPasswordError = newUser.password.trim() ? validatePasswordPolicy(newUser.password) : null;
@@ -2955,6 +2922,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
   const passwordMismatch = passwordEdit.confirmPassword.length > 0 && passwordEdit.password !== passwordEdit.confirmPassword;
   const canSubmitPassword = Boolean(selectedUser && passwordEdit.password.trim() && passwordEdit.confirmPassword.trim() && !nextPasswordError && !passwordMismatch);
   const canCreateUser = Boolean(newUser.departmentID && newUser.username.trim() && newUser.phoneNumber.trim() && newUser.password.trim() && !createPasswordError);
+  const deleteConfirmationArmed = Boolean(selectedUser && deleteConfirmPhoneNumber === selectedUser.phoneNumber);
 
   return (
     <div className="manage-hub manage-hub-users users-workbench">
@@ -3042,7 +3010,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
       </section>
       <aside className="stage-panel manage-inspector-panel governance-panel">
         {!selectedUser ? (
-          <SectionEmpty title="选择一个用户进行治理" body="右侧会集中展示账号状态、部门归属和高风险动作。" compact align="start" />
+          <SectionEmpty title="选择一个用户进行治理" body="详情区会集中展示账号状态、部门归属和高风险动作。" compact align="start" />
         ) : (
           <>
             <div className="detail-block">
@@ -3060,17 +3028,18 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
               <div className="meta-detail"><strong>{formatDate(getAdminUserLastLoginAt(selectedUser))}</strong><p>最近登录</p></div>
               <div className="meta-detail"><strong>{getAdminUserDepartmentPath(selectedUser)}</strong><p>所属部门</p></div>
             </div>
-            <div className="detail-block inspector-subsection">
-              <h3>账号资料</h3>
+            <div className="detail-block inspector-subsection governance-section">
+              <div className="governance-section-head">
+                <h3>资料</h3>
+                <p>维护可见身份和部门归属；权限单独处理。</p>
+              </div>
               <form className="form-stack compact" onSubmit={(event) => {
                 event.preventDefault();
                 if (!userEdit.username.trim() || !userEdit.phoneNumber.trim() || !userEdit.departmentID) return;
                 void workspace.adminData.updateAdminUser(selectedUser.phoneNumber, {
                   username: userEdit.username.trim(),
                   phoneNumber: userEdit.phoneNumber.trim(),
-                  departmentID: userEdit.departmentID,
-                  role: userEdit.role,
-                  adminLevel: userEdit.role === "admin" ? Number(userEdit.adminLevel) : null
+                  departmentID: userEdit.departmentID
                 });
               }}>
                 <label className="field"><span>用户名称</span><input value={userEdit.username} onChange={(event) => setUserEdit((current) => ({ ...current, username: event.target.value }))} /></label>
@@ -3083,15 +3052,14 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
                     ))}
                   </select>
                 </label>
-                <SelectField label="角色" value={userEdit.role} options={["normal_user", "admin"]} onChange={(value) => setUserEdit((current) => ({ ...current, role: value as "normal_user" | "admin" }))} />
-                {userEdit.role === "admin" ? (
-                  <label className="field"><span>管理员等级</span><input value={userEdit.adminLevel} onChange={(event) => setUserEdit((current) => ({ ...current, adminLevel: event.target.value }))} /></label>
-                ) : null}
-                <button className="btn" type="submit">保存资料</button>
+                <button className="btn btn-primary" type="submit">保存资料</button>
               </form>
             </div>
-            <div className="detail-block inspector-subsection">
-              <h3>修改密码</h3>
+            <div className="detail-block inspector-subsection governance-section">
+              <div className="governance-section-head">
+                <h3>安全</h3>
+                <p>修改密码会立即撤销该用户的现有会话。</p>
+              </div>
               <form className="form-stack compact" onSubmit={(event) => {
                 event.preventDefault();
                 if (!selectedUser || !canSubmitPassword) return;
@@ -3099,36 +3067,77 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
               }}>
                 <label className="field"><span>新密码</span><input value={passwordEdit.password} type="password" autoComplete="new-password" onChange={(event) => setPasswordEdit((current) => ({ ...current, password: event.target.value }))} /></label>
                 <label className="field"><span>确认新密码</span><input value={passwordEdit.confirmPassword} type="password" autoComplete="new-password" onChange={(event) => setPasswordEdit((current) => ({ ...current, confirmPassword: event.target.value }))} /></label>
-                <small className={passwordMismatch || nextPasswordError ? "field-hint warning" : "field-hint"}>{passwordMismatch ? "两次输入的密码不一致。" : nextPasswordError ?? `${passwordPolicyHint} 保存后该用户现有会话会立即失效。`}</small>
+                <small className={passwordMismatch || nextPasswordError ? "field-hint warning" : "field-hint"}>{passwordMismatch ? "两次输入的密码不一致。" : nextPasswordError ?? passwordPolicyHint}</small>
                 <button className="btn" type="submit" disabled={!canSubmitPassword}>保存新密码</button>
               </form>
             </div>
-            <div className="detail-section">
-              <strong>账号动作</strong>
-              <p>{selectedUser.status === "frozen" ? "解冻后可恢复登录和会话续期。" : "冻结后立即使现有会话失效，并隐藏管理入口。"}</p>
+            <div className="detail-block inspector-subsection governance-section">
+              <div className="governance-section-head">
+                <h3>权限</h3>
+                <p>只调整角色和管理员等级，不改动账号资料。</p>
+              </div>
+              <form className="form-stack compact" onSubmit={(event) => {
+                event.preventDefault();
+                if (!selectedUser) return;
+                void workspace.adminData.updateAdminUser(selectedUser.phoneNumber, {
+                  role: userEdit.role,
+                  adminLevel: userEdit.role === "admin" ? Number(userEdit.adminLevel) : null
+                });
+              }}>
+                <SelectField label="角色" value={userEdit.role} options={["normal_user", "admin"]} onChange={(value) => setUserEdit((current) => ({ ...current, role: value as "normal_user" | "admin" }))} />
+                {userEdit.role === "admin" ? (
+                  <label className="field"><span>管理员等级</span><input value={userEdit.adminLevel} onChange={(event) => setUserEdit((current) => ({ ...current, adminLevel: event.target.value }))} /></label>
+                ) : null}
+                <button className="btn" type="submit">保存权限</button>
+              </form>
             </div>
-            <div className="detail-actions">
-              <button className="btn" type="button" onClick={() => void workspace.adminData.updateAdminUser(selectedUser.phoneNumber, { role: "normal_user", adminLevel: null })}>
-                设为普通用户
-              </button>
-              <button className="btn" type="button" onClick={() => void workspace.adminData.updateAdminUser(selectedUser.phoneNumber, { role: "admin", adminLevel: selectedUser.adminLevel ?? 3 })}>
-                设为管理员
-              </button>
-              {selectedUser.status === "frozen" ? (
-                <button className="btn" type="button" onClick={() => void workspace.adminData.unfreezeAdminUser(selectedUser.phoneNumber)}>
-                  解冻
-                </button>
-              ) : (
-                <button className="btn" type="button" onClick={() => void workspace.adminData.freezeAdminUser(selectedUser.phoneNumber)}>
-                  冻结
-                </button>
-              )}
-            </div>
-            <div className="danger-panel">
-              <strong>危险区</strong>
-              <p>删除用户会移除该账号的管理关系；已发布 Skill 不自动迁移。</p>
-              <button className="btn btn-danger" type="button" onClick={() => void workspace.adminData.deleteAdminUser(selectedUser.phoneNumber)}>删除用户</button>
-            </div>
+            <details className="danger-panel danger-panel-folded">
+              <summary className="danger-summary">
+                <span>
+                  <strong>危险区</strong>
+                  <small>冻结登录或删除账号</small>
+                </span>
+                <ChevronDown size={14} aria-hidden="true" />
+              </summary>
+              <div className="danger-panel-body">
+                <div className="danger-action-group">
+                  <div className="danger-action-copy">
+                    <strong>{selectedUser.status === "frozen" ? "解冻账号" : "冻结账号"}</strong>
+                    <p>{selectedUser.status === "frozen" ? "解冻后可恢复登录和会话续期。" : "冻结后立即使现有会话失效，并隐藏管理入口。"}</p>
+                  </div>
+                  {selectedUser.status === "frozen" ? (
+                    <button className="btn" type="button" onClick={() => void workspace.adminData.unfreezeAdminUser(selectedUser.phoneNumber)}>
+                      解冻
+                    </button>
+                  ) : (
+                    <button className="btn" type="button" onClick={() => void workspace.adminData.freezeAdminUser(selectedUser.phoneNumber)}>
+                      冻结
+                    </button>
+                  )}
+                </div>
+                <div className="danger-action-group">
+                  <div className="danger-action-copy">
+                    <strong>删除用户</strong>
+                    <p>删除会移除该账号的管理关系；已发布 Skill 不自动迁移。</p>
+                    {deleteConfirmationArmed ? <small className="danger-confirm-copy">再次点击确认删除。</small> : null}
+                  </div>
+                  <button
+                    className="btn btn-danger"
+                    type="button"
+                    onClick={() => {
+                      if (!deleteConfirmationArmed) {
+                        setDeleteConfirmPhoneNumber(selectedUser.phoneNumber);
+                        return;
+                      }
+                      setDeleteConfirmPhoneNumber(null);
+                      void workspace.adminData.deleteAdminUser(selectedUser.phoneNumber);
+                    }}
+                  >
+                    {deleteConfirmationArmed ? "确认删除用户" : "删除用户"}
+                  </button>
+                </div>
+              </div>
+            </details>
           </>
         )}
       </aside>

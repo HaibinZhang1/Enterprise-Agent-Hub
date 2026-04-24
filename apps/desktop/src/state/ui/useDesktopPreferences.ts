@@ -15,7 +15,7 @@ export const defaultPreferences: PreferenceState = {
   syncLocalEvents: true
 };
 
-const settingsThemes: readonly SettingsTheme[] = ["classic", "fresh", "contrast", "dark"];
+const settingsThemes: readonly SettingsTheme[] = ["classic", "dark"];
 
 export function isSettingsTheme(value: unknown): value is SettingsTheme {
   return typeof value === "string" && settingsThemes.includes(value as SettingsTheme);
