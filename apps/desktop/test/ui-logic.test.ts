@@ -7,7 +7,9 @@ import { buildSkillListQuery } from "../src/services/p1Client.ts";
 import {
   buildSettingsPanels,
   buildPublishPrecheck,
+  buildCommunityExploreFilters,
   canAccessClientUpdateManagement,
+  DEFAULT_COMMUNITY_PANE,
   deriveTopLevelNavigation,
   legacyPageForView,
   mapLegacyPageToView,
@@ -21,7 +23,7 @@ import { deriveDesktopNotifications, notificationBadgeLabel, resolveDesktopNotif
 import { defaultAppUpdateState } from "../src/state/ui/clientUpdates.ts";
 import { connectedServiceURL } from "../src/state/ui/aboutInfo.ts";
 import { deriveCommunityLeaderboards } from "../src/state/ui/communityLeaderboards.ts";
-import { buildTargetDrafts, collectInstalledSkillIssues, compareToolsByAvailability, matchesDiscoveredTargetFilter, matchesInstalledTargetFilter } from "../src/state/ui/installedSkillSelectors.ts";
+import { buildTargetDrafts, collectInstalledSkillIssues, compareToolsByAvailability, matchesDiscoveredTargetFilter, matchesInstalledTargetFilter, targetDraftSubmitLabel } from "../src/state/ui/installedSkillSelectors.ts";
 import { parseSkillFrontmatter, readSkillMarkdownFromUploadEntries, validateSkillSlug, validateUploadEntries } from "../src/state/ui/publishPackageIntrospection.ts";
 import { scanTargetsSummaryMessage } from "../src/state/workspace/scanProgress.ts";
 import { deriveAccountPresentation } from "../src/state/ui/accountPresentation.ts";
@@ -34,6 +36,7 @@ import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs }
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath } from "../src/utils/platformPaths.ts";
 import { mergeLocalInstalls } from "../src/state/p1WorkspaceHelpers.ts";
+import { shouldCloseFromBackdropPointerDown } from "../src/ui/modalInteraction.ts";
 
 const baseDraft: PublishDraft = {
   submissionType: "publish",
@@ -200,6 +203,7 @@ test("clearing a confirm modal does not touch the skill detail overlay", () => {
 });
 
 test("new top-level navigation only shows manage when admin capability is available", () => {
+  assert.equal(DEFAULT_COMMUNITY_PANE, "home");
   assert.deepEqual(deriveTopLevelNavigation({ isAdminConnected: false }), ["community", "home", "local"]);
   assert.deepEqual(deriveTopLevelNavigation({ isAdminConnected: true }), ["community", "home", "local", "manage"]);
 });
@@ -210,7 +214,18 @@ test("legacy pages map into the new section model", () => {
   assert.deepEqual(mapLegacyPageToView("admin_users"), { section: "manage", managePane: "users" });
   assert.equal(
     legacyPageForView({
+      section: "community",
+      communityPane: "home",
+      localPane: "skills",
+      managePane: "reviews",
+      overlay: { kind: "none" }
+    }),
+    "market"
+  );
+  assert.equal(
+    legacyPageForView({
       section: "manage",
+      communityPane: "home",
       localPane: "skills",
       managePane: "client_updates",
       overlay: { kind: "none" }
@@ -220,6 +235,7 @@ test("legacy pages map into the new section model", () => {
   assert.equal(
     legacyPageForView({
       section: "manage",
+      communityPane: "home",
       localPane: "skills",
       managePane: "reviews",
       overlay: { kind: "none" }
@@ -229,12 +245,43 @@ test("legacy pages map into the new section model", () => {
   assert.equal(
     legacyPageForView({
       section: "community",
+      communityPane: "home",
       localPane: "skills",
       managePane: "reviews",
       overlay: { kind: "publisher", pane: "compose" }
     }),
     "publisher"
   );
+});
+
+test("community home search builds a clean results-page filter set", () => {
+  assert.deepEqual(buildCommunityExploreFilters("  review helper  "), {
+    query: "review helper",
+    department: "all",
+    compatibleTool: "all",
+    installed: "all",
+    enabled: "all",
+    accessScope: "include_public",
+    category: "all",
+    tags: [],
+    riskLevel: "all",
+    publishedWithin: "all",
+    updatedWithin: "all",
+    sort: "relevance"
+  });
+  assert.equal(buildCommunityExploreFilters("   ").sort, "composite");
+});
+
+test("community home renders as a standalone page before the sidebar workspace", () => {
+  const sourcePath = fileURLToPath(new URL("../src/ui/desktopSections.tsx", import.meta.url));
+  const source = readFileSync(sourcePath, "utf8");
+  const homeBranchIndex = source.indexOf('if (ui.communityPane === "home")');
+  const workspaceLayoutIndex = source.indexOf('<div className="workspace-layout">');
+
+  assert.ok(homeBranchIndex >= 0);
+  assert.ok(workspaceLayoutIndex >= 0);
+  assert.ok(homeBranchIndex < workspaceLayoutIndex);
+  assert.match(source.slice(homeBranchIndex, workspaceLayoutIndex), /community-landing-page/);
 });
 
 test("client update management is limited to first-level admins in UI helpers", () => {
@@ -900,6 +947,24 @@ test("community leaderboard UI defaults to hot tab without carousel timer", () =
   assert.doesNotMatch(source, /setInterval\(\(\) => \{\s*setActiveLeaderboard/s);
   assert.doesNotMatch(source, /leaderboardPaused/);
   assert.doesNotMatch(source, /leaderboard-carousel-track/);
+});
+
+test("target draft submit label switches to disable when all targets are unchecked", () => {
+  assert.equal(targetDraftSubmitLabel([{ selected: true }, { selected: false }]), "应用目标");
+  assert.equal(targetDraftSubmitLabel([{ selected: false }, { selected: false }]), "停用Skill");
+  assert.equal(targetDraftSubmitLabel([]), "应用目标");
+});
+
+test("modal backdrop dismiss uses pointer start target instead of click release target", () => {
+  const backdrop = new EventTarget();
+  const panel = new EventTarget();
+  const overlaysSource = readFileSync(fileURLToPath(new URL("../src/ui/desktopOverlays.tsx", import.meta.url)), "utf8");
+  const sectionsSource = readFileSync(fileURLToPath(new URL("../src/ui/desktopSections.tsx", import.meta.url)), "utf8");
+
+  assert.equal(shouldCloseFromBackdropPointerDown({ target: backdrop, currentTarget: backdrop }), true);
+  assert.equal(shouldCloseFromBackdropPointerDown({ target: panel, currentTarget: backdrop }), false);
+  assert.doesNotMatch(overlaysSource, /<div className="overlay-backdrop" role="presentation" onClick=\{onClose\}>/);
+  assert.doesNotMatch(sectionsSource, /<div className="overlay-backdrop" role="presentation" onClick=\{onClose\}>/);
 });
 
 test("installed skill issues cover local hash drift and unavailable targets", () => {

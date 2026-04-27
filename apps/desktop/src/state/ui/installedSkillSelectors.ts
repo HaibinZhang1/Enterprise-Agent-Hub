@@ -81,6 +81,10 @@ export function buildTargetDrafts(skill: SkillSummary, workspace: P1WorkspaceSta
   return [...toolDrafts, ...projectDrafts];
 }
 
+export function targetDraftSubmitLabel(targetDrafts: Pick<TargetDraft, "selected">[]): string {
+  return targetDrafts.length > 0 && targetDrafts.every((draft) => !draft.selected) ? "停用Skill" : "应用目标";
+}
+
 export function matchesInstalledTargetFilter(
   skill: SkillSummary,
   targetFilterType: InstalledTargetFilterType,

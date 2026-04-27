@@ -22,6 +22,7 @@ import { buildSettingsPanels, type DesktopUIState, type FlashMessage, type Overl
 import { openExternalURL } from "../services/externalLinks.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
+import { targetDraftSubmitLabel } from "../state/ui/installedSkillSelectors.ts";
 import { connectedServiceURL, ENTERPRISE_AGENT_HUB_GITHUB_URL } from "../state/ui/aboutInfo.ts";
 import { downloadAuthenticatedFile, p1Client } from "../services/p1Client.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath, previewCentralStorePath } from "../utils/platformPaths.ts";
@@ -43,6 +44,7 @@ import {
   roleLabel,
   workflowStateLabel
 } from "./desktopShared.tsx";
+import { shouldCloseFromBackdropPointerDown } from "./modalInteraction.ts";
 import { InitialBadge, PackagePreviewPanel, SectionEmpty, SelectField, TagPill, renderMarkdownPreview } from "./pageCommon.tsx";
 
 function OverlaySectionHeader({
@@ -94,7 +96,15 @@ function ModalFrame({
   const baseClassName = full ? "overlay-panel full" : narrow ? "overlay-panel narrow" : "overlay-panel";
   const className = [baseClassName, panelClassName].filter(Boolean).join(" ");
   return (
-    <div className="overlay-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="overlay-backdrop"
+      role="presentation"
+      onPointerDown={(event) => {
+        if (shouldCloseFromBackdropPointerDown(event)) {
+          onClose();
+        }
+      }}
+    >
       <section className={className} role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
         <div className="overlay-head">
           {headerContent ?? (
@@ -503,6 +513,7 @@ function TargetsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Desk
   if (modal.type !== "targets") return null;
   const skill = workspace.skills.find((item) => item.skillID === modal.skillID) ?? workspace.installedSkills.find((item) => item.skillID === modal.skillID);
   if (!skill) return null;
+  const submitLabel = targetDraftSubmitLabel(ui.targetDrafts);
 
   return (
     <ModalFrame title={`${skill.displayName} v${skill.localVersion ?? skill.version}`} eyebrow="目标选择" onClose={ui.closeModal}>
@@ -524,7 +535,7 @@ function TargetsModal({ workspace, ui }: { workspace: P1WorkspaceState; ui: Desk
       </div>
       <div className="inline-actions wrap">
         <button className="btn btn-primary" type="button" onClick={() => void ui.applyTargetDrafts(skill)} disabled={skill.isScopeRestricted}>
-          应用目标
+          {submitLabel}
         </button>
         <button className="btn" type="button" onClick={() => ui.openToolEditor()}>
           <Plus size={14} />

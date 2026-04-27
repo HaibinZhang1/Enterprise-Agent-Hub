@@ -8,6 +8,7 @@ export function useTargetsModalState(input: {
   language: DisplayLanguage;
   workspace: P1WorkspaceState;
   closeModal: () => void;
+  showInstallResults: boolean;
   setModal: (modal: DesktopModalState) => void;
   setConfirmModal: (input: {
     type: "confirm";
@@ -20,7 +21,7 @@ export function useTargetsModalState(input: {
   }) => void;
   setFlash: (flash: { tone: "info" | "warning" | "danger" | "success"; title: string; body: string } | null) => void;
 }) {
-  const { language, workspace, closeModal, setModal, setConfirmModal, setFlash } = input;
+  const { language, workspace, closeModal, showInstallResults, setModal, setConfirmModal, setFlash } = input;
   const [targetDrafts, setTargetDrafts] = useState<TargetDraft[]>([]);
 
   const openTargetsModal = useCallback((skill: SkillSummary) => {
@@ -72,17 +73,21 @@ export function useTargetsModalState(input: {
             overwriteKeys.has(draft.key)
           );
         }
-        setFlash({
-          tone: "success",
-          title: "启用范围已应用",
-          body: `${skill.displayName} 的目标状态已完成同步。`
-        });
+        if (!showInstallResults) {
+          setFlash({
+            tone: "success",
+            title: "启用范围已应用",
+            body: `${skill.displayName} 的目标状态已完成同步。`
+          });
+        }
       } catch (error) {
-        setFlash({
-          tone: "danger",
-          title: "启用范围未完成",
-          body: error instanceof Error ? error.message : "本地命令执行失败，请查看进度提示后重试。"
-        });
+        if (!showInstallResults) {
+          setFlash({
+            tone: "danger",
+            title: "启用范围未完成",
+            body: error instanceof Error ? error.message : "本地命令执行失败，请查看进度提示后重试。"
+          });
+        }
       }
     };
 
@@ -114,7 +119,7 @@ export function useTargetsModalState(input: {
     }
 
     await applyChanges();
-  }, [closeModal, language, setConfirmModal, setFlash, setModal, targetDrafts, workspace]);
+  }, [closeModal, language, setConfirmModal, setFlash, setModal, showInstallResults, targetDrafts, workspace]);
 
   return {
     targetDrafts,

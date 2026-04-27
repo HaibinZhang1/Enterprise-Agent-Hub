@@ -2,6 +2,7 @@ import packageInfo from "../../package.json" with { type: "json" };
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   DesktopModalState,
+  MarketFilters,
   NotificationListFilter,
   PageID,
   PreferenceState,
@@ -36,15 +37,27 @@ import { clearRemoteWriteGuardStatus, p1Client, setRemoteWriteGuardStatus } from
 import { prepareClientUpdateInstall, launchPreparedClientUpdateInstall } from "../services/clientUpdateFlow.ts";
 import { desktopBridge } from "../services/tauriBridge.ts";
 import { themeLabel } from "../ui/themeLabels.ts";
+import { defaultFilters } from "./workspace/workspaceTypes.ts";
 
 export { buildPublishPrecheck } from "./ui/publishPrecheck.ts";
 export { collectInstalledSkillIssues } from "./ui/installedSkillSelectors.ts";
 
 export type TopLevelSection = "home" | "community" | "local" | "manage";
-export type CommunityPane = "skills" | "mcp" | "plugins" | "publish" | "mine";
+export type CommunityPane = "home" | "skills" | "mcp" | "plugins" | "publish" | "mine";
 export type LocalPane = "skills" | "tools" | "projects";
 export type ManagePane = "reviews" | "skills" | "departments" | "users" | "client_updates";
 export type PublisherPane = "compose" | "mine";
+
+export const DEFAULT_COMMUNITY_PANE: CommunityPane = "home";
+
+export function buildCommunityExploreFilters(query: string): MarketFilters {
+  const trimmedQuery = query.trim();
+  return {
+    ...defaultFilters,
+    query: trimmedQuery,
+    sort: trimmedQuery.length > 0 ? "relevance" : "composite"
+  };
+}
 
 export type OverlayState =
   | { kind: "none" }
@@ -205,7 +218,7 @@ export function buildSettingsPanels(input: {
 export function useDesktopUIState(workspace: P1WorkspaceState) {
   const initialView = mapLegacyPageToView(workspace.activePage);
   const [activeSection, setActiveSection] = useState<TopLevelSection>(initialView.section);
-  const [communityPane, setCommunityPane] = useState<CommunityPane>(initialView.communityPane ?? "skills");
+  const [communityPane, setCommunityPane] = useState<CommunityPane>(initialView.communityPane ?? DEFAULT_COMMUNITY_PANE);
   const [localPane, setLocalPane] = useState<LocalPane>(initialView.localPane ?? "skills");
   const [managePane, setManagePane] = useState<ManagePane>(initialView.managePane ?? "reviews");
   const [overlay, setOverlay] = useState<OverlayState>({ kind: "none" });
@@ -465,7 +478,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     if (section === "manage" && !workspace.isAdminConnected) return;
     setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
     if (section === "community") {
-      setCommunityPane("skills");
+      setCommunityPane(DEFAULT_COMMUNITY_PANE);
     }
     setActiveSection(section);
   }, [workspace.isAdminConnected]);
@@ -780,6 +793,7 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     language,
     workspace,
     closeModal,
+    showInstallResults: preferences.showInstallResults,
     setModal: presentBlockingModal,
     setConfirmModal: (input) => presentBlockingConfirm(input),
     setFlash

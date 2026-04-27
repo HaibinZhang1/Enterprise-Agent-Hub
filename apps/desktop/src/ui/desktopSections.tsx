@@ -23,7 +23,7 @@ import {
 import type { AdminSkill, ClientUpdateReleaseSummary, DiscoveredLocalSkill, MarketFilters, PublishDraft, PublisherSkillSummary, PublisherSubmissionDetail, PublishScopeType, ReviewDetail, RiskLevel, SkillLeaderboardItem, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
-import { canAccessClientUpdateManagement, type DesktopUIState } from "../state/useDesktopUIState.ts";
+import { buildCommunityExploreFilters, canAccessClientUpdateManagement, type DesktopUIState } from "../state/useDesktopUIState.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
 import { downloadAuthenticatedFile } from "../services/p1Client.ts";
 import { isCommunityVisibleSkill } from "../state/p1WorkspaceHelpers.ts";
@@ -40,7 +40,7 @@ import {
   type AdminUserRoleFilter,
   type AdminUserStatusFilter
 } from "../state/ui/adminManageSelectors.ts";
-import { deriveCommunityLeaderboards } from "../state/ui/communityLeaderboards.ts";
+import { COMMUNITY_LEADERBOARD_LIMIT, deriveCommunityLeaderboards } from "../state/ui/communityLeaderboards.ts";
 import {
   displayNameFromSkillName,
   isSkillMarkdownPath,
@@ -72,6 +72,7 @@ import {
   workflowStateLabel
 } from "./desktopShared.tsx";
 import { iconToneForLabel } from "./iconTone.ts";
+import { shouldCloseFromBackdropPointerDown } from "./modalInteraction.ts";
 import { AuthGateCard, InitialBadge, PackagePreviewPanel, SectionEmpty, SectionProps, SelectField, TagPill } from "./pageCommon.tsx";
 import { passwordPolicyHint, validatePasswordPolicy } from "../utils/passwordPolicy.ts";
 
@@ -257,7 +258,19 @@ function UnifiedSkillRow({
   actions?: React.ReactNode;
 }) {
   return (
-    <article className={active ? "local-item unified-skill-row active" : "local-item unified-skill-row"} onClick={onSelect}>
+    <article
+      className={active ? "local-item unified-skill-row active" : "local-item unified-skill-row"}
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+    >
       <InitialBadge label={view.iconLabel} />
       <div className="list-row-copy">
         <strong>{view.displayName}</strong>
@@ -446,7 +459,15 @@ function InlineModal({
   narrow?: boolean;
 }) {
   return (
-    <div className="overlay-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="overlay-backdrop"
+      role="presentation"
+      onPointerDown={(event) => {
+        if (shouldCloseFromBackdropPointerDown(event)) {
+          onClose();
+        }
+      }}
+    >
       <section className={narrow ? "overlay-panel narrow manage-form-modal" : "overlay-panel manage-form-modal"} role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}>
         <div className="overlay-head">
           <div>
@@ -658,6 +679,7 @@ function CommunitySkillCard({ workspace, ui, skill }: SectionProps & { skill: Sk
       data-skill-id={skill.skillID}
       onClick={() => ui.openSkillDetail(skill.skillID, "community")}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           ui.openSkillDetail(skill.skillID, "community");
@@ -708,6 +730,11 @@ function CommunitySkillCard({ workspace, ui, skill }: SectionProps & { skill: Sk
 
 type CommunityLeaderboardKind = "hot" | "stars" | "downloads";
 
+function useResolvedCommunityLeaderboards(workspace: P1WorkspaceState) {
+  const fallbackLeaderboards = useMemo(() => deriveCommunityLeaderboards(workspace.skills.filter(isCommunityVisibleSkill)), [workspace.skills]);
+  return workspace.bootstrap.connection.status === "connected" ? workspace.leaderboards ?? fallbackLeaderboards : fallbackLeaderboards;
+}
+
 function CommunityLeaderboardList({
   title,
   skills,
@@ -721,7 +748,7 @@ function CommunityLeaderboardList({
 }) {
   return (
     <div className="stack-list compact" aria-label={title}>
-      {skills.map((skill) => {
+      {skills.map((skill, index) => {
         const publisher = skill.authorName ?? "未知发布者";
         const department = skill.authorDepartment ?? "未归属部门";
         return (
@@ -732,8 +759,9 @@ function CommunityLeaderboardList({
             key={`${metric}:${skill.skillID}`}
             type="button"
             onClick={() => ui.openSkillDetail(skill.skillID, "community")}
-            aria-label={`${title}，${skill.displayName}，${publisher}，${department}，Star ${skill.starCount}，下载 ${skill.downloadCount}，打开详情`}
+            aria-label={`${title}，第 ${index + 1} 名，${skill.displayName}，${publisher}，${department}，Star ${skill.starCount}，下载 ${skill.downloadCount}，打开详情`}
           >
+            <span className="leaderboard-rank" aria-hidden="true">{index + 1}</span>
             <InitialBadge label={skill.displayName} />
             <span className="leaderboard-copy">
               <strong>{skill.displayName}</strong>
@@ -759,8 +787,7 @@ function CommunityLeaderboardList({
 
 function Leaderboard({ workspace, ui }: SectionProps) {
   const [activeLeaderboard, setActiveLeaderboard] = useState<CommunityLeaderboardKind>("hot");
-  const fallbackLeaderboards = useMemo(() => deriveCommunityLeaderboards(workspace.skills.filter(isCommunityVisibleSkill)), [workspace.skills]);
-  const leaderboards = workspace.bootstrap.connection.status === "connected" ? workspace.leaderboards ?? fallbackLeaderboards : fallbackLeaderboards;
+  const leaderboards = useResolvedCommunityLeaderboards(workspace);
   const leaderboardSlides = [
     { kind: "hot", label: "热榜", icon: <CircleGauge size={14} />, skills: leaderboards.hot },
     { kind: "stars", label: "Star 榜", icon: <Star size={14} />, skills: leaderboards.stars },
@@ -794,6 +821,177 @@ function Leaderboard({ workspace, ui }: SectionProps) {
         </section>
       ) : null}
     </aside>
+  );
+}
+
+function CommunityHomeLeaderboardCard({
+  title,
+  icon,
+  skills,
+  metric,
+  ui,
+  emptyBody
+}: {
+  title: string;
+  icon: ReactNode;
+  skills: SkillLeaderboardItem[];
+  metric: CommunityLeaderboardKind;
+  ui: SectionProps["ui"];
+  emptyBody: string;
+}) {
+  const visibleSkills = skills.slice(0, COMMUNITY_LEADERBOARD_LIMIT);
+
+  return (
+    <section className={`stage-panel community-home-leaderboard-card ${metric}`}>
+      <div className="community-home-card-head">
+        <span className={`community-home-card-icon ${metric}`}>{icon}</span>
+        <h2>{title}</h2>
+      </div>
+      {visibleSkills.length === 0 ? <SectionEmpty title="暂无榜单数据" body={emptyBody} /> : null}
+      {visibleSkills.length > 0 ? (
+        <CommunityLeaderboardList title={title} skills={visibleSkills} ui={ui} metric={metric} />
+      ) : null}
+    </section>
+  );
+}
+
+function CommunityHome({ workspace, ui }: SectionProps) {
+  const [searchDraft, setSearchDraft] = useState(workspace.filters.query);
+  const leaderboards = useResolvedCommunityLeaderboards(workspace);
+  const leaderboardCards = [
+    {
+      kind: "hot",
+      label: "热榜",
+      icon: <CircleGauge size={16} />,
+      skills: leaderboards.hot,
+      emptyBody: "近 7 天暂无热度数据。"
+    },
+    {
+      kind: "stars",
+      label: "Star 榜",
+      icon: <Star size={16} />,
+      skills: leaderboards.stars,
+      emptyBody: "登录后会根据社区真实数据展示榜单。"
+    },
+    {
+      kind: "downloads",
+      label: "下载榜",
+      icon: <Download size={16} />,
+      skills: leaderboards.downloads,
+      emptyBody: "登录后会根据社区真实数据展示榜单。"
+    }
+  ] as const;
+  const exploreEntries = [
+    {
+      id: "skills",
+      label: "技能探索",
+      status: `${workspace.skills.filter(isCommunityVisibleSkill).length} Skills`,
+      icon: <Sparkles size={20} />,
+      onClick: () => ui.openCommunityPane("skills")
+    },
+    {
+      id: "mcp",
+      label: "MCP 探索",
+      status: "预留入口",
+      icon: <Link2 size={20} />,
+      onClick: () => ui.openCommunityPane("mcp")
+    },
+    {
+      id: "plugins",
+      label: "插件探索",
+      status: "预留入口",
+      icon: <PackageCheck size={20} />,
+      onClick: () => ui.openCommunityPane("plugins")
+    }
+  ] as const;
+
+  useEffect(() => {
+    setSearchDraft(workspace.filters.query);
+  }, [workspace.filters.query]);
+
+  function exploreCommunity(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    workspace.setFilters(buildCommunityExploreFilters(searchDraft));
+    ui.openCommunityPane("skills");
+  }
+
+  function openPublish() {
+    if (workspace.loggedIn && workspace.bootstrap.connection.status === "connected") {
+      ui.openCommunityPane("publish");
+      return;
+    }
+    workspace.requireAuth("publisher");
+  }
+
+  return (
+    <div className="community-home" data-testid="community-home">
+      <section className="stage-panel community-home-hero">
+        <div className="community-home-hero-copy">
+          <h1>EnterpriseAgentHub社区</h1>
+          <p>发现、安装和管理企业内部可用的 Skills、MCP 和插件</p>
+        </div>
+        <form className="community-home-search" onSubmit={exploreCommunity}>
+          <label className="community-home-search-shell">
+            <Search size={18} />
+            <input
+              aria-label="搜索社区资源"
+              type="search"
+              value={searchDraft}
+              placeholder="搜索 Skills、MCP、插件、作者、部门或标签"
+              onChange={(event) => setSearchDraft(event.target.value)}
+            />
+          </label>
+          <div className="community-home-actions">
+            <button className="btn btn-primary" type="submit">
+              <Sparkles size={16} />
+              探索
+            </button>
+            <button className="btn" type="button" onClick={openPublish}>
+              <Upload size={16} />
+              发布
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="community-home-section community-home-ranking-section" aria-labelledby="community-home-ranking-title">
+        <div className="community-home-section-head">
+          <h2 id="community-home-ranking-title">榜单</h2>
+          <p>聚焦近期热度、收藏和安装趋势，快速发现团队正在采用的资源。</p>
+        </div>
+        <div className="community-home-leaderboards" aria-label="社区核心榜单">
+          {leaderboardCards.map((card) => (
+            <CommunityHomeLeaderboardCard
+              key={card.kind}
+              title={card.label}
+              icon={card.icon}
+              skills={card.skills}
+              metric={card.kind}
+              ui={ui}
+              emptyBody={card.emptyBody}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="community-home-section community-home-expansion-section" aria-labelledby="community-home-expansion-title">
+        <div className="community-home-section-head">
+          <h2 id="community-home-expansion-title">拓展</h2>
+          <p>从 Skills、MCP 到插件，进入更完整的企业能力目录。</p>
+        </div>
+        <div className="community-home-entry-grid" aria-label="探索入口">
+          {exploreEntries.map((entry) => (
+            <button key={entry.id} className={`community-home-entry-card ${entry.id}`} type="button" onClick={entry.onClick}>
+              <span className="community-home-entry-icon">{entry.icon}</span>
+              <span className="community-home-entry-copy">
+                <strong>{entry.label}</strong>
+                <small>{entry.status}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1611,6 +1809,7 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
     relevance: "相关度优先"
   }[workspace.filters.sort];
   const discoverEntries = [
+    { id: "home", label: "首页", icon: <CircleGauge size={16} /> },
     { id: "skills", label: "Skills", icon: <Sparkles size={16} /> },
     { id: "mcp", label: "MCP", icon: <Link2 size={16} /> },
     { id: "plugins", label: "插件", icon: <PackageCheck size={16} /> }
@@ -1634,6 +1833,14 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
       </button>
     );
   };
+
+  if (ui.communityPane === "home") {
+    return (
+      <div className="stage-page workspace-page community-page community-landing-page">
+        <CommunityHome workspace={workspace} ui={ui} />
+      </div>
+    );
+  }
 
   return (
     <div className="stage-page workspace-page community-page">
@@ -1784,7 +1991,7 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
 
 function LocalSkillDetail({ workspace, ui, skill }: SectionProps & { skill: SkillSummary }) {
   const issues = ui.installedView.installedSkillIssuesByID[skill.skillID] ?? [];
-  const primaryAction = skill.installState === "update_available" ? "更新" : "调整范围";
+  const primaryAction = skill.installState === "update_available" ? "更新" : "启用范围";
   const view = localSkillView(skill, ui);
 
   return (

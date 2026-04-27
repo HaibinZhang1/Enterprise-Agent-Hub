@@ -186,6 +186,27 @@ function startWindowDragging() {
   if (invoke) void invoke("p1_window_start_dragging");
 }
 
+function AppLogoMark() {
+  return (
+    <svg className="brand-badge-mark" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+      <rect width="128" height="128" fill="#4f8f84" />
+      <text
+        x="64"
+        y="64"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontSize="48"
+        fontWeight="800"
+        letterSpacing="-2"
+        fill="#ffd166"
+      >
+        EA
+      </text>
+    </svg>
+  );
+}
+
 export function DesktopApp() {
   const workspace = useP1Workspace();
   const ui = useDesktopUIState(workspace);
@@ -206,8 +227,8 @@ export function DesktopApp() {
         }}
       >
         <div className="brand-lockup">
-          <button className="brand-badge icon-tone-pine" type="button" onClick={ui.goHome} aria-label="回到主页">
-            A
+          <button className="brand-badge" type="button" onClick={ui.goHome} aria-label="回到主页">
+            <AppLogoMark />
           </button>
           <div className="brand-copy">
             <strong>Enterprise Agent Hub</strong>
