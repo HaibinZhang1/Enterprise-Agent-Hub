@@ -1,6 +1,14 @@
 import type { AdminSkill, AdminUser, DepartmentNode } from "../../domain/p1.ts";
 import { P1_API_ROUTES } from "@enterprise-agent-hub/shared-contracts";
 import { requestJSON, routePath } from "./core.ts";
+import { validatePhoneNumber } from "../../utils/phoneNumber.ts";
+
+function assertValidPhoneNumber(value: string): void {
+  const validationMessage = validatePhoneNumber(value);
+  if (validationMessage) {
+    throw new Error(validationMessage);
+  }
+}
 
 export function createAdminClient() {
   return {
@@ -33,6 +41,7 @@ export function createAdminClient() {
     },
 
     async createAdminUser(input: { username: string; phoneNumber: string; departmentID: string; role: "normal_user" | "admin"; adminLevel: number | null }): Promise<AdminUser[]> {
+      assertValidPhoneNumber(input.phoneNumber);
       return requestJSON<AdminUser[]>(P1_API_ROUTES.adminUsers, {
         method: "POST",
         body: JSON.stringify(input)
@@ -40,6 +49,9 @@ export function createAdminClient() {
     },
 
     async updateAdminUser(phoneNumber: string, input: { username?: string; phoneNumber?: string; departmentID?: string; role?: "normal_user" | "admin"; adminLevel?: number | null }): Promise<AdminUser[]> {
+      if (input.phoneNumber !== undefined) {
+        assertValidPhoneNumber(input.phoneNumber);
+      }
       return requestJSON<AdminUser[]>(routePath(P1_API_ROUTES.adminUserDetail, { phoneNumber }), {
         method: "PATCH",
         body: JSON.stringify(input)

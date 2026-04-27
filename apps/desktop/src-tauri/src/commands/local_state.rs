@@ -111,10 +111,7 @@ impl P1LocalState {
         configuration::save_project_config(self, input)
     }
 
-    pub fn delete_project_config(
-        &self,
-        project_id: String,
-    ) -> Result<(), String> {
+    pub fn delete_project_config(&self, project_id: String) -> Result<(), String> {
         configuration::delete_project_config(self, project_id)
     }
 

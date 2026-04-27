@@ -38,9 +38,6 @@
       "icons/icon.svg"
     ],
     "windows": {
-      "webviewInstallMode": {
-        "type": "offlineInstaller"
-      },
       "nsis": {
         "displayLanguageSelector": true
       }

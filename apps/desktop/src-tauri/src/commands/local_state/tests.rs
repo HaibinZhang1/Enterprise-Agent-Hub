@@ -476,7 +476,9 @@ fn deletes_project_configs_without_enabled_skills() {
         .delete_project_config("enterprise-agent-hub".to_string())
         .expect("delete project");
 
-    let bootstrap = state.get_local_bootstrap().expect("bootstrap after project delete");
+    let bootstrap = state
+        .get_local_bootstrap()
+        .expect("bootstrap after project delete");
     assert!(bootstrap.projects.is_empty());
 }
 
@@ -700,9 +702,15 @@ fn scans_root_and_nested_skill_directories_together() {
         .expect("nested skill finding");
 
     assert!(root_skill.can_import);
-    assert_eq!(root_skill.import_display_name.as_deref(), Some("root-helper"));
+    assert_eq!(
+        root_skill.import_display_name.as_deref(),
+        Some("root-helper")
+    );
     assert!(nested_skill.can_import);
-    assert_eq!(nested_skill.import_display_name.as_deref(), Some("imagegen"));
+    assert_eq!(
+        nested_skill.import_display_name.as_deref(),
+        Some("imagegen")
+    );
 }
 
 #[test]
@@ -792,6 +800,102 @@ fn imports_unmanaged_skill_into_central_store_and_claims_matching_sources() {
     let bootstrap = state.get_local_bootstrap().expect("bootstrap after import");
     assert!(bootstrap.offline_events.is_empty());
     assert_eq!(bootstrap.pending_offline_event_count, 0);
+}
+
+#[test]
+fn disables_imported_nested_skill_when_claimed_content_is_unchanged() {
+    let _lock = ENV_LOCK.lock().expect("lock env");
+    let temp = TestTemp::new("local-state-import-disable-nested");
+    let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+    let tool_root = temp.path.join("codex-skills");
+
+    state
+        .save_tool_config(ToolConfigInputPayload {
+            tool_id: "codex".to_string(),
+            name: None,
+            config_path: "".to_string(),
+            skills_path: tool_root.to_string_lossy().to_string(),
+            enabled: Some(true),
+        })
+        .expect("save codex tool config");
+
+    let nested_skill_path = tool_root.join(".system").join("imagegen");
+    write_skill_dir(
+        &nested_skill_path,
+        "imagegen",
+        "System image generation skill",
+        "1.0.0",
+    );
+
+    let imported = state
+        .import_local_skill(ImportLocalSkillPayload {
+            target_type: "tool".to_string(),
+            target_id: "codex".to_string(),
+            relative_path: ".system/imagegen".to_string(),
+            skill_id: "imagegen".to_string(),
+            conflict_strategy: "rename".to_string(),
+        })
+        .expect("import nested local skill");
+
+    assert_eq!(imported.source_type, "local_import");
+    assert!(nested_skill_path.join("SKILL.md").is_file());
+
+    state
+        .disable_skill(
+            "imagegen".to_string(),
+            "tool".to_string(),
+            "codex".to_string(),
+        )
+        .expect("disable claimed nested skill");
+
+    assert!(!nested_skill_path.exists());
+    assert!(Path::new(&imported.central_store_path)
+        .join("SKILL.md")
+        .is_file());
+}
+
+#[test]
+fn refuses_to_disable_imported_skill_after_claimed_content_drifts() {
+    let _lock = ENV_LOCK.lock().expect("lock env");
+    let temp = TestTemp::new("local-state-import-disable-drift");
+    let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+    let tool_root = temp.path.join("codex-skills");
+
+    state
+        .save_tool_config(ToolConfigInputPayload {
+            tool_id: "codex".to_string(),
+            name: None,
+            config_path: "".to_string(),
+            skills_path: tool_root.to_string_lossy().to_string(),
+            enabled: Some(true),
+        })
+        .expect("save codex tool config");
+
+    let claimed_skill_path = tool_root.join("local-helper");
+    write_skill_dir(&claimed_skill_path, "local-helper", "Local Helper", "1.1.0");
+
+    state
+        .import_local_skill(ImportLocalSkillPayload {
+            target_type: "tool".to_string(),
+            target_id: "codex".to_string(),
+            relative_path: "local-helper".to_string(),
+            skill_id: "local-helper".to_string(),
+            conflict_strategy: "rename".to_string(),
+        })
+        .expect("import local skill");
+
+    fs::write(claimed_skill_path.join("README.md"), "manually changed")
+        .expect("mutate claimed skill");
+
+    let error = state
+        .disable_skill(
+            "local-helper".to_string(),
+            "tool".to_string(),
+            "codex".to_string(),
+        )
+        .expect_err("drifted claimed skill should not be removed");
+    assert!(error.contains("unmanaged target"));
+    assert!(claimed_skill_path.exists());
 }
 
 #[test]

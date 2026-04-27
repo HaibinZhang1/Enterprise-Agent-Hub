@@ -109,7 +109,10 @@ pub fn enable_artifact_with_options(
     }
 }
 
-pub fn disable_managed_target(path: impl AsRef<Path>) -> AdapterResult<()> {
+pub fn disable_managed_target(
+    path: impl AsRef<Path>,
+    allow_unmanaged_removal: bool,
+) -> AdapterResult<()> {
     let path = path.as_ref();
     if !path.exists() && fs::symlink_metadata(path).is_err() {
         return Ok(());
@@ -128,6 +131,11 @@ pub fn disable_managed_target(path: impl AsRef<Path>) -> AdapterResult<()> {
         fs::remove_dir_all(path).map_err(|error| {
             AdapterError::io(format!("remove target {}", path.display()), error)
         })?;
+        return Ok(());
+    }
+
+    if allow_unmanaged_removal {
+        remove_existing_target(path)?;
         return Ok(());
     }
 

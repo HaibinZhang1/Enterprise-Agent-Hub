@@ -79,18 +79,14 @@ pub(super) fn save_tool_config(
     load_tool_config_payload(&conn, adapter.tool_id.as_str()).map_err(|error| error.to_string())
 }
 
-pub(super) fn delete_tool_config(
-    state: &P1LocalState,
-    tool_id: String,
-) -> Result<(), String> {
+pub(super) fn delete_tool_config(state: &P1LocalState, tool_id: String) -> Result<(), String> {
     let conn = state.open_connection().map_err(|error| error.to_string())?;
     let adapter = builtin_adapters()
         .into_iter()
         .find(|candidate| candidate.tool_id.as_str() == tool_id.as_str())
         .ok_or_else(|| format!("unknown tool adapter: {tool_id}"))?;
-    let enabled_target_count =
-        count_enabled_targets_for_tool(&conn, adapter.tool_id.as_str())
-            .map_err(|error| error.to_string())?;
+    let enabled_target_count = count_enabled_targets_for_tool(&conn, adapter.tool_id.as_str())
+        .map_err(|error| error.to_string())?;
     if enabled_target_count > 0 {
         return Err("当前工具仍有已启用 Skill，请先停用后再删除或恢复默认配置。".to_string());
     }
@@ -161,8 +157,7 @@ pub(super) fn delete_project_config(
 ) -> Result<(), String> {
     let conn = state.open_connection().map_err(|error| error.to_string())?;
     let enabled_target_count =
-        count_enabled_targets_for_project(&conn, &project_id)
-            .map_err(|error| error.to_string())?;
+        count_enabled_targets_for_project(&conn, &project_id).map_err(|error| error.to_string())?;
     if enabled_target_count > 0 {
         return Err("当前项目仍有已启用 Skill，请先停用后再删除项目配置。".to_string());
     }

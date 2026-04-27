@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 use reqwest::blocking::Client;
 use zip::ZipArchive;
 
-use super::checksum::hash_path;
+use super::checksum::{can_remove_claimed_target, hash_path};
 use super::configuration::{load_project_config, load_tool_config_payload};
 use super::pathing::{
     build_local_event_payload, enabled_target_model, now_iso, now_millis, sanitize_segment,
@@ -176,8 +176,16 @@ pub(super) fn uninstall_skill(
     let mut failed_target_ids = Vec::new();
 
     for target in &enabled_targets {
+        let target_path = PathBuf::from(&target.target_path);
+        let allow_unmanaged_removal = can_remove_claimed_target(
+            &install.source_type,
+            target.fallback_reason.as_deref(),
+            &target_path,
+            &target.artifact_hash,
+        );
         let status = match disable_distribution(DisableDistributionRequest {
-            managed_target_path: PathBuf::from(&target.target_path),
+            managed_target_path: target_path,
+            allow_unmanaged_removal,
         }) {
             Ok(()) => EnabledTargetStatus::Disabled,
             Err(_) => {

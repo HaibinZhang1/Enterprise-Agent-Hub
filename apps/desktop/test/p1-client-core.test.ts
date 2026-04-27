@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { guestBootstrap } from "../src/fixtures/p1SeedData.ts";
+import { createAdminClient } from "../src/services/p1Client/admin.ts";
 import { createAuthClient } from "../src/services/p1Client/auth.ts";
 import { getAPIBase, P1ApiError, requestJSON } from "../src/services/p1Client/core.ts";
 import { createClientUpdatesClient } from "../src/services/p1Client/clientUpdates.ts";
@@ -103,6 +104,42 @@ test("auth client returns initial password challenge without storing a session t
     assert.equal(result.status, "password_change_required");
     assert.equal(result.passwordChangeToken, "challenge-token");
     assert.equal(window.localStorage.getItem("enterprise-agent-hub:p1-token"), null);
+  } finally {
+    globalThis.fetch = previousFetch;
+    restoreWindow();
+  }
+});
+
+test("admin client rejects malformed phone numbers before creating a user", async () => {
+  const restoreWindow = installWindow("http://127.0.0.1:3000");
+  const previousFetch = globalThis.fetch;
+  const client = createAdminClient();
+  let fetchCalled = false;
+  globalThis.fetch = (async () => {
+    fetchCalled = true;
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        client.createAdminUser({
+          username: "新用户",
+          phoneNumber: "12345",
+          departmentID: "dept_company",
+          role: "normal_user",
+          adminLevel: null
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof Error, true);
+        assert.equal((error as Error).message, "手机号需为 11 位数字。");
+        return true;
+      }
+    );
+    assert.equal(fetchCalled, false);
   } finally {
     globalThis.fetch = previousFetch;
     restoreWindow();

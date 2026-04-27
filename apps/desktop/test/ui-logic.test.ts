@@ -16,6 +16,7 @@ import {
   presentConfirmWithDrawerDismissal,
   presentModalWithDrawerDismissal,
   reviewDetailOverlay,
+  shouldPromptLoginForSectionNavigation,
   skillDetailOverlay
 } from "../src/state/useDesktopUIState.ts";
 import { isSafeExternalURL } from "../src/services/externalLinks.ts";
@@ -35,6 +36,7 @@ import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, n
 import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs } from "../src/services/tauriBridge/notificationOps.ts";
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath } from "../src/utils/platformPaths.ts";
+import { sanitizePhoneNumberInput, validatePhoneNumber } from "../src/utils/phoneNumber.ts";
 import { mergeLocalInstalls } from "../src/state/p1WorkspaceHelpers.ts";
 import { shouldCloseFromBackdropPointerDown } from "../src/ui/modalInteraction.ts";
 
@@ -102,6 +104,13 @@ test("publish precheck rejects invalid slugs before submission", () => {
   const result = buildPublishPrecheck({ ...baseDraft, skillID: "Bad Slug" });
   assert.equal(result.canSubmit, false);
   assert.equal(result.items.find((item) => item.id === "slug")?.status, "warn");
+});
+
+test("phone number helpers enforce mainland mobile formatting", () => {
+  assert.equal(sanitizePhoneNumberInput(" 138-0000-0001 ext.99 "), "13800000001");
+  assert.equal(validatePhoneNumber("13800000001"), null);
+  assert.equal(validatePhoneNumber("23800000001"), "手机号需以 1 开头。");
+  assert.equal(validatePhoneNumber("1380000000a"), "手机号只能输入数字。");
 });
 
 test("skill metadata parser reads SKILL.md frontmatter for publish autofill", async () => {
@@ -206,6 +215,12 @@ test("new top-level navigation only shows manage when admin capability is availa
   assert.equal(DEFAULT_COMMUNITY_PANE, "home");
   assert.deepEqual(deriveTopLevelNavigation({ isAdminConnected: false }), ["community", "home", "local"]);
   assert.deepEqual(deriveTopLevelNavigation({ isAdminConnected: true }), ["community", "home", "local", "manage"]);
+});
+
+test("community top-level navigation prompts login for guests before switching", () => {
+  assert.equal(shouldPromptLoginForSectionNavigation({ section: "community", loggedIn: false }), true);
+  assert.equal(shouldPromptLoginForSectionNavigation({ section: "community", loggedIn: true }), false);
+  assert.equal(shouldPromptLoginForSectionNavigation({ section: "home", loggedIn: false }), false);
 });
 
 test("legacy pages map into the new section model", () => {

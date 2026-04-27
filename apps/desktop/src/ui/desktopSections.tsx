@@ -75,6 +75,7 @@ import { iconToneForLabel } from "./iconTone.ts";
 import { shouldCloseFromBackdropPointerDown } from "./modalInteraction.ts";
 import { AuthGateCard, InitialBadge, PackagePreviewPanel, SectionEmpty, SectionProps, SelectField, TagPill } from "./pageCommon.tsx";
 import { passwordPolicyHint, validatePasswordPolicy } from "../utils/passwordPolicy.ts";
+import { phoneNumberFormatHint, sanitizePhoneNumberInput, validatePhoneNumber } from "../utils/phoneNumber.ts";
 
 function formatMetricCount(value: number, language: "zh-CN" | "en-US") {
   return new Intl.NumberFormat(language, {
@@ -3130,7 +3131,7 @@ function ManageDepartmentsPane({ workspace }: { workspace: P1WorkspaceState }) {
   );
 }
 
-function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
+function ManageUsersPane({ workspace, language }: { workspace: P1WorkspaceState; language: "zh-CN" | "en-US" }) {
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string | null>(null);
   const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
   const [userFilters, setUserFilters] = useState<{ query: string; role: AdminUserRoleFilter; status: AdminUserStatusFilter }>({
@@ -3158,6 +3159,19 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
   });
   const [deleteConfirmPhoneNumber, setDeleteConfirmPhoneNumber] = useState<string | null>(null);
 
+  const roleOptions = useMemo(
+    () =>
+      language === "en-US"
+        ? [
+            { value: "normal_user", label: "User" },
+            { value: "admin", label: "Admin" }
+          ]
+        : [
+            { value: "normal_user", label: "普通用户" },
+            { value: "admin", label: "管理员" }
+          ],
+    [language]
+  );
   const departmentOptions = useMemo(() => flattenDepartments(workspace.adminData.departments), [workspace.adminData.departments]);
   const filteredUsers = useMemo(() => filterAdminUsers(workspace.adminData.adminUsers, userFilters), [userFilters, workspace.adminData.adminUsers]);
 
@@ -3193,7 +3207,10 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
   const nextPasswordError = passwordEdit.password.trim() ? validatePasswordPolicy(passwordEdit.password) : null;
   const passwordMismatch = passwordEdit.confirmPassword.length > 0 && passwordEdit.password !== passwordEdit.confirmPassword;
   const canSubmitPassword = Boolean(selectedUser && passwordEdit.password.trim() && passwordEdit.confirmPassword.trim() && !nextPasswordError && !passwordMismatch);
-  const canCreateUser = Boolean(newUser.departmentID && newUser.username.trim() && newUser.phoneNumber.trim());
+  const newUserPhoneError = newUser.phoneNumber.trim() ? validatePhoneNumber(newUser.phoneNumber) : null;
+  const userEditPhoneError = userEdit.phoneNumber.trim().length === 0 ? "请输入手机号。" : validatePhoneNumber(userEdit.phoneNumber);
+  const canSaveUserProfile = Boolean(selectedUser && userEdit.username.trim() && userEdit.departmentID && !userEditPhoneError);
+  const canCreateUser = Boolean(newUser.departmentID && newUser.username.trim() && newUser.phoneNumber.trim() && !newUserPhoneError);
   const deleteConfirmationArmed = Boolean(selectedUser && deleteConfirmPhoneNumber === selectedUser.phoneNumber);
 
   return (
@@ -3309,7 +3326,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
               </div>
               <form className="form-stack compact" onSubmit={(event) => {
                 event.preventDefault();
-                if (!userEdit.username.trim() || !userEdit.phoneNumber.trim() || !userEdit.departmentID) return;
+                if (!canSaveUserProfile) return;
                 void workspace.adminData.updateAdminUser(selectedUser.phoneNumber, {
                   username: userEdit.username.trim(),
                   phoneNumber: userEdit.phoneNumber.trim(),
@@ -3317,7 +3334,20 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
                 });
               }}>
                 <label className="field"><span>用户名称</span><input value={userEdit.username} onChange={(event) => setUserEdit((current) => ({ ...current, username: event.target.value }))} /></label>
-                <label className="field"><span>手机号</span><input value={userEdit.phoneNumber} inputMode="tel" autoComplete="tel" onChange={(event) => setUserEdit((current) => ({ ...current, phoneNumber: event.target.value }))} /></label>
+                <label className="field">
+                  <span>手机号</span>
+                  <input
+                    value={userEdit.phoneNumber}
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    maxLength={11}
+                    pattern="1[0-9]{10}"
+                    className={userEditPhoneError ? "field-invalid" : ""}
+                    aria-invalid={userEditPhoneError ? true : undefined}
+                    onChange={(event) => setUserEdit((current) => ({ ...current, phoneNumber: sanitizePhoneNumberInput(event.target.value) }))}
+                  />
+                  <small className={userEditPhoneError ? "field-hint warning" : "field-hint"}>{userEditPhoneError ?? phoneNumberFormatHint}</small>
+                </label>
                 <label className="field">
                   <span>所属部门</span>
                   <select value={userEdit.departmentID} onChange={(event) => setUserEdit((current) => ({ ...current, departmentID: event.target.value }))}>
@@ -3326,7 +3356,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
                     ))}
                   </select>
                 </label>
-                <button className="btn btn-primary" type="submit">保存资料</button>
+                <button className="btn btn-primary" type="submit" disabled={!canSaveUserProfile}>保存资料</button>
               </form>
             </div>
             <div className="detail-block inspector-subsection governance-section">
@@ -3358,7 +3388,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
                   adminLevel: userEdit.role === "admin" ? Number(userEdit.adminLevel) : null
                 });
               }}>
-                <SelectField label="角色" value={userEdit.role} options={["normal_user", "admin"]} onChange={(value) => setUserEdit((current) => ({ ...current, role: value as "normal_user" | "admin" }))} />
+                <SelectField label="角色" value={userEdit.role} options={roleOptions} onChange={(value) => setUserEdit((current) => ({ ...current, role: value as "normal_user" | "admin" }))} />
                 {userEdit.role === "admin" ? (
                   <label className="field"><span>管理员等级</span><input value={userEdit.adminLevel} onChange={(event) => setUserEdit((current) => ({ ...current, adminLevel: event.target.value }))} /></label>
                 ) : null}
@@ -3431,7 +3461,20 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
             setNewUser((current) => ({ ...current, username: "", phoneNumber: "" }));
           }}>
             <label className="field"><span>用户名称</span><input value={newUser.username} onChange={(event) => setNewUser((current) => ({ ...current, username: event.target.value }))} autoFocus /></label>
-            <label className="field"><span>手机号</span><input value={newUser.phoneNumber} inputMode="tel" autoComplete="tel" onChange={(event) => setNewUser((current) => ({ ...current, phoneNumber: event.target.value }))} /></label>
+            <label className="field">
+              <span>手机号</span>
+              <input
+                value={newUser.phoneNumber}
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={11}
+                pattern="1[0-9]{10}"
+                className={newUserPhoneError ? "field-invalid" : ""}
+                aria-invalid={newUserPhoneError ? true : undefined}
+                onChange={(event) => setNewUser((current) => ({ ...current, phoneNumber: sanitizePhoneNumberInput(event.target.value) }))}
+              />
+              <small className={newUserPhoneError ? "field-hint warning" : "field-hint"}>{newUserPhoneError ?? phoneNumberFormatHint}</small>
+            </label>
             <div className="callout info">
               新账号初始密码为 EAgentHub123!，首次登录只能用于完成强制改密。
             </div>
@@ -3443,7 +3486,7 @@ function ManageUsersPane({ workspace }: { workspace: P1WorkspaceState }) {
                 ))}
               </select>
             </label>
-            <SelectField label="角色" value={newUser.role} options={["normal_user", "admin"]} onChange={(value) => setNewUser((current) => ({ ...current, role: value as "normal_user" | "admin" }))} />
+            <SelectField label="角色" value={newUser.role} options={roleOptions} onChange={(value) => setNewUser((current) => ({ ...current, role: value as "normal_user" | "admin" }))} />
             {newUser.role === "admin" ? (
               <label className="field"><span>管理员等级</span><input value={newUser.adminLevel} onChange={(event) => setNewUser((current) => ({ ...current, adminLevel: event.target.value }))} /></label>
             ) : null}
@@ -3678,7 +3721,7 @@ export function ManageSection({ workspace, ui }: SectionProps) {
           {ui.managePane === "reviews" ? <ManageReviewsPane workspace={workspace} ui={ui} /> : null}
           {ui.managePane === "skills" ? <ManageSkillsPane workspace={workspace} ui={ui} /> : null}
           {ui.managePane === "departments" ? <ManageDepartmentsPane workspace={workspace} /> : null}
-          {ui.managePane === "users" ? <ManageUsersPane workspace={workspace} /> : null}
+          {ui.managePane === "users" ? <ManageUsersPane workspace={workspace} language={ui.language} /> : null}
           {ui.managePane === "client_updates" ? <ManageClientUpdatesPane workspace={workspace} ui={ui} /> : null}
         </div>
       </div>

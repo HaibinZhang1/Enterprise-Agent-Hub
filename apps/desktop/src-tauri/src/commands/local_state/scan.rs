@@ -209,7 +209,8 @@ fn scan_target_root(
 
 fn collect_scan_entry_paths(root: &Path) -> Result<Vec<PathBuf>, String> {
     let mut entry_paths = Vec::new();
-    let entries = fs::read_dir(root).map_err(|error| format!("scan {}: {error}", root.display()))?;
+    let entries =
+        fs::read_dir(root).map_err(|error| format!("scan {}: {error}", root.display()))?;
     for entry in entries {
         let entry = entry.map_err(|error| format!("scan {}: {error}", root.display()))?;
         let entry_path = entry.path();
@@ -228,8 +229,8 @@ fn nested_skill_dirs(entry_path: &Path) -> Result<Vec<PathBuf>, String> {
         return Ok(Vec::new());
     }
     let mut nested = Vec::new();
-    let entries =
-        fs::read_dir(entry_path).map_err(|error| format!("scan {}: {error}", entry_path.display()))?;
+    let entries = fs::read_dir(entry_path)
+        .map_err(|error| format!("scan {}: {error}", entry_path.display()))?;
     for entry in entries {
         let entry = entry.map_err(|error| format!("scan {}: {error}", entry_path.display()))?;
         let child_path = entry.path();

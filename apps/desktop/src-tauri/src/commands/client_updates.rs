@@ -161,9 +161,11 @@ pub fn verify_client_update(
 pub fn launch_client_installer(
     input: ClientUpdateLaunchPayload,
 ) -> Result<ClientUpdateLaunchResultPayload, String> {
-    launch_client_installer_with(Path::new(&input.metadata_path), input.user_confirmed, |plan| {
-        execute_launch(plan)
-    })
+    launch_client_installer_with(
+        Path::new(&input.metadata_path),
+        input.user_confirmed,
+        |plan| execute_launch(plan),
+    )
 }
 
 fn client_updates_root(app: &AppHandle) -> Result<PathBuf, String> {
@@ -172,8 +174,12 @@ fn client_updates_root(app: &AppHandle) -> Result<PathBuf, String> {
         .app_data_dir()
         .map_err(|error| format!("resolve app data dir: {error}"))?;
     let root = app_data_dir.join(CLIENT_UPDATES_DIR);
-    fs::create_dir_all(&root)
-        .map_err(|error| format!("create client update cache root {}: {error}", root.display()))?;
+    fs::create_dir_all(&root).map_err(|error| {
+        format!(
+            "create client update cache root {}: {error}",
+            root.display()
+        )
+    })?;
     Ok(root)
 }
 
@@ -183,10 +189,18 @@ fn download_client_update_to_root(
 ) -> Result<ClientUpdateDownloadResultPayload, String> {
     validate_download_request(&input)?;
     let release_dir = staging_dir(root, &input.release_id, &input.version);
-    fs::create_dir_all(&release_dir)
-        .map_err(|error| format!("create client update staging dir {}: {error}", release_dir.display()))?;
+    fs::create_dir_all(&release_dir).map_err(|error| {
+        format!(
+            "create client update staging dir {}: {error}",
+            release_dir.display()
+        )
+    })?;
 
-    let file_name = resolve_file_name(input.file_name.as_deref(), &input.package_url, &input.version);
+    let file_name = resolve_file_name(
+        input.file_name.as_deref(),
+        &input.package_url,
+        &input.version,
+    );
     let staged_file_path = release_dir.join(&file_name);
     let metadata_path = release_dir.join(CLIENT_UPDATE_METADATA_FILE);
 
@@ -531,7 +545,10 @@ fn inspect_signature(path: &Path) -> (String, Option<String>) {
                         )),
                     );
                 }
-                let mut lines = stdout.lines().map(str::trim).filter(|line| !line.is_empty());
+                let mut lines = stdout
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty());
                 let raw_status = lines.next().unwrap_or("Unknown");
                 let signer = lines.next().unwrap_or("");
                 let status = if raw_status.eq_ignore_ascii_case("valid") {

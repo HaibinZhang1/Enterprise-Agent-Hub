@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use rusqlite::params;
 
-use super::checksum::hash_path;
+use super::checksum::{can_remove_claimed_target, hash_path};
 use super::pathing::{
     build_local_event_payload, now_iso, parse_adapter_mode, resolve_enable_target,
 };
@@ -111,8 +111,16 @@ pub(super) fn disable_skill(
     let target = load_enabled_target(&conn, &skill_id, &target_type, &target_id)
         .map_err(|error| error.to_string())?;
 
+    let target_path = PathBuf::from(&target.target_path);
+    let allow_unmanaged_removal = can_remove_claimed_target(
+        &install.source_type,
+        target.fallback_reason.as_deref(),
+        &target_path,
+        &target.artifact_hash,
+    );
     disable_distribution(DisableDistributionRequest {
-        managed_target_path: PathBuf::from(&target.target_path),
+        managed_target_path: target_path,
+        allow_unmanaged_removal,
     })
     .map_err(|error| error.to_string())?;
 

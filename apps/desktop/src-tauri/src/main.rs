@@ -92,10 +92,7 @@ fn save_tool_config(
 
 #[allow(non_snake_case)]
 #[tauri::command]
-fn delete_tool_config(
-    state: State<'_, P1LocalState>,
-    toolID: String,
-) -> Result<(), String> {
+fn delete_tool_config(state: State<'_, P1LocalState>, toolID: String) -> Result<(), String> {
     state.delete_tool_config(toolID)
 }
 
@@ -159,10 +156,7 @@ fn save_project_config(
 
 #[allow(non_snake_case)]
 #[tauri::command]
-fn delete_project_config(
-    state: State<'_, P1LocalState>,
-    projectID: String,
-) -> Result<(), String> {
+fn delete_project_config(state: State<'_, P1LocalState>, projectID: String) -> Result<(), String> {
     state.delete_project_config(projectID)
 }
 

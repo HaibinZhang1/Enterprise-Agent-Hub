@@ -41,6 +41,7 @@ pub struct EnableDistributionResponse {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DisableDistributionRequest {
     pub managed_target_path: PathBuf,
+    pub allow_unmanaged_removal: bool,
 }
 
 pub fn enable_distribution(
@@ -99,7 +100,7 @@ pub fn disable_distribution(request: DisableDistributionRequest) -> AdapterResul
     #[cfg(not(test))]
     use crate::adapters::disable_managed_target;
 
-    disable_managed_target(request.managed_target_path)
+    disable_managed_target(request.managed_target_path, request.allow_unmanaged_removal)
 }
 
 pub fn managed_target_path(target_root: impl AsRef<Path>, skill_id: &str) -> PathBuf {

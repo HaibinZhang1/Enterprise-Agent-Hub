@@ -163,7 +163,7 @@ mod tests {
         fs::write(target.join("manual.txt"), "do not remove").unwrap();
 
         assert!(matches!(
-            disable_managed_target(&target),
+            disable_managed_target(&target, false),
             Err(AdapterError::UnmanagedTarget { .. })
         ));
         assert!(central_store.join("SKILL.md").is_file());

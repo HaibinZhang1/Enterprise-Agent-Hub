@@ -112,6 +112,13 @@ export function deriveTopLevelNavigation(input: {
   return input.isAdminConnected ? ["community", "home", "local", "manage"] : ["community", "home", "local"];
 }
 
+export function shouldPromptLoginForSectionNavigation(input: {
+  section: TopLevelSection;
+  loggedIn: boolean;
+}): boolean {
+  return input.section === "community" && !input.loggedIn;
+}
+
 export function canAccessClientUpdateManagement(input: { adminLevel?: number | null }): boolean {
   return input.adminLevel === 1;
 }
@@ -474,14 +481,24 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
     setActiveSection("home");
   }, []);
 
-  const navigateSection = useCallback((section: TopLevelSection) => {
-    if (section === "manage" && !workspace.isAdminConnected) return;
+  const applySectionNavigation = useCallback((section: TopLevelSection) => {
     setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));
     if (section === "community") {
       setCommunityPane(DEFAULT_COMMUNITY_PANE);
     }
     setActiveSection(section);
-  }, [workspace.isAdminConnected]);
+  }, []);
+
+  const navigateSection = useCallback((section: TopLevelSection) => {
+    if (section === "manage" && !workspace.isAdminConnected) return;
+    if (shouldPromptLoginForSectionNavigation({ section, loggedIn: workspace.loggedIn })) {
+      workspace.requireAuth(workspace.activePage, () => {
+        applySectionNavigation(section);
+      });
+      return;
+    }
+    applySectionNavigation(section);
+  }, [applySectionNavigation, workspace]);
 
   const openCommunityPane = useCallback((pane: CommunityPane) => {
     setOverlay((current) => (isDetailOverlay(current) ? { kind: "none" } : current));

@@ -11,6 +11,26 @@ pub(super) fn hash_path(path: &Path) -> Result<String, String> {
     Ok(hex_digest(&hasher.finalize()))
 }
 
+pub(super) fn matches_expected_hash(path: &Path, expected_hash: &str) -> bool {
+    let normalized_expected = expected_hash
+        .strip_prefix("sha256:")
+        .unwrap_or(expected_hash);
+    hash_path(path)
+        .map(|actual_hash| actual_hash.eq_ignore_ascii_case(normalized_expected))
+        .unwrap_or(false)
+}
+
+pub(super) fn can_remove_claimed_target(
+    source_type: &str,
+    fallback_reason: Option<&str>,
+    path: &Path,
+    expected_hash: &str,
+) -> bool {
+    source_type == "local_import"
+        && fallback_reason == Some("local_import_claimed")
+        && matches_expected_hash(path, expected_hash)
+}
+
 fn hash_path_into(
     root: &Path,
     path: &Path,

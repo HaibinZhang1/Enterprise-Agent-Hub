@@ -75,7 +75,6 @@ test('Desktop login defaults do not hardcode demo credentials in the product UI'
 test('Tauri packaging config exposes Windows installer intent and command registration', () => {
   assert.equal(tauriConfig.identifier, 'com.enterpriseagenthub.desktop');
   assert.deepEqual(tauriConfig.bundle.targets, ['nsis']);
-  assert.deepEqual(tauriConfig.bundle.windows.webviewInstallMode, { type: 'offlineInstaller' });
   assert.match(desktopPackage.scripts['tauri:build:windows'], /x86_64-pc-windows-msvc/);
   assert.match(cargoToml, /tauri =/);
   for (const command of ['get_local_bootstrap', 'install_skill_package', 'enable_skill', 'disable_skill', 'uninstall_skill', 'save_project_config', 'mark_offline_events_synced']) {
