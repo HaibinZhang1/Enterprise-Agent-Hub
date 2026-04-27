@@ -64,6 +64,13 @@ export interface ServerAppUpdateNotification {
   source: LocalNotification["source"];
 }
 
+export interface CompletedClientUpdateInstall {
+  releaseID: string;
+  fromVersion: string;
+  toVersion: string;
+  targetVersion: string;
+}
+
 type MaybeClientUpdateNotification = LocalNotification & Partial<{
   releaseID: string;
   latestVersion: string;
@@ -108,6 +115,22 @@ function isBlockingStatus(status: ClientUpdateStatus): boolean {
   return status === "mandatory_update" || status === "unsupported_version";
 }
 
+function parseStrictSemver(input: string): [number, number, number] | null {
+  const match = input.trim().match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareStrictSemver(left: string, right: string): number | null {
+  const leftParts = parseStrictSemver(left);
+  const rightParts = parseStrictSemver(right);
+  if (!leftParts || !rightParts) return null;
+  for (let index = 0; index < leftParts.length; index += 1) {
+    if (leftParts[index] === rightParts[index]) continue;
+    return leftParts[index] > rightParts[index] ? 1 : -1;
+  }
+  return 0;
+}
 
 function generateClientUpdateDeviceID(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
@@ -243,6 +266,19 @@ export function shouldUseCachedClientUpdate(cache: ClientUpdateCache | null, cur
   const checkedAt = Date.parse(cache.lastCheckedAt);
   if (Number.isNaN(checkedAt)) return false;
   return now - checkedAt <= CLIENT_UPDATE_CACHE_MAX_AGE_MS;
+}
+
+export function resolveCompletedClientUpdateInstall(cache: ClientUpdateCache | null, currentVersion: string): CompletedClientUpdateInstall | null {
+  if (!cache?.releaseID || !cache.updateType || !cache.latestVersion) return null;
+  if (cache.currentVersion === currentVersion) return null;
+  const targetReached = compareStrictSemver(currentVersion, cache.latestVersion);
+  if (targetReached === null || targetReached < 0) return null;
+  return {
+    releaseID: cache.releaseID,
+    fromVersion: cache.currentVersion,
+    toVersion: currentVersion,
+    targetVersion: cache.latestVersion
+  };
 }
 
 export function cacheClientUpdateCheck(

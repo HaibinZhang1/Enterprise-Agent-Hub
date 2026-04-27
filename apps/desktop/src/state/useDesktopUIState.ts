@@ -23,6 +23,7 @@ import {
   dismissOptionalClientUpdate,
   extractServerAppUpdateNotification,
   readClientUpdateCache,
+  resolveCompletedClientUpdateInstall,
   resolveClientUpdateDeviceID,
   shouldUseCachedClientUpdate,
   writeClientUpdateCache,
@@ -316,8 +317,51 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
       setCheckingAppUpdate(false);
       return;
     }
-    void refreshAppUpdate();
-  }, [refreshAppUpdate, workspace.bootstrap.connection.status, workspace.loggedIn]);
+
+    let cancelled = false;
+
+    async function syncClientUpdateState() {
+      const completedInstall = resolveCompletedClientUpdateInstall(clientUpdateCache, packageInfo.version);
+      if (completedInstall) {
+        try {
+          await p1Client.reportClientUpdateEvent({
+            releaseID: completedInstall.releaseID,
+            eventType: "installed",
+            deviceID: resolveClientUpdateDeviceID(),
+            fromVersion: completedInstall.fromVersion,
+            toVersion: completedInstall.toVersion
+          });
+        } catch (error) {
+          if (!cancelled) {
+            setAppUpdateError(error instanceof Error ? error.message : "上报客户端更新完成状态失败，请稍后重试。");
+          }
+          return;
+        }
+
+        if (cancelled) return;
+        setClientUpdateCache(null);
+        writeClientUpdateCache(null);
+        setAppUpdateError(null);
+
+        try {
+          await workspace.refreshBootstrap();
+        } catch (error) {
+          if (!cancelled) {
+            setAppUpdateError(error instanceof Error ? error.message : "刷新客户端更新通知失败，请稍后重试。");
+          }
+        }
+
+        if (cancelled) return;
+      }
+
+      await refreshAppUpdate({ force: Boolean(completedInstall) });
+    }
+
+    void syncClientUpdateState();
+    return () => {
+      cancelled = true;
+    };
+  }, [clientUpdateCache, refreshAppUpdate, workspace.bootstrap.connection.status, workspace.loggedIn, workspace.refreshBootstrap]);
 
   useEffect(() => {
     if (workspace.loggedIn && workspace.bootstrap.connection.status === "connected" && (appUpdate.status === "mandatory_update" || appUpdate.status === "unsupported_version")) {

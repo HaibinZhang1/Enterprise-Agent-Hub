@@ -5,7 +5,8 @@ import {
   cacheClientUpdateCheck,
   defaultAppUpdateState,
   deriveAppUpdateState,
-  dismissOptionalClientUpdate
+  dismissOptionalClientUpdate,
+  resolveCompletedClientUpdateInstall
 } from "../src/state/ui/clientUpdates.ts";
 
 test("cached client update state replaces the placeholder and keeps release identity", () => {
@@ -137,4 +138,38 @@ test("settings panel reflects blocking update states", () => {
   });
 
   assert.equal(panels.find((panel) => panel.id === "sync")?.status, "必须更新");
+});
+
+test("stale update cache resolves an installed event after the app restarts on the target version", () => {
+  const cache = cacheClientUpdateCheck(
+    {
+      status: "update_available",
+      updateType: "optional",
+      currentVersion: "1.5.0",
+      latestVersion: "1.6.0",
+      releaseID: "rel_01",
+      channel: "stable",
+      packageName: "EnterpriseAgentHub_1.6.0_x64-setup.exe",
+      sizeBytes: 124_000_000,
+      sha256: "hex-encoded-sha256",
+      publishedAt: "2026-04-19T10:00:00.000Z",
+      releaseNotes: "可选更新。",
+      mandatory: false,
+      minSupportedVersion: "1.4.0",
+      downloadTicketRequired: true,
+      releaseURL: "https://downloads.example.com/client-updates/rel_01",
+      lastCheckedAt: "2026-04-22T10:00:00.000Z"
+    },
+    null
+  );
+
+  assert.deepEqual(resolveCompletedClientUpdateInstall(cache, "1.6.0"), {
+    releaseID: "rel_01",
+    fromVersion: "1.5.0",
+    toVersion: "1.6.0",
+    targetVersion: "1.6.0"
+  });
+  assert.equal(resolveCompletedClientUpdateInstall(cache, "1.5.0"), null);
+  assert.equal(resolveCompletedClientUpdateInstall(cache, "1.5.9"), null);
+  assert.equal(resolveCompletedClientUpdateInstall({ ...cache, updateType: null }, "1.6.0"), null);
 });
