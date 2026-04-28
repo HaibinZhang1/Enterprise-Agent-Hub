@@ -34,6 +34,20 @@ Required before final integration/release:
 
 No `apps/desktop/src-electron/main.ts`, `preload.ts`, or `ipc/policy.ts` exists in this worktree yet. The security policy gate should be rerun in strict mode after worker-1 integrates the Electron shell. Required proof points: sender-frame origin validation on every handler, channel allowlist, no raw `ipcRenderer` exposure, explicit CSP, denied navigation/new-window/permission requests, and safe external URL handling.
 
+
+### P1: task 11 Electron shell needs two security-policy follow-ups
+
+Reviewed completed task 11 commit `81628b03` against `verification/electron-security-policy.json` by extracting `apps/desktop/src-electron/{main,preload,ipcContract,security}.ts` into a temporary root and running `check-electron-security-policy.mjs --strict`. The strict policy correctly fails on two release follow-ups:
+
+- `BrowserWindow` `webPreferences` sets `contextIsolation`, `nodeIntegration: false`, and `sandbox`, but does not explicitly set `webSecurity: true`. Electron defaults this to true, but the migration acceptance policy requires an explicit setting so future edits cannot silently weaken it.
+- Preload exposes a generic `desktopBridge.invoke(command, args)` dispatcher. It is channel- and command-allowlisted, so it is not raw `ipcRenderer`, but the RALPLAN/PRD security boundary asks for explicit preload methods or generated per-command wrappers rather than a generic invoke surface.
+
+Required before final release: either harden task 11 to satisfy strict policy, or record an explicit architecture exception for the generic local-command dispatcher with compensating tests.
+
+### P1: task 14 legacy-runtime scan may conflict with worker-6 audit artifacts
+
+Reviewed task 14 reported commit `54b28728` / equivalent checkpoint `2b58e877`. Its `scripts/verification/check-legacy-runtime-references.mjs` scans `verification/`, `scripts/`, and `tests/`, but only allowlists the migration map. Worker-6 intentionally added security gate files and this review report that contain historical migration terms. Integration should either switch the release scan to `scripts/checks/check-no-tauri-scan.mjs` + `verification/no-tauri-scan-allowlist.json`, or add worker-6 audit artifacts to the task 14 scanner allowlist. Otherwise the release scan will fail on the audit/gate files rather than active runtime code.
+
 ### P1: strict no-Tauri release gate is intentionally blocked during parallel migration
 
 The current no-Tauri scan has no unclassified hits, but strict mode must still fail because active runtime/scripts/docs/tests still contain transition blockers. This is expected until workers 1, 3, 4, and 5 finish and integrate their lanes. Do not remove the strict blocker list without replacing each entry with Electron implementation or historical migration-map text.
