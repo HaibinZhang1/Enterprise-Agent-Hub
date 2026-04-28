@@ -39,6 +39,8 @@ import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath 
 import { sanitizePhoneNumberInput, validatePhoneNumber } from "../src/utils/phoneNumber.ts";
 import { mergeLocalInstalls } from "../src/state/p1WorkspaceHelpers.ts";
 import { shouldCloseFromBackdropPointerDown } from "../src/ui/modalInteraction.ts";
+import { mockScanSummaries, seedLocalExtensions } from "../src/services/tauriBridge/preview.ts";
+import { appendReadOnlyExtensionScanFindings } from "../src/services/tauriBridge/scanOps.ts";
 
 const baseDraft: PublishDraft = {
   submissionType: "publish",
@@ -953,15 +955,15 @@ test("community leaderboards expose hot fallback plus independent download and s
   );
 });
 
-test("community leaderboard UI defaults to hot tab without carousel timer", () => {
+test("community leaderboard UI stays on the home page without the Skills sidebar", () => {
   const sourcePath = fileURLToPath(new URL("../src/ui/desktopSections.tsx", import.meta.url));
   const source = readFileSync(sourcePath, "utf8");
 
-  assert.match(source, /useState<CommunityLeaderboardKind>\("hot"\)/);
+  assert.match(source, /<div className="community-home-leaderboards"/);
+  assert.match(source, /CommunityHomeLeaderboardCard/);
   assert.match(source, /label: "热榜"/);
-  assert.doesNotMatch(source, /setInterval\(\(\) => \{\s*setActiveLeaderboard/s);
-  assert.doesNotMatch(source, /leaderboardPaused/);
-  assert.doesNotMatch(source, /leaderboard-carousel-track/);
+  assert.doesNotMatch(source, /data-testid="community-leaderboard-sidebar"/);
+  assert.doesNotMatch(source, /function Leaderboard/);
 });
 
 test("target draft submit label switches to disable when all targets are unchecked", () => {
@@ -1396,6 +1398,7 @@ test("mergeLocalInstalls appends local-only imports in authenticated market stat
         canUpdate: false
       }
     ],
+    extensions: [],
     tools: [],
     projects: [],
     notifications: [],
@@ -1408,6 +1411,26 @@ test("mergeLocalInstalls appends local-only imports in authenticated market stat
   assert.deepEqual(merged.map((skill) => skill.skillID), ["remote-skill", "local-helper"]);
   assert.equal(merged.find((skill) => skill.skillID === "local-helper")?.canUpdate, false);
   assert.equal(merged.find((skill) => skill.skillID === "local-helper")?.authorName, "本地托管");
+});
+
+test("preview local extensions include read-only non-file-backed P0 inventory", () => {
+  const extensions = seedLocalExtensions();
+  assert.ok(extensions.some((extension) => extension.extensionType === "skill" && extension.writeCapability));
+  assert.ok(extensions.some((extension) => extension.extensionType === "mcp_server" && !extension.writeCapability));
+  assert.ok(extensions.some((extension) => extension.extensionType === "plugin" && !extension.writeCapability));
+  assert.ok(extensions.some((extension) => extension.extensionType === "hook" && !extension.writeCapability));
+  assert.ok(extensions.some((extension) => extension.extensionType === "agent_cli" && !extension.writeCapability));
+});
+
+test("preview extension scans include all read-only P0 extension types", () => {
+  const summary = appendReadOnlyExtensionScanFindings(mockScanSummaries()[0]);
+  for (const extensionType of ["mcp_server", "plugin", "hook", "agent_cli"]) {
+    assert.ok(summary.findings.some((finding) => (
+      finding.extensionType === extensionType
+      && finding.writeCapability === false
+      && finding.canImport === false
+    )));
+  }
 });
 
 test("market query builder keeps installed/enabled local-only while sending category and date filters", () => {

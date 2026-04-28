@@ -3,11 +3,11 @@
 ## 文档信息
 - 文档名称：企业内部 Agent Skills 管理市场需求说明
 - 文档版本：V1.6
-- 当前状态：Desktop/API/Tauri 主链、作者治理闭环、审核/管理入口、手机号登录、记住密码/自动登录、固定中文分类/标签、本地扫描能力、客户端在线升级需求已整合；Windows 安装包与 Linux live 部署仍待目标环境验收
+- 当前状态：Desktop/API/Tauri 主链、作者治理闭环、审核/管理入口、手机号登录、记住密码/自动登录、固定中文分类/标签、本地扫描能力、插件集中管理 P0、客户端在线升级需求已整合；Windows 安装包与 Linux live 部署仍待目标环境验收
 - 适用范围：企业内网部署场景，Desktop/Tauri 桌面客户端为主，Windows 安装包交付优先，服务端部署到 Linux 服务器
-- 说明：本文档聚焦前端页面、功能、交互、权限、状态、业务规则与 Skill 包规范；不展开技术栈、数据库与接口实现细节。
+- 说明：本文档聚焦前端页面、功能、交互、权限、状态、业务规则、Skill 包规范与插件集中管理 P0 边界；不展开技术栈、数据库与接口实现细节。
 
-> 当前交付边界（2026-04-19）：正式桌面交付仍以 Windows exe 为主，服务端部署仍以 Linux 服务器为目标并优先选择简单、兼容性高的方案。真实 API `download-ticket` -> Tauri 安装/更新 -> Central Store + SQLite -> 启用 -> 重启恢复的最小闭环已经验证；Desktop runtime 已完成 Windows/macOS 平台适配层收敛。剩余缺口集中在 Windows exe 打包、Linux live 部署、客户端在线升级链路实现，以及 Windows/macOS 实机验收。
+> 当前交付边界（2026-04-27）：正式桌面交付仍以 Windows exe 为主，服务端部署仍以 Linux 服务器为目标并优先选择简单、兼容性高的方案。真实 API `download-ticket` -> Tauri 安装/更新 -> Central Store + SQLite -> 启用 -> 重启恢复的最小闭环已经验证；Desktop runtime 已完成 Windows/macOS 平台适配层收敛。插件集中管理 P0 以 Extension 统一库存、审计/预检展示和 file-backed 写入门禁为交付边界；MCP Server、Hook、原生 Plugin、Agent CLI 在 P0 不做真实配置写入。剩余缺口集中在 Windows exe 打包、Linux live 部署、客户端在线升级链路实现，以及 Windows/macOS 实机验收。
 
 > 交付入口口径（2026-04-12）：真实产品前端固定为 `apps/desktop`。`docs/design-ui/layout-prototype/` 只作为原型 UI/文案/信息架构参考，不作为交付界面、联调入口或验收依据。凡涉及登录、市场、通知、管理员权限和服务连接状态的能力，均以 live 服务端返回为准，不允许前端用 mock 或假远端数据兜底。
 
@@ -39,12 +39,12 @@
 | 05 | [生命周期与状态机](05_lifecycle_states.md) | 状态定义、状态流转图、撤回规则、权限变更状态流 |
 | 06 | [页面架构与导航](06_page_architecture.md) | 顶栏一级导航、页面骨架、角色菜单差异、跳转关系 |
 | 07 | [页面：首页](07_page_home.md) | Agent 探索主舞台、提问编辑框与主页约束 |
-| 08 | [页面：社区](08_page_market.md) | 社区 Skill 发现、搜索、筛选、卡片网格、热榜与发布入口 |
-| 09 | [页面：本地 Skill 与发布中心](09_page_myskill.md) | 本地 Skill 列表与社区内作者工作区、作者治理与提交详情 |
+| 08 | [页面：社区](08_page_market.md) | 社区 Skill 发现、搜索、筛选、卡片网格、首页榜单与发布入口 |
+| 09 | [页面：本地 Skill 与发布中心](09_page_myskill.md) | 本地 Skill/Extension 库存与社区内作者工作区、作者治理与提交详情 |
 | 10 | [页面：审核](10_page_review.md) | 审核工作台、待审核、审核详情、文件预览、SLA |
 | 11 | [页面：管理](11_page_manage.md) | 部门管理、用户管理、Skill 管理 |
 | 12 | [页面：工具与项目](12_page_tool_project.md) | 本地入口内的工具与项目能力 |
-| 13 | [页面：通知与设置](13_page_notify_settings.md) | 顶栏通知、设置模态、MCP/插件预留 |
+| 13 | [页面：通知与设置](13_page_notify_settings.md) | 顶栏通知、设置模态、MCP/插件 P0 边界 |
 | 14 | [Skill 包规范](14_skill_spec.md) | 包结构、SKILL.md 规范、元数据、校验规则 |
 | 15 | [核心流程](15_core_flows.md) | 发布、变更、撤回、下架、安装、卸载流程 |
 | 16 | [搜索与治理](16_search_governance.md) | 搜索规则、下载量/Star 口径、排序、曝光榜 |
@@ -59,5 +59,5 @@
 
 | 文档 | 说明 |
 |------|------|
-| [skills_manage.md](skills_manage.md) | 多 AI 工具统一 Skills 管理器设计草案（Central Store 架构） |
+| [skills_manage.md](skills_manage.md) | 多 AI 工具统一 Skills 管理器设计草案（Central Store 架构）；Plugin Central Management P0 继续复用其 file-backed Adapter 写入层 |
 | [../Progress/README.md](../Progress/README.md) | 历史进度归档入口；当前版本判断以规范源文档和 `docs/Verification/` 证据为准 |

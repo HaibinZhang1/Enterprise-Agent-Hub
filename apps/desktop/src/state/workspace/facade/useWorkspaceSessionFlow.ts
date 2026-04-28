@@ -24,6 +24,7 @@ export function useWorkspaceSessionFlow(input: {
     refreshLocalBootstrap: () => Promise<LocalBootstrap>;
     setNotifications: (value: LocalBootstrap["notifications"]) => void;
     setOfflineEvents: (value: LocalBootstrap["offlineEvents"]) => void;
+    setExtensions: (value: LocalBootstrap["extensions"]) => void;
     setProjects: (value: LocalBootstrap["projects"]) => void;
     setScanTargets: (value: Awaited<ReturnType<typeof import("../../../services/tauriBridge").desktopBridge.scanLocalTargets>>) => void;
     setTools: (value: LocalBootstrap["tools"]) => void;
@@ -61,6 +62,7 @@ export function useWorkspaceSessionFlow(input: {
         setLeaderboards: market.setLeaderboards,
         setLeaderboardsLoading: market.setLeaderboardsLoading,
         setSkills: market.setSkills,
+        setExtensions: localSync.setExtensions,
         setOfflineEvents: localSync.setOfflineEvents,
         setScanTargets: localSync.setScanTargets,
         setNotifications: localSync.setNotifications,
@@ -79,6 +81,7 @@ export function useWorkspaceSessionFlow(input: {
       localSync.refreshLocalBootstrap,
       localSync.setNotifications,
       localSync.setOfflineEvents,
+      localSync.setExtensions,
       localSync.setScanTargets,
       market.setLeaderboards,
       market.setLeaderboardsLoading,
@@ -146,6 +149,7 @@ export function useWorkspaceSessionFlow(input: {
         setBootstrap: auth.setBootstrap,
         setSkills: market.setSkills,
         setTools: localSync.setTools,
+        setExtensions: localSync.setExtensions,
         setProjects: localSync.setProjects,
         setOfflineEvents: localSync.setOfflineEvents,
         setScanTargets: localSync.setScanTargets,
@@ -160,6 +164,7 @@ export function useWorkspaceSessionFlow(input: {
       localSync.refreshLocalBootstrap,
       localSync.setNotifications,
       localSync.setOfflineEvents,
+      localSync.setExtensions,
       localSync.setProjects,
       localSync.setScanTargets,
       localSync.setTools,

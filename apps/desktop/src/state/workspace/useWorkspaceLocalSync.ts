@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { AuthState, BootstrapContext, LocalBootstrap, LocalEvent, LocalNotification, OperationProgress, ScanTargetSummary } from "../../domain/p1";
+import type { AuthState, BootstrapContext, ExtensionInstall, LocalBootstrap, LocalEvent, LocalNotification, OperationProgress, RequestedMode, ScanTargetSummary, TargetType } from "../../domain/p1";
 import { p1Client } from "../../services/p1Client.ts";
 import { desktopBridge } from "../../services/tauriBridge.ts";
 import { upsertNotifications } from "../p1WorkspaceHelpers.ts";
@@ -40,8 +40,15 @@ export async function syncPendingOfflineEvents(input: SyncPendingOfflineEventsIn
   }
 }
 
+function localActionErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return "本地命令执行失败，请稍后重试。";
+}
+
 export function useWorkspaceLocalSyncState() {
   const [tools, setTools] = useState<LocalBootstrap["tools"]>([]);
+  const [extensions, setExtensions] = useState<ExtensionInstall[]>([]);
   const [projects, setProjects] = useState<LocalBootstrap["projects"]>([]);
   const [notifications, setNotifications] = useState<LocalNotification[]>(emptyLocalNotifications);
   const [offlineEvents, setOfflineEvents] = useState<LocalEvent[]>([]);
@@ -55,6 +62,7 @@ export function useWorkspaceLocalSyncState() {
     const localBootstrap = await desktopBridge.getLocalBootstrap();
     localBootstrapRef.current = localBootstrap;
     setTools(localBootstrap.tools);
+    setExtensions(localBootstrap.extensions ?? []);
     setProjects(localBootstrap.projects);
     localNotificationsRef.current = localBootstrap.notifications;
     setOfflineEvents(localBootstrap.offlineEvents);
@@ -81,6 +89,7 @@ export function useWorkspaceLocalSyncState() {
   }, [notifications]);
 
   return {
+    extensions,
     localBootstrapRef,
     localCentralStorePath,
     localNotificationsRef,
@@ -94,6 +103,7 @@ export function useWorkspaceLocalSyncState() {
     setLocalCentralStorePath,
     setNotifications,
     setOfflineEvents,
+    setExtensions,
     setProjects,
     setScanTargets,
     setTools,
@@ -107,8 +117,10 @@ export function useWorkspaceLocalSyncActions(input: {
   handleRemoteError: HandleRemoteError;
   notifications: LocalNotification[];
   offlineEvents: LocalEvent[];
+  extensions: ExtensionInstall[];
   refreshLocalBootstrap: () => Promise<LocalBootstrap>;
   refreshLocalScans: () => Promise<ScanTargetSummary[]>;
+  setExtensions: Dispatch<SetStateAction<ExtensionInstall[]>>;
   setNotifications: Dispatch<SetStateAction<LocalNotification[]>>;
   setOfflineEvents: Dispatch<SetStateAction<LocalEvent[]>>;
   setProjects: Dispatch<SetStateAction<LocalBootstrap["projects"]>>;
@@ -121,8 +133,10 @@ export function useWorkspaceLocalSyncActions(input: {
     handleRemoteError,
     notifications,
     offlineEvents,
+    extensions,
     refreshLocalBootstrap,
     refreshLocalScans,
+    setExtensions,
     setNotifications,
     setOfflineEvents,
     setProjects,
@@ -252,6 +266,102 @@ export function useWorkspaceLocalSyncActions(input: {
     return desktopBridge.validateTargetPath(targetPath);
   }, []);
 
+  const enableExtension = useCallback(
+    async (extensionID: string, targetType: TargetType, targetID: string, requestedMode: RequestedMode = "symlink", allowOverwrite = false) => {
+      const extension = extensions.find((item) => item.extensionID === extensionID);
+      if (!extension) return;
+      updateSkillProgress({
+        operation: "enable",
+        skillID: extensionID,
+        stage: "Extension 写入门禁",
+        result: "running",
+        message: "正在通过 Extension 门禁调用本地 Adapter。"
+      });
+      try {
+        const target = await desktopBridge.enableExtension({
+          extension,
+          targetType,
+          targetID,
+          requestedMode,
+          allowOverwrite
+        });
+        const localBootstrap = await refreshLocalBootstrap();
+        await refreshLocalScans();
+        setExtensions(localBootstrap.extensions ?? []);
+        setOfflineEvents(localBootstrap.offlineEvents);
+        updateSkillProgress({
+          operation: "enable",
+          skillID: extensionID,
+          stage: "完成",
+          result: "success",
+          message: `${extension.displayName} 已启用到 ${target.targetName}`
+        });
+      } catch (error) {
+        const localBootstrap = await refreshLocalBootstrap().catch(() => null);
+        if (localBootstrap) {
+          setExtensions(localBootstrap.extensions ?? []);
+          setOfflineEvents(localBootstrap.offlineEvents);
+        }
+        await refreshLocalScans().catch(() => undefined);
+        const message = `${extension.displayName} 启用失败：${localActionErrorMessage(error)}`;
+        updateSkillProgress({
+          operation: "enable",
+          skillID: extensionID,
+          stage: "失败",
+          result: "failed",
+          message
+        });
+        throw new Error(message);
+      }
+    },
+    [extensions, refreshLocalBootstrap, refreshLocalScans, setExtensions, setOfflineEvents, updateSkillProgress]
+  );
+
+  const disableExtension = useCallback(
+    async (extensionID: string, targetID: string, targetType?: TargetType) => {
+      const extension = extensions.find((item) => item.extensionID === extensionID);
+      if (!extension) return;
+      updateSkillProgress({
+        operation: "disable",
+        skillID: extensionID,
+        stage: "移除 Extension 目标",
+        result: "running",
+        message: "正在停用托管 Extension 目标。"
+      });
+      try {
+        const target = await desktopBridge.disableExtension({ extension, targetID, targetType });
+        const localBootstrap = await refreshLocalBootstrap();
+        await refreshLocalScans();
+        setExtensions(localBootstrap.extensions ?? []);
+        setOfflineEvents(localBootstrap.offlineEvents);
+        updateSkillProgress({
+          operation: "disable",
+          skillID: extensionID,
+          stage: "完成",
+          result: "success",
+          message: `${extension.displayName} 已从 ${target.targetName} 停用。`
+        });
+      } catch (error) {
+        const localBootstrap = await refreshLocalBootstrap().catch(() => null);
+        if (localBootstrap) {
+          setExtensions(localBootstrap.extensions ?? []);
+          setOfflineEvents(localBootstrap.offlineEvents);
+        }
+        await refreshLocalScans().catch(() => undefined);
+        const message = `${extension.displayName} 停用失败：${localActionErrorMessage(error)}`;
+        updateSkillProgress({
+          operation: "disable",
+          skillID: extensionID,
+          stage: "失败",
+          result: "failed",
+          message
+        });
+        throw new Error(message);
+      }
+    },
+    [extensions, refreshLocalBootstrap, refreshLocalScans, setExtensions, setOfflineEvents, updateSkillProgress]
+  );
+
   const pickProjectDirectory = useCallback(async () => {
     return desktopBridge.pickProjectDirectory();
   }, []);
@@ -280,6 +390,8 @@ export function useWorkspaceLocalSyncActions(input: {
   return {
     deleteProjectConfig,
     deleteToolConfig,
+    disableExtension,
+    enableExtension,
     markNotificationsRead,
     pickProjectDirectory,
     refreshTools,

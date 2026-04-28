@@ -8,11 +8,12 @@ use enterprise_agent_hub_desktop::commands::client_updates::{
     ClientUpdateLaunchResultPayload, ClientUpdateVerificationPayload, ClientUpdateVerifyPayload,
 };
 use enterprise_agent_hub_desktop::commands::local_state::{
-    DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, ImportLocalSkillPayload,
-    LocalBootstrapPayload, LocalNotificationPayload, LocalSkillInstallPayload,
-    OfflineSyncAckPayload, P1LocalState, ProjectConfigInputPayload, ProjectConfigPayload,
-    ScanTargetSummaryPayload, ToolConfigInputPayload, ToolConfigPayload, UninstallSkillPayload,
-    ValidateTargetPathPayload,
+    DisableExtensionPayload, DisableSkillPayload, DownloadTicketPayload, EnableExtensionPayload,
+    EnabledTargetPayload, ExtensionInstallPayload, ImportLocalExtensionPayload,
+    ImportLocalSkillPayload, LocalBootstrapPayload, LocalNotificationPayload,
+    LocalSkillInstallPayload, OfflineSyncAckPayload, P1LocalState, PluginTargetPayload,
+    ProjectConfigInputPayload, ProjectConfigPayload, ScanTargetSummaryPayload,
+    ToolConfigInputPayload, ToolConfigPayload, UninstallSkillPayload, ValidateTargetPathPayload,
 };
 use enterprise_agent_hub_desktop::commands::project_directory::{
     pick_project_directory as pick_project_directory_command, ProjectDirectorySelectionPayload,
@@ -225,10 +226,48 @@ fn scan_local_targets(
 }
 
 #[tauri::command]
+fn scan_extension_targets(
+    state: State<'_, P1LocalState>,
+) -> Result<Vec<ScanTargetSummaryPayload>, String> {
+    state.scan_extension_targets()
+}
+
+#[tauri::command]
 fn list_local_installs(
     state: State<'_, P1LocalState>,
 ) -> Result<Vec<LocalSkillInstallPayload>, String> {
     state.list_local_installs()
+}
+
+#[tauri::command]
+fn list_local_extensions(
+    state: State<'_, P1LocalState>,
+) -> Result<Vec<ExtensionInstallPayload>, String> {
+    state.list_local_extensions()
+}
+
+#[tauri::command]
+fn import_local_extension(
+    state: State<'_, P1LocalState>,
+    input: ImportLocalExtensionPayload,
+) -> Result<ExtensionInstallPayload, String> {
+    state.import_local_extension(input)
+}
+
+#[tauri::command]
+fn enable_extension(
+    state: State<'_, P1LocalState>,
+    input: EnableExtensionPayload,
+) -> Result<PluginTargetPayload, String> {
+    state.enable_extension(input)
+}
+
+#[tauri::command]
+fn disable_extension(
+    state: State<'_, P1LocalState>,
+    input: DisableExtensionPayload,
+) -> Result<PluginTargetPayload, String> {
+    state.disable_extension(input)
 }
 
 #[tauri::command]
@@ -274,7 +313,12 @@ fn main() {
             mark_offline_events_synced,
             validate_target_path,
             scan_local_targets,
+            scan_extension_targets,
             list_local_installs,
+            list_local_extensions,
+            import_local_extension,
+            enable_extension,
+            disable_extension,
             pick_project_directory
         ])
         .run(tauri::generate_context!())

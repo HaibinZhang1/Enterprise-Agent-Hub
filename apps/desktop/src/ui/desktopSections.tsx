@@ -20,7 +20,7 @@ import {
   Users,
   X
 } from "lucide-react";
-import type { AdminSkill, ClientUpdateReleaseSummary, DiscoveredLocalSkill, MarketFilters, PublishDraft, PublisherSkillSummary, PublisherSubmissionDetail, PublishScopeType, ReviewDetail, RiskLevel, SkillLeaderboardItem, SkillSummary } from "../domain/p1.ts";
+import type { AdminSkill, ClientUpdateReleaseSummary, DiscoveredLocalSkill, ExtensionInstall, MarketFilters, PluginTarget, PublishDraft, PublisherSkillSummary, PublisherSubmissionDetail, PublishScopeType, ReviewDetail, RiskLevel, SkillLeaderboardItem, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
 import { buildCommunityExploreFilters, canAccessClientUpdateManagement, type DesktopUIState } from "../state/useDesktopUIState.ts";
@@ -213,6 +213,81 @@ function discoveredSkillView(skill: DiscoveredLocalSkill): UnifiedSkillView {
   };
 }
 
+function extensionTypeLabel(type: ExtensionInstall["extensionType"]) {
+  return {
+    skill: "Skill",
+    mcp_server: "MCP Server",
+    plugin: "Plugin",
+    hook: "Hook",
+    agent_cli: "Agent CLI"
+  }[type] ?? type;
+}
+
+function extensionKindLabel(kind: ExtensionInstall["extensionKind"]) {
+  return {
+    file_backed: "可写文件型",
+    config_backed: "配置型",
+    native_plugin: "原生插件",
+    agent_cli: "CLI"
+  }[kind] ?? kind;
+}
+
+function extensionAuditLabel(status: ExtensionInstall["auditStatus"]) {
+  return {
+    unknown: "审计未知",
+    pending: "待审计",
+    passed: "审计通过",
+    warning: "审计警告",
+    failed: "审计失败"
+  }[status] ?? status;
+}
+
+function extensionEnterpriseLabel(status: ExtensionInstall["enterpriseStatus"]) {
+  return {
+    allowed: "企业允许",
+    disabled: "企业禁用",
+    revoked: "企业撤销"
+  }[status] ?? status;
+}
+
+function extensionTone(extension: ExtensionInstall): UnifiedSkillTone {
+  if (extension.enterpriseStatus === "revoked") return "danger";
+  if (extension.enterpriseStatus === "disabled") return "warning";
+  if (!extension.writeCapability) return "info";
+  return extension.targets.some((target) => target.status === "enabled") ? "success" : "neutral";
+}
+
+function extensionView(extension: ExtensionInstall): UnifiedSkillView {
+  const enabledTargets = extension.targets.filter((target) => target.status === "enabled");
+  const statusLabel = extension.enterpriseStatus !== "allowed"
+    ? extensionEnterpriseLabel(extension.enterpriseStatus)
+    : extension.writeCapability
+      ? "可启用"
+      : "仅审计/预检";
+  return {
+    skillID: extension.extensionID,
+    displayName: extension.displayName,
+    description: extension.manifest.description ?? `${extensionTypeLabel(extension.extensionType)} 本地扩展。`,
+    iconLabel: extension.displayName,
+    statusLabel,
+    statusTone: extensionTone(extension),
+    versionLabel: `本地 v${extension.localVersion}`,
+    categoryLabel: extensionTypeLabel(extension.extensionType),
+    ownerLabel: extension.sourceType === "local_import" ? "本地导入" : "Central Store",
+    departmentLabel: extensionKindLabel(extension.extensionKind),
+    updatedAt: extension.updatedAt,
+    riskLabel: riskLabel({ riskLevel: extension.riskLevel } as SkillSummary, "zh-CN"),
+    riskTone: extension.riskLevel === "high" ? "danger" : extension.riskLevel === "medium" ? "warning" : "info",
+    reviewSummary: `${extensionAuditLabel(extension.auditStatus)} · ${extensionEnterpriseLabel(extension.enterpriseStatus)}`,
+    rowMeta: [
+      extensionKindLabel(extension.extensionKind),
+      extension.sourceType === "local_import" ? "本地导入" : extension.sourceType,
+      extension.writeCapability ? "可启用" : "仅审计/预检"
+    ],
+    metrics: [`目标 ${enabledTargets.length}`, extensionAuditLabel(extension.auditStatus)]
+  };
+}
+
 function publisherSkillView(skill: PublisherSkillSummary, selectedSubmission: PublisherSubmissionDetail | null, language: "zh-CN" | "en-US"): UnifiedSkillView {
   const statusText = skill.latestWorkflowState
     ? workflowStateLabel(skill.latestWorkflowState, language)
@@ -298,7 +373,8 @@ function UnifiedSkillInspector({
   dangerActions,
   children,
   as = "aside",
-  className = ""
+  className = "",
+  kicker = "Skill 简介"
 }: {
   view: UnifiedSkillView;
   actions?: React.ReactNode;
@@ -306,11 +382,12 @@ function UnifiedSkillInspector({
   children?: React.ReactNode;
   as?: "aside" | "section";
   className?: string;
+  kicker?: string;
 }) {
   const content = (
     <>
       <div className="detail-block">
-        <div className="inspector-kicker">Skill 简介</div>
+        <div className="inspector-kicker">{kicker}</div>
         <strong>{view.displayName}</strong>
         <small>{view.skillID} · {view.versionLabel}</small>
         <p>{view.description}</p>
@@ -786,45 +863,6 @@ function CommunityLeaderboardList({
   );
 }
 
-function Leaderboard({ workspace, ui }: SectionProps) {
-  const [activeLeaderboard, setActiveLeaderboard] = useState<CommunityLeaderboardKind>("hot");
-  const leaderboards = useResolvedCommunityLeaderboards(workspace);
-  const leaderboardSlides = [
-    { kind: "hot", label: "热榜", icon: <CircleGauge size={14} />, skills: leaderboards.hot },
-    { kind: "stars", label: "Star 榜", icon: <Star size={14} />, skills: leaderboards.stars },
-    { kind: "downloads", label: "下载榜", icon: <Download size={14} />, skills: leaderboards.downloads }
-  ] as const;
-  const activeSlide = leaderboardSlides.find((slide) => slide.kind === activeLeaderboard) ?? leaderboardSlides[0];
-  const hasLeaderboard = leaderboards.hot.length > 0 || leaderboards.stars.length > 0 || leaderboards.downloads.length > 0;
-  const emptyBody = activeLeaderboard === "hot" ? "近 7 天暂无热度数据。" : "登录后会根据社区真实数据展示榜单。";
-
-  return (
-    <aside className="stage-panel community-side-panel" data-testid="community-leaderboard-sidebar">
-      <div className="leaderboard-switcher" aria-label="社区热榜切换">
-        {leaderboardSlides.map(({ kind, label, icon }) => (
-          <button
-            key={kind}
-            className={activeLeaderboard === kind ? "leaderboard-tab active" : "leaderboard-tab"}
-            data-leaderboard-kind={kind}
-            type="button"
-            onClick={() => setActiveLeaderboard(kind)}
-            aria-pressed={activeLeaderboard === kind}
-          >
-            {icon}
-            {label}
-          </button>
-        ))}
-      </div>
-      {!hasLeaderboard || activeSlide.skills.length === 0 ? <SectionEmpty title="暂无榜单数据" body={emptyBody} /> : null}
-      {activeSlide.skills.length > 0 ? (
-        <section className="leaderboard-panel" aria-live="polite">
-          <CommunityLeaderboardList title={activeSlide.label} skills={activeSlide.skills} ui={ui} metric={activeSlide.kind} />
-        </section>
-      ) : null}
-    </aside>
-  );
-}
-
 function CommunityHomeLeaderboardCard({
   title,
   icon,
@@ -1293,6 +1331,7 @@ function CommunityPublisherWorkspace({
 	    formData.set("tags", JSON.stringify(draft.tags));
 	    formData.set("compatibleTools", JSON.stringify(splitCSV(toolInput)));
 	    formData.set("compatibleSystems", JSON.stringify(splitCSV(systemInput)));
+	    formData.set("fileRelativePaths", JSON.stringify(uploadEntries.map((entry) => entry.relativePath)));
 	    for (const entry of uploadEntries) {
 	      formData.append("files", entry.file, entry.relativePath);
 	    }
@@ -1974,7 +2013,6 @@ export function CommunitySection({ workspace, ui }: SectionProps) {
                     ))}
                   </div>
                 </section>
-                <Leaderboard workspace={workspace} ui={ui} />
               </div>
             </div>
           ) : null}
@@ -2191,6 +2229,197 @@ function LocalDiscoveredSkillDetail({
   );
 }
 
+function LocalExtensionRow({
+  extension,
+  active,
+  onSelect
+}: {
+  extension: ExtensionInstall;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <UnifiedSkillRow
+      view={extensionView(extension)}
+      active={active}
+      onSelect={onSelect}
+      actions={
+        <button className="btn btn-small" type="button" onClick={(event) => { event.stopPropagation(); onSelect(); }}>
+          查看
+        </button>
+      }
+    />
+  );
+}
+
+function LocalExtensionTargetRow({
+  target,
+  onDisable
+}: {
+  target: PluginTarget;
+  onDisable?: (target: PluginTarget) => void;
+}) {
+  return (
+    <div className="micro-row">
+      <strong>{target.targetName}</strong>
+      <small>{target.targetType} · {target.targetAgent} · {target.status}</small>
+      {target.targetPath ? <small>{target.targetPath}</small> : null}
+      {target.denialReason ? <small>{target.denialReason}</small> : null}
+      {target.status === "enabled" && onDisable ? (
+        <button className="btn btn-small" type="button" onClick={() => onDisable(target)}>
+          停用
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function LocalExtensionDetail({ extension, workspace }: SectionProps & { extension: ExtensionInstall }) {
+  const view = extensionView(extension);
+  const enabledTargets = extension.targets.filter((target) => target.status === "enabled");
+  const targetOptions = useMemo(
+    () => [
+      ...workspace.tools
+        .filter((tool) => tool.enabled && tool.adapterStatus !== "missing")
+        .map((tool) => ({
+          id: `tool:${tool.toolID}`,
+          targetType: "tool" as const,
+          targetID: tool.toolID,
+          label: tool.displayName || tool.name
+        })),
+      ...workspace.projects
+        .filter((project) => project.enabled)
+        .map((project) => ({
+          id: `project:${project.projectID}`,
+          targetType: "project" as const,
+          targetID: project.projectID,
+          label: project.displayName || project.name
+        }))
+    ],
+    [workspace.projects, workspace.tools]
+  );
+  const [targetValue, setTargetValue] = useState("");
+  const [requestedMode, setRequestedMode] = useState<"symlink" | "copy">("symlink");
+  const selectedTarget = targetOptions.find((target) => target.id === targetValue) ?? targetOptions[0] ?? null;
+  const canEnableExtension = extension.writeCapability && extension.enterpriseStatus === "allowed" && selectedTarget !== null;
+
+  useEffect(() => {
+    if (selectedTarget && selectedTarget.id !== targetValue) {
+      setTargetValue(selectedTarget.id);
+    }
+  }, [selectedTarget, targetValue]);
+
+  return (
+    <UnifiedSkillInspector
+      view={view}
+      kicker="Extension 简介"
+      actions={
+        <>
+          {extension.writeCapability ? <ScanLocalTargetsButton workspace={workspace} label="扫描目标" /> : null}
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={!canEnableExtension}
+            onClick={() => {
+              if (!selectedTarget) return;
+              void workspace.enableExtension(
+                extension.extensionID,
+                selectedTarget.targetType,
+                selectedTarget.targetID,
+                requestedMode
+              ).catch(() => undefined);
+            }}
+          >
+            {extension.writeCapability ? "启用到目标" : "仅审计/预检"}
+          </button>
+        </>
+      }
+    >
+      <div className="definition-grid split">
+        <div><dt>扩展类型</dt><dd>{extensionTypeLabel(extension.extensionType)}</dd></div>
+        <div><dt>写入类型</dt><dd>{extensionKindLabel(extension.extensionKind)}</dd></div>
+        <div><dt>企业状态</dt><dd>{extensionEnterpriseLabel(extension.enterpriseStatus)}</dd></div>
+        <div><dt>写入能力</dt><dd>{extension.writeCapability ? "可启用" : "仅审计/预检"}</dd></div>
+      </div>
+      <div className="detail-block">
+        <h3>权限与风险</h3>
+        <div className="pill-row">
+          {extension.permissions.length === 0 ? <TagPill tone="neutral">暂无权限声明</TagPill> : null}
+          {extension.permissions.map((permission) => (
+            <TagPill key={permission.id} tone={permission.riskLevel === "high" ? "danger" : permission.riskLevel === "medium" ? "warning" : "info"}>
+              {permission.label}
+            </TagPill>
+          ))}
+        </div>
+      </div>
+      {extension.writeCapability ? (
+        <div className="detail-block">
+          <h3>启用目标</h3>
+          <div className="definition-grid split">
+            <div>
+              <dt>目标</dt>
+              <dd>
+                <select
+                  className="sort-select"
+                  aria-label="选择 Extension 启用目标"
+                  value={selectedTarget?.id ?? ""}
+                  onChange={(event) => setTargetValue(event.target.value)}
+                  disabled={targetOptions.length === 0 || extension.enterpriseStatus !== "allowed"}
+                >
+                  {targetOptions.length === 0 ? <option value="">没有可用目标</option> : null}
+                  {targetOptions.map((target) => (
+                    <option key={target.id} value={target.id}>{target.label}</option>
+                  ))}
+                </select>
+              </dd>
+            </div>
+            <div>
+              <dt>写入模式</dt>
+              <dd>
+                <select
+                  className="sort-select"
+                  aria-label="选择 Extension 写入模式"
+                  value={requestedMode}
+                  onChange={(event) => setRequestedMode(event.target.value as "symlink" | "copy")}
+                  disabled={extension.enterpriseStatus !== "allowed"}
+                >
+                  <option value="symlink">symlink 优先</option>
+                  <option value="copy">copy</option>
+                </select>
+              </dd>
+            </div>
+          </div>
+          {extension.enterpriseStatus !== "allowed" ? (
+            <div className="callout warning"><AlertTriangle size={16} /> 企业策略已限制该扩展，不能新增启用。</div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="detail-block">
+        <h3>目标状态</h3>
+        {extension.targets.length === 0 ? <p>{extension.writeCapability ? "当前还没有启用目标。" : "P0 不为该类型创建启用目标。"}</p> : null}
+        <div className="stack-list compact">
+          {extension.targets.map((target) => (
+            <LocalExtensionTargetRow
+              key={target.id}
+              target={target}
+              onDisable={extension.writeCapability ? (currentTarget) => {
+                void workspace.disableExtension(
+                  extension.extensionID,
+                  currentTarget.targetID,
+                  currentTarget.targetType
+                ).catch(() => undefined);
+              } : undefined}
+            />
+          ))}
+        </div>
+        {enabledTargets.length > 0 && extension.enterpriseStatus !== "allowed" ? (
+          <div className="callout warning"><AlertTriangle size={16} /> 企业策略已限制该扩展，新增启用会被阻止。</div>
+        ) : null}
+      </div>
+    </UnifiedSkillInspector>
+  );
+}
+
 function LocalToolsAndProjects({
   workspace,
   ui,
@@ -2342,6 +2571,8 @@ function LocalToolsAndProjects({
 }
 
 export function LocalSection({ workspace, ui }: SectionProps) {
+  const [extensionQuery, setExtensionQuery] = useState("");
+  const [selectedExtensionID, setSelectedExtensionID] = useState("");
   const selectedSkill = useMemo(() => {
     const filtered = ui.installedView.filteredInstalledSkills;
     return filtered.find((skill) => skill.skillID === workspace.selectedSkillID) ?? null;
@@ -2378,6 +2609,27 @@ export function LocalSection({ workspace, ui }: SectionProps) {
   );
   const hasLocalSkillRows = ui.installedView.filteredInstalledSkills.length > 0 || filteredDiscoveredSkills.length > 0;
   const isLocalSkillsEmptyState = !hasLocalSkillRows && !selectedSkill && !selectedDiscoveredSkill;
+  const filteredExtensions = useMemo(() => {
+    const query = extensionQuery.trim().toLocaleLowerCase();
+    return workspace.localExtensions.filter((extension) => {
+      if (!query) return true;
+      const text = [
+        extension.extensionID,
+        extension.displayName,
+        extension.extensionType,
+        extension.extensionKind,
+        extension.enterpriseStatus,
+        extension.auditStatus,
+        ...extension.permissions.map((permission) => permission.label),
+        ...extension.targets.flatMap((target) => [target.targetName, target.targetPath ?? "", target.status, target.denialReason ?? ""])
+      ].join(" ").toLocaleLowerCase();
+      return text.includes(query);
+    });
+  }, [extensionQuery, workspace.localExtensions]);
+  const selectedExtension = useMemo(
+    () => filteredExtensions.find((extension) => extension.extensionID === selectedExtensionID) ?? filteredExtensions[0] ?? null,
+    [filteredExtensions, selectedExtensionID]
+  );
 
   useEffect(() => {
     const nextSkillID =
@@ -2391,8 +2643,19 @@ export function LocalSection({ workspace, ui }: SectionProps) {
     }
   }, [filteredDiscoveredSkills, selectedDiscoveredSkill, selectedSkill, ui.installedView.filteredInstalledSkills, workspace]);
 
+  useEffect(() => {
+    if (!selectedExtension && selectedExtensionID) {
+      setSelectedExtensionID("");
+      return;
+    }
+    if (!selectedExtensionID && filteredExtensions[0]) {
+      setSelectedExtensionID(filteredExtensions[0].extensionID);
+    }
+  }, [filteredExtensions, selectedExtension, selectedExtensionID]);
+
   const sidebarItems = [
     { id: "skills", label: "Skills", icon: <Sparkles size={16} /> },
+    { id: "extensions", label: "扩展", icon: <PackageCheck size={16} /> },
     { id: "tools", label: "工具", icon: <CircleGauge size={16} /> },
     { id: "projects", label: "项目", icon: <FolderPlus size={16} /> }
   ] as const;
@@ -2499,6 +2762,49 @@ export function LocalSection({ workspace, ui }: SectionProps) {
                 <LocalDiscoveredSkillDetail workspace={workspace} ui={ui} skill={selectedDiscoveredSkill} />
               ) : (
                 <aside className="detail-panel inspector-panel detail-placeholder-panel"><SectionEmpty title="选择一个 Skill 查看详情" body="详情区会集中展示版本、范围、风险摘要和下一步动作。" compact align="start" /></aside>
+              )}
+            </div>
+          ) : null}
+
+          {ui.localPane === "extensions" ? (
+            <div className="list-detail-shell local-browser has-detail" data-empty={filteredExtensions.length === 0 ? "true" : undefined}>
+              <section className="stage-panel list-panel local-list-panel" data-empty={filteredExtensions.length === 0 ? "true" : undefined}>
+                <div className="local-filter-shell">
+                  <div className="meta-strip">
+                    <span className="metric-chip">扩展 {filteredExtensions.length}</span>
+                    <span className="metric-chip">可启用 {filteredExtensions.filter((extension) => extension.writeCapability).length}</span>
+                    <span className="metric-chip">只读 {filteredExtensions.filter((extension) => !extension.writeCapability).length}</span>
+                  </div>
+                  <div className="search-sort-row list-toolbar-row">
+                    <label className="search-shell">
+                      <Search size={16} />
+                      <input
+                        aria-label="搜索本地扩展"
+                        type="search"
+                        value={extensionQuery}
+                        placeholder="搜索扩展名称、类型、审计或目标状态"
+                        onChange={(event) => setExtensionQuery(event.target.value)}
+                      />
+                    </label>
+                    <ScanLocalTargetsButton workspace={workspace} />
+                  </div>
+                </div>
+                <div className="selection-list">
+                  {filteredExtensions.length === 0 ? <SectionEmpty title="没有符合条件的扩展" body="已安装 Skill 会自动投影为 file-backed Extension；非文件型扩展在 P0 仅展示审计/预检状态。" /> : null}
+                  {filteredExtensions.map((extension) => (
+                    <LocalExtensionRow
+                      key={extension.extensionID}
+                      extension={extension}
+                      active={selectedExtension?.extensionID === extension.extensionID}
+                      onSelect={() => setSelectedExtensionID(extension.extensionID)}
+                    />
+                  ))}
+                </div>
+              </section>
+              {selectedExtension ? (
+                <LocalExtensionDetail workspace={workspace} ui={ui} extension={selectedExtension} />
+              ) : (
+                <aside className="detail-panel inspector-panel detail-placeholder-panel"><SectionEmpty title="选择一个扩展查看详情" body="详情区会展示类型、权限、审计、企业状态和目标状态。" compact align="start" /></aside>
               )}
             </div>
           ) : null}

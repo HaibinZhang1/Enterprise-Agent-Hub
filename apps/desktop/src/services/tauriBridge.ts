@@ -1,5 +1,5 @@
-import type { DownloadTicket, EnabledTarget, LocalBootstrap, LocalEvent, LocalNotification, LocalSkillInstall, ProjectConfig, ProjectDirectorySelection, RequestedMode, ScanTargetSummary, SkillSummary, TargetType, ToolConfig, ValidateTargetPathResult } from "../domain/p1.ts";
-import { getLocalBootstrap, listLocalInstalls } from "./tauriBridge/bootstrap.ts";
+import type { DownloadTicket, EnabledTarget, ExtensionInstall, ExtensionKind, ExtensionType, LocalBootstrap, LocalEvent, LocalNotification, LocalSkillInstall, PluginTarget, ProjectConfig, ProjectDirectorySelection, RequestedMode, ScanTargetSummary, SkillSummary, TargetType, ToolConfig, ValidateTargetPathResult } from "../domain/p1.ts";
+import { getLocalBootstrap, listLocalExtensions, listLocalInstalls } from "./tauriBridge/bootstrap.ts";
 import type {
   ClientAppVersionInfo,
   ClientUpdateArtifactInput,
@@ -11,9 +11,9 @@ import type {
 } from "./tauriBridge/clientUpdates.ts";
 import { downloadClientUpdate, getClientAppVersion, launchClientInstaller, verifyClientUpdate } from "./tauriBridge/clientUpdates.ts";
 import { deleteProjectConfig, deleteToolConfig, saveProjectConfig, saveToolConfig, pickProjectDirectory } from "./tauriBridge/configOps.ts";
-import { disableSkill, enableSkill, importLocalSkill, installSkillPackage, uninstallSkill, updateSkillPackage } from "./tauriBridge/packageOps.ts";
+import { disableExtension, disableSkill, enableExtension, enableSkill, importLocalExtension, importLocalSkill, installSkillPackage, uninstallSkill, updateSkillPackage } from "./tauriBridge/packageOps.ts";
 import { markLocalNotificationsRead, markOfflineEventsSynced, upsertLocalNotifications } from "./tauriBridge/notificationOps.ts";
-import { refreshToolDetection, scanLocalTargets, validateTargetPath } from "./tauriBridge/scanOps.ts";
+import { refreshToolDetection, scanExtensionTargets, scanLocalTargets, validateTargetPath } from "./tauriBridge/scanOps.ts";
 
 export interface DesktopBridge {
   getClientAppVersion(): Promise<ClientAppVersionInfo>;
@@ -24,6 +24,10 @@ export interface DesktopBridge {
   installSkillPackage(downloadTicket: DownloadTicket): Promise<LocalSkillInstall>;
   updateSkillPackage(downloadTicket: DownloadTicket): Promise<LocalSkillInstall>;
   importLocalSkill(input: { targetType: TargetType; targetID: string; relativePath: string; skillID: string; conflictStrategy: "rename" | "replace" }): Promise<LocalSkillInstall>;
+  listLocalExtensions(): Promise<ExtensionInstall[]>;
+  importLocalExtension(input: { extensionID: string; extensionType: ExtensionType; extensionKind: ExtensionKind; targetType: TargetType; targetID: string; relativePath: string; conflictStrategy: "rename" | "replace" }): Promise<ExtensionInstall>;
+  enableExtension(input: { extension: ExtensionInstall; targetType: TargetType; targetID: string; requestedMode: RequestedMode; allowOverwrite?: boolean }): Promise<PluginTarget>;
+  disableExtension(input: { extension: ExtensionInstall; targetID: string; targetType?: TargetType }): Promise<PluginTarget>;
   saveToolConfig(tool: { toolID: string; name?: string; configPath: string; skillsPath: string; enabled?: boolean }): Promise<ToolConfig>;
   deleteToolConfig(toolID: string): Promise<void>;
   saveProjectConfig(project: { projectID?: string; name: string; projectPath: string; skillsPath: string; enabled?: boolean }): Promise<ProjectConfig>;
@@ -37,6 +41,7 @@ export interface DesktopBridge {
   listLocalInstalls(): Promise<LocalSkillInstall[]>;
   refreshToolDetection(): Promise<ToolConfig[]>;
   scanLocalTargets(): Promise<ScanTargetSummary[]>;
+  scanExtensionTargets(): Promise<ScanTargetSummary[]>;
   validateTargetPath(targetPath: string): Promise<ValidateTargetPathResult>;
   pickProjectDirectory(): Promise<ProjectDirectorySelection | null>;
 }
@@ -50,6 +55,10 @@ export const desktopBridge: DesktopBridge = {
   installSkillPackage,
   updateSkillPackage,
   importLocalSkill,
+  listLocalExtensions,
+  importLocalExtension,
+  enableExtension,
+  disableExtension,
   saveToolConfig,
   deleteToolConfig,
   saveProjectConfig,
@@ -63,6 +72,7 @@ export const desktopBridge: DesktopBridge = {
   listLocalInstalls,
   refreshToolDetection,
   scanLocalTargets,
+  scanExtensionTargets,
   validateTargetPath,
   pickProjectDirectory,
 };

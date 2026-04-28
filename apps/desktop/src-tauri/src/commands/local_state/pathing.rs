@@ -143,6 +143,9 @@ pub(super) fn build_local_event_payload(
         event_id: format!("evt_{}", now_millis()),
         event_type: event_type.to_string(),
         skill_id: skill_id.to_string(),
+        extension_id: None,
+        extension_type: None,
+        extension_kind: None,
         version: version.to_string(),
         target_type: target_type.to_string(),
         target_id: target_id.into(),
@@ -150,6 +153,8 @@ pub(super) fn build_local_event_payload(
         requested_mode: requested_mode.into(),
         resolved_mode: resolved_mode.into(),
         fallback_reason,
+        denial_reason: None,
+        enterprise_status: None,
         occurred_at: occurred_at.into(),
         result: result.to_string(),
     }

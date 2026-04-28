@@ -428,6 +428,60 @@ test("PublishingSubmissionService allows first publish to reuse an archived slug
   assert.equal(result.actorUserID, "u_author");
 });
 
+test("PublishingSubmissionService restores submitted folder relative paths when Multer strips names", async () => {
+  let stagedFiles = [];
+  const { submissionService } = createServices({
+    publishingRepository: {
+      async loadActor() {
+        return {
+          userID: "u_author",
+          displayName: "作者",
+          departmentID: "dept_frontend",
+          departmentName: "前端组"
+        };
+      },
+      async loadSkillByID() {
+        return null;
+      }
+    },
+    packageStorage: {
+      async stageSubmissionPackage(_reviewID, _input, files) {
+        stagedFiles = files;
+        return {
+          bucket: "staged-review-packages",
+          objectKey: "reviews/review-1/package.zip",
+          sha256: "sha256:stage",
+          sizeBytes: 256,
+          fileCount: 1
+        };
+      }
+    }
+  });
+
+  await submissionService.createSubmission(
+    "u_author",
+    {
+      submissionType: "publish",
+      skillID: "prompt-guardrails",
+      displayName: "提示词护栏模板",
+      description: "发布前检查提示词结构。",
+      version: "1.0.0",
+      visibilityLevel: "detail_visible",
+      scopeType: "current_department",
+      changelog: "首次发布",
+      category: "开发",
+      tags: JSON.stringify(["提示"]),
+      fileRelativePaths: JSON.stringify(["prompt-guardrails/SKILL.md"])
+    },
+    [{ originalname: "SKILL.md", buffer: Buffer.from("# Skill") }]
+  );
+
+  assert.deepEqual(
+    stagedFiles.map((file) => file.originalname),
+    ["prompt-guardrails/SKILL.md"]
+  );
+});
+
 test("PublishingPublicationService republishes archived skills back to published status", async () => {
   const queries = [];
   const publicationService = new PublishingPublicationService(

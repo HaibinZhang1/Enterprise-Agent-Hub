@@ -68,7 +68,7 @@
 | Star | Star | 收藏 + 推荐 + 搜索权重提升。实时生效数量，类似 GitHub Star |
 | 下载量 | Download Count | 按用户去重的安装下载累计值。同一用户同一 Skill 多次申请安装下载凭证计一次，更新、预览和审核包下载不计入 |
 | 综合排序 | Composite Ranking | 考虑搜索相关度、Star、下载量、更新时间、风险等级的综合排序 |
-| 全站曝光榜 | Global Leaderboard | 面向全站的排行榜。社区侧栏当前分别展示前 10 名热榜、Star 榜和下载榜，非公开 skill 不进入 |
+| 全站曝光榜 | Global Leaderboard | 面向全站的排行榜。社区首页当前分别展示前 10 名热榜、Star 榜和下载榜，非公开 skill 不进入 |
 
 ## 组织相关
 

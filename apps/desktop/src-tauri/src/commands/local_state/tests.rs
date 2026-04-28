@@ -1,6 +1,7 @@
 use super::pathing::{now_millis, resolve_project_adapter};
 use super::*;
 use crate::store::hash::sha256_hex;
+use rusqlite::params;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -19,6 +20,26 @@ fn seed_download_ticket(package_bytes: &[u8], package_url: String) -> DownloadTi
         package_size: package_bytes.len() as u64,
         package_file_count: 2,
     }
+}
+
+fn has_read_only_extension(extensions: &[ExtensionInstallPayload], extension_type: &str) -> bool {
+    extensions
+        .iter()
+        .any(|extension| extension.extension_type == extension_type && !extension.write_capability)
+}
+
+fn has_read_only_scan_finding(
+    summaries: &[ScanTargetSummaryPayload],
+    extension_type: &str,
+) -> bool {
+    summaries
+        .iter()
+        .flat_map(|summary| &summary.findings)
+        .any(|finding| {
+            finding.extension_type.as_deref() == Some(extension_type)
+                && !finding.write_capability
+                && !finding.can_import
+        })
 }
 
 #[test]
@@ -87,6 +108,128 @@ fn installs_enables_and_restores_from_sqlite() {
     );
 
     std::env::remove_var("EAH_P1_CODEX_SKILLS_PATH");
+}
+
+#[test]
+fn projects_skill_installs_as_file_backed_extensions_and_denies_non_file_backed_writes() {
+    let _lock = ENV_LOCK.lock().expect("lock env");
+    let temp = TestTemp::new("local-state-extensions");
+    let package_bytes = fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../api/src/database/seeds/packages/codex-review-helper/1.2.0/package.zip"),
+    )
+    .expect("read seed package zip");
+    let package_url = serve_once(package_bytes.clone());
+    let state = P1LocalState::initialize(temp.path.join("app-data")).expect("init state");
+    let codex_skills_path = temp.path.join("codex-skills");
+
+    state
+        .save_tool_config(ToolConfigInputPayload {
+            tool_id: "codex".to_string(),
+            name: None,
+            config_path: "".to_string(),
+            skills_path: codex_skills_path.to_string_lossy().to_string(),
+            enabled: Some(true),
+        })
+        .expect("save codex tool config");
+
+    let non_file_backed = state
+        .enable_extension(EnableExtensionPayload {
+            extension_id: "team-mcp".to_string(),
+            extension_type: "mcp_server".to_string(),
+            extension_kind: "config_backed".to_string(),
+            version: "1.0.0".to_string(),
+            target_type: "tool".to_string(),
+            target_id: "codex".to_string(),
+            preferred_mode: Some("copy".to_string()),
+            requested_mode: None,
+            allow_overwrite: None,
+        })
+        .expect_err("config-backed extension writes are blocked");
+    assert!(non_file_backed.contains("extension_write_denied"));
+
+    state
+        .install_skill_package(seed_download_ticket(&package_bytes, package_url))
+        .expect("install skill");
+
+    let extensions = state
+        .list_local_extensions()
+        .expect("list local extensions");
+    let skill_extension = extensions
+        .iter()
+        .find(|extension| extension.extension_id == "codex-review-helper")
+        .expect("skill install is projected as extension");
+    assert_eq!(skill_extension.extension_type, "skill");
+    assert_eq!(skill_extension.extension_kind, "file_backed");
+    assert!(skill_extension.write_capability);
+    assert_eq!(skill_extension.enterprise_status, "allowed");
+    for extension_type in ["mcp_server", "plugin", "hook", "agent_cli"] {
+        assert!(has_read_only_extension(&extensions, extension_type));
+    }
+
+    let extension_scan = state
+        .scan_extension_targets()
+        .expect("scan extension targets");
+    for extension_type in ["mcp_server", "plugin", "hook", "agent_cli"] {
+        assert!(has_read_only_scan_finding(&extension_scan, extension_type));
+    }
+
+    let conn = state.open_connection().expect("open connection");
+    conn.execute(
+        "UPDATE local_extension_installs SET enterprise_status = 'disabled' WHERE extension_id = ?",
+        params!["codex-review-helper"],
+    )
+    .expect("mark extension disabled");
+    drop(conn);
+
+    let denied = state
+        .enable_extension(EnableExtensionPayload {
+            extension_id: "codex-review-helper".to_string(),
+            extension_type: "skill".to_string(),
+            extension_kind: "file_backed".to_string(),
+            version: "1.2.0".to_string(),
+            target_type: "tool".to_string(),
+            target_id: "codex".to_string(),
+            preferred_mode: Some("copy".to_string()),
+            requested_mode: None,
+            allow_overwrite: None,
+        })
+        .expect_err("enterprise disabled extension cannot be enabled");
+    assert!(denied.contains("extension_policy_denied"));
+    assert!(!codex_skills_path.join("codex-review-helper").exists());
+
+    let conn = state.open_connection().expect("reopen connection");
+    let enabled_count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM enabled_targets WHERE skill_id = ? AND status = 'enabled'",
+            params!["codex-review-helper"],
+            |row| row.get(0),
+        )
+        .expect("count enabled targets");
+    let plugin_target_count: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM plugin_targets WHERE extension_id = ? AND status = 'enabled'",
+            params!["codex-review-helper"],
+            |row| row.get(0),
+        )
+        .expect("count plugin targets");
+    assert_eq!(enabled_count, 0);
+    assert_eq!(plugin_target_count, 0);
+
+    let bootstrap = state
+        .get_local_bootstrap()
+        .expect("bootstrap after denied extension enables");
+    assert!(bootstrap.offline_events.iter().any(|event| {
+        event.event_type == "enable_result"
+            && event.result == "failed"
+            && event.extension_id.as_deref() == Some("codex-review-helper")
+            && event.enterprise_status.as_deref() == Some("disabled")
+            && event
+                .denial_reason
+                .as_deref()
+                .unwrap_or("")
+                .contains("extension_policy_denied")
+    }));
 }
 
 #[test]

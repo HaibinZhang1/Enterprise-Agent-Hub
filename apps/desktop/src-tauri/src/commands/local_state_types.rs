@@ -19,6 +19,7 @@ pub struct DownloadTicketPayload {
 #[serde(rename_all = "camelCase")]
 pub struct LocalBootstrapPayload {
     pub installs: Vec<LocalSkillInstallPayload>,
+    pub extensions: Vec<ExtensionInstallPayload>,
     pub tools: Vec<ToolConfigPayload>,
     pub projects: Vec<ProjectConfigPayload>,
     pub notifications: Vec<LocalNotificationPayload>,
@@ -108,6 +109,122 @@ pub struct LocalSkillInstallPayload {
     pub can_update: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionPermissionPayload {
+    pub id: String,
+    pub label: String,
+    pub risk_level: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionManifestPayload {
+    #[serde(rename = "extensionID")]
+    pub extension_id: String,
+    pub extension_type: String,
+    pub extension_kind: String,
+    pub display_name: String,
+    pub version: String,
+    pub description: Option<String>,
+    pub permissions: Vec<ExtensionPermissionPayload>,
+    pub risk_level: String,
+    pub audit_status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginTargetPayload {
+    pub id: String,
+    #[serde(rename = "extensionID")]
+    pub extension_id: String,
+    pub extension_type: String,
+    pub extension_kind: String,
+    pub target_type: String,
+    pub target_agent: String,
+    #[serde(rename = "targetID")]
+    pub target_id: String,
+    pub target_name: String,
+    pub target_path: Option<String>,
+    pub artifact_path: Option<String>,
+    pub config_path: Option<String>,
+    pub requested_mode: Option<String>,
+    pub resolved_mode: Option<String>,
+    pub fallback_reason: Option<String>,
+    pub artifact_hash: Option<String>,
+    pub status: String,
+    pub denial_reason: Option<String>,
+    pub enabled_at: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtensionInstallPayload {
+    #[serde(rename = "extensionID")]
+    pub extension_id: String,
+    pub extension_type: String,
+    pub extension_kind: String,
+    pub display_name: String,
+    pub local_version: String,
+    pub local_hash: String,
+    pub source_type: String,
+    pub source_uri: Option<String>,
+    pub manifest: ExtensionManifestPayload,
+    pub permissions: Vec<ExtensionPermissionPayload>,
+    pub risk_level: String,
+    pub audit_status: String,
+    pub enterprise_status: String,
+    pub central_store_path: Option<String>,
+    pub installed_at: String,
+    pub updated_at: String,
+    pub write_capability: bool,
+    pub targets: Vec<PluginTargetPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportLocalExtensionPayload {
+    #[serde(rename = "extensionID")]
+    pub extension_id: String,
+    pub extension_type: String,
+    pub extension_kind: String,
+    pub target_type: String,
+    #[serde(rename = "targetID")]
+    pub target_id: String,
+    pub relative_path: String,
+    pub conflict_strategy: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnableExtensionPayload {
+    #[serde(rename = "extensionID")]
+    pub extension_id: String,
+    pub extension_type: String,
+    pub extension_kind: String,
+    pub version: String,
+    pub target_type: String,
+    #[serde(rename = "targetID")]
+    pub target_id: String,
+    pub preferred_mode: Option<String>,
+    pub requested_mode: Option<String>,
+    pub allow_overwrite: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisableExtensionPayload {
+    #[serde(rename = "extensionID")]
+    pub extension_id: String,
+    pub extension_type: String,
+    pub extension_kind: String,
+    pub target_type: String,
+    #[serde(rename = "targetID")]
+    pub target_id: String,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportLocalSkillPayload {
@@ -151,6 +268,10 @@ pub struct LocalEventPayload {
     pub event_type: String,
     #[serde(rename = "skillID")]
     pub skill_id: String,
+    #[serde(rename = "extensionID")]
+    pub extension_id: Option<String>,
+    pub extension_type: Option<String>,
+    pub extension_kind: Option<String>,
     pub version: String,
     pub target_type: String,
     #[serde(rename = "targetID")]
@@ -159,6 +280,8 @@ pub struct LocalEventPayload {
     pub requested_mode: String,
     pub resolved_mode: String,
     pub fallback_reason: Option<String>,
+    pub denial_reason: Option<String>,
+    pub enterprise_status: Option<String>,
     pub occurred_at: String,
     pub result: String,
 }
@@ -220,6 +343,12 @@ pub struct ScanFindingPayload {
     pub kind: String,
     #[serde(rename = "skillID")]
     pub skill_id: Option<String>,
+    #[serde(rename = "extensionID")]
+    pub extension_id: Option<String>,
+    pub extension_type: Option<String>,
+    pub extension_kind: Option<String>,
+    pub write_capability: bool,
+    pub enterprise_status: Option<String>,
     pub target_type: String,
     #[serde(rename = "targetID")]
     pub target_id: String,
@@ -269,6 +398,11 @@ mod tests {
             id: "tool:codex:demo-skill".to_string(),
             kind: "unmanaged".to_string(),
             skill_id: Some("demo-skill".to_string()),
+            extension_id: Some("demo-skill".to_string()),
+            extension_type: Some("skill".to_string()),
+            extension_kind: Some("file_backed".to_string()),
+            write_capability: true,
+            enterprise_status: Some("allowed".to_string()),
             target_type: "tool".to_string(),
             target_id: "codex".to_string(),
             target_name: "Codex".to_string(),
@@ -322,6 +456,9 @@ mod tests {
                 event_id: "event-1".to_string(),
                 event_type: "uninstall_result".to_string(),
                 skill_id: "demo-skill".to_string(),
+                extension_id: None,
+                extension_type: None,
+                extension_kind: None,
                 version: "1.0.0".to_string(),
                 target_type: "tool".to_string(),
                 target_id: "codex".to_string(),
@@ -329,6 +466,8 @@ mod tests {
                 requested_mode: "copy".to_string(),
                 resolved_mode: "copy".to_string(),
                 fallback_reason: None,
+                denial_reason: None,
+                enterprise_status: None,
                 occurred_at: "2026-04-19T00:00:00Z".to_string(),
                 result: "success".to_string(),
             },

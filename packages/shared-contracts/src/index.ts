@@ -127,6 +127,39 @@ export type InstallMode = (typeof InstallMode)[keyof typeof InstallMode];
 export type RequestedMode = InstallMode;
 export type ResolvedMode = InstallMode;
 
+export const ExtensionType = {
+  Skill: "skill",
+  McpServer: "mcp_server",
+  Plugin: "plugin",
+  Hook: "hook",
+  AgentCli: "agent_cli"
+} as const;
+export type ExtensionType = (typeof ExtensionType)[keyof typeof ExtensionType];
+
+export const ExtensionKind = {
+  FileBacked: "file_backed",
+  ConfigBacked: "config_backed",
+  NativePlugin: "native_plugin",
+  AgentCli: "agent_cli"
+} as const;
+export type ExtensionKind = (typeof ExtensionKind)[keyof typeof ExtensionKind];
+
+export const ExtensionAuditStatus = {
+  Unknown: "unknown",
+  Pending: "pending",
+  Passed: "passed",
+  Warning: "warning",
+  Failed: "failed"
+} as const;
+export type ExtensionAuditStatus = (typeof ExtensionAuditStatus)[keyof typeof ExtensionAuditStatus];
+
+export const EnterpriseExtensionStatus = {
+  Allowed: "allowed",
+  Disabled: "disabled",
+  Revoked: "revoked"
+} as const;
+export type EnterpriseExtensionStatus = (typeof EnterpriseExtensionStatus)[keyof typeof EnterpriseExtensionStatus];
+
 export const NotificationType = {
   SkillUpdateAvailable: "skill_update_available",
   SkillReviewTask: "skill_review_task",
@@ -903,6 +936,9 @@ export interface LocalEvent {
   readonly eventID: string;
   readonly eventType: NotificationType;
   readonly skillID: SkillID;
+  readonly extensionID?: string | null;
+  readonly extensionType?: ExtensionType | null;
+  readonly extensionKind?: ExtensionKind | null;
   readonly version: SemVerString;
   readonly targetType: TargetType;
   readonly targetID: string;
@@ -910,6 +946,8 @@ export interface LocalEvent {
   readonly requestedMode: RequestedMode;
   readonly resolvedMode: ResolvedMode;
   readonly fallbackReason?: string;
+  readonly denialReason?: string | null;
+  readonly enterpriseStatus?: EnterpriseExtensionStatus | null;
   readonly occurredAt: ISODateTimeString;
   readonly result: LocalEventResult;
 }
@@ -955,6 +993,68 @@ export interface LocalSkillInstall {
   readonly canUpdate: boolean;
 }
 
+export interface ExtensionPermission {
+  readonly id: string;
+  readonly label: string;
+  readonly riskLevel?: RiskLevel;
+  readonly description?: string;
+}
+
+export interface ExtensionManifest {
+  readonly extensionID: string;
+  readonly extensionType: ExtensionType;
+  readonly extensionKind: ExtensionKind;
+  readonly displayName: string;
+  readonly version: SemVerString | string;
+  readonly description?: string;
+  readonly permissions: readonly ExtensionPermission[];
+  readonly riskLevel: RiskLevel;
+  readonly auditStatus: ExtensionAuditStatus;
+}
+
+export interface PluginTarget {
+  readonly id: string;
+  readonly extensionID: string;
+  readonly extensionType: ExtensionType;
+  readonly extensionKind: ExtensionKind;
+  readonly targetType: TargetType;
+  readonly targetAgent: string;
+  readonly targetID: string;
+  readonly targetName: string;
+  readonly targetPath?: string | null;
+  readonly artifactPath?: string | null;
+  readonly configPath?: string | null;
+  readonly requestedMode?: RequestedMode | null;
+  readonly resolvedMode?: ResolvedMode | null;
+  readonly fallbackReason?: string | null;
+  readonly artifactHash?: string | null;
+  readonly status: "enabled" | "disabled" | "failed" | "blocked" | "read_only";
+  readonly denialReason?: string | null;
+  readonly enabledAt?: ISODateTimeString | null;
+  readonly updatedAt: ISODateTimeString;
+}
+
+export interface ExtensionInstall {
+  readonly extensionID: string;
+  readonly extensionType: ExtensionType;
+  readonly extensionKind: ExtensionKind;
+  readonly displayName: string;
+  readonly localVersion: SemVerString | string;
+  readonly localHash: string;
+  readonly sourceType: "remote" | "local_import" | "manifest" | "policy";
+  readonly sourceURI?: string | null;
+  readonly manifest: ExtensionManifest;
+  readonly permissions: readonly ExtensionPermission[];
+  readonly riskLevel: RiskLevel;
+  readonly auditStatus: ExtensionAuditStatus;
+  readonly enterpriseStatus: EnterpriseExtensionStatus;
+  readonly centralStorePath?: string | null;
+  readonly installedAt: ISODateTimeString;
+  readonly updatedAt: ISODateTimeString;
+  readonly writeCapability: boolean;
+  readonly targets: readonly PluginTarget[];
+}
+
 export interface ToolConfig {
   readonly toolID: string;
   readonly displayName: string;
@@ -985,6 +1085,11 @@ export interface ScanFinding {
   readonly id: string;
   readonly kind: ScanFindingKind;
   readonly skillID?: SkillID | null;
+  readonly extensionID?: string | null;
+  readonly extensionType?: ExtensionType | null;
+  readonly extensionKind?: ExtensionKind | null;
+  readonly writeCapability?: boolean;
+  readonly enterpriseStatus?: EnterpriseExtensionStatus | null;
   readonly targetType: TargetType;
   readonly targetID: string;
   readonly targetName: string;
@@ -1020,6 +1125,7 @@ export interface ScanTargetSummary {
 
 export interface LocalBootstrapResponse {
   readonly installs: readonly LocalSkillInstall[];
+  readonly extensions: readonly ExtensionInstall[];
   readonly tools: readonly ToolConfig[];
   readonly projects: readonly ProjectConfig[];
   readonly notifications: readonly LocalNotification[];
@@ -1088,6 +1194,38 @@ export interface EnableSkillRequest {
   readonly allowOverwrite?: boolean;
 }
 
+export interface ImportLocalExtensionRequest {
+  readonly input: {
+    readonly extensionID: string;
+    readonly extensionType: ExtensionType;
+    readonly extensionKind: ExtensionKind;
+    readonly targetType: TargetType;
+    readonly targetID: string;
+    readonly relativePath: string;
+    readonly conflictStrategy: "rename" | "replace";
+  };
+}
+
+export interface EnableExtensionRequest {
+  readonly extensionID: string;
+  readonly extensionType: ExtensionType;
+  readonly extensionKind: ExtensionKind;
+  readonly version: SemVerString | string;
+  readonly targetType: TargetType;
+  readonly targetID: string;
+  readonly preferredMode?: RequestedMode;
+  readonly requestedMode?: RequestedMode;
+  readonly allowOverwrite?: boolean;
+}
+
+export interface DisableExtensionRequest {
+  readonly extensionID: string;
+  readonly extensionType: ExtensionType;
+  readonly extensionKind: ExtensionKind;
+  readonly targetType: TargetType;
+  readonly targetID: string;
+}
+
 export interface DisableSkillRequest {
   readonly skillId: SkillID;
   readonly targetType: TargetType;
@@ -1139,6 +1277,11 @@ export interface LocalCommandRequestMap {
   readonly enable_skill: EnableSkillRequest;
   readonly disable_skill: DisableSkillRequest;
   readonly uninstall_skill: UninstallSkillRequest;
+  readonly list_local_extensions: undefined;
+  readonly scan_extension_targets: undefined;
+  readonly import_local_extension: ImportLocalExtensionRequest;
+  readonly enable_extension: EnableExtensionRequest;
+  readonly disable_extension: DisableExtensionRequest;
   readonly upsert_local_notifications: {
     readonly notifications: readonly LocalNotification[];
   };
@@ -1166,6 +1309,11 @@ export interface LocalCommandResponseMap {
   readonly enable_skill: EnabledTarget;
   readonly disable_skill: EnabledTarget;
   readonly uninstall_skill: UninstallSkillResponse;
+  readonly list_local_extensions: readonly ExtensionInstall[];
+  readonly scan_extension_targets: readonly ScanTargetSummary[];
+  readonly import_local_extension: ExtensionInstall;
+  readonly enable_extension: PluginTarget;
+  readonly disable_extension: PluginTarget;
   readonly upsert_local_notifications: void;
   readonly mark_local_notifications_read: void;
   readonly mark_offline_events_synced: MarkOfflineEventsSyncedResponse;
@@ -1190,6 +1338,11 @@ export const P1_LOCAL_COMMANDS = {
   enableSkill: "enable_skill",
   disableSkill: "disable_skill",
   uninstallSkill: "uninstall_skill",
+  listLocalExtensions: "list_local_extensions",
+  scanExtensionTargets: "scan_extension_targets",
+  importLocalExtension: "import_local_extension",
+  enableExtension: "enable_extension",
+  disableExtension: "disable_extension",
   upsertLocalNotifications: "upsert_local_notifications",
   markLocalNotificationsRead: "mark_local_notifications_read",
   markOfflineEventsSynced: "mark_offline_events_synced",

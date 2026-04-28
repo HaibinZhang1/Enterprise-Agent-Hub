@@ -12,6 +12,13 @@ import type {
   DetectionMethod as SharedDetectionMethod,
   DownloadTicketResponse as SharedDownloadTicket,
   EnabledTarget as SharedEnabledTarget,
+  EnterpriseExtensionStatus as SharedEnterpriseExtensionStatus,
+  ExtensionAuditStatus as SharedExtensionAuditStatus,
+  ExtensionInstall as SharedExtensionInstall,
+  ExtensionKind as SharedExtensionKind,
+  ExtensionManifest as SharedExtensionManifest,
+  ExtensionPermission as SharedExtensionPermission,
+  ExtensionType as SharedExtensionType,
   InstallState as SharedInstallState,
   LocalBootstrapResponse as SharedLocalBootstrapResponse,
   LocalNotification as SharedLocalNotification,
@@ -45,6 +52,7 @@ import type {
   TargetType as SharedTargetType,
   VisibilityLevel as SharedVisibilityLevel,
   ProjectDirectorySelection as SharedProjectDirectorySelection,
+  PluginTarget as SharedPluginTarget,
   WorkflowState as SharedWorkflowState
 } from "@enterprise-agent-hub/shared-contracts";
 export { SKILL_CATEGORIES, SKILL_TAGS } from "@enterprise-agent-hub/shared-contracts";
@@ -67,6 +75,10 @@ export type RequestedMode = SharedRequestedMode;
 export type ResolvedMode = SharedResolvedMode;
 export type DetectionMethod = SharedDetectionMethod;
 export type ScanFindingKind = SharedScanFindingKind;
+export type ExtensionType = SharedExtensionType;
+export type ExtensionKind = SharedExtensionKind;
+export type ExtensionAuditStatus = SharedExtensionAuditStatus;
+export type EnterpriseExtensionStatus = SharedEnterpriseExtensionStatus;
 export type MenuPermission = SharedMenuPermission;
 export type NavigationPageID = MenuPermission;
 export type PageID = NavigationPageID | "detail";
@@ -109,8 +121,19 @@ export interface LocalSkillInstall extends Omit<SharedLocalSkillInstall, "enable
   enabledTargets: EnabledTarget[];
 }
 
-export interface LocalBootstrap extends Omit<SharedLocalBootstrapResponse, "installs" | "tools" | "projects" | "notifications" | "offlineEvents"> {
+export type ExtensionPermission = MutableDeep<SharedExtensionPermission>;
+export type ExtensionManifest = MutableDeep<SharedExtensionManifest>;
+export type PluginTarget = MutableDeep<SharedPluginTarget>;
+
+export interface ExtensionInstall extends Omit<MutableDeep<SharedExtensionInstall>, "targets" | "permissions" | "manifest"> {
+  manifest: ExtensionManifest;
+  permissions: ExtensionPermission[];
+  targets: PluginTarget[];
+}
+
+export interface LocalBootstrap extends Omit<SharedLocalBootstrapResponse, "installs" | "extensions" | "tools" | "projects" | "notifications" | "offlineEvents"> {
   installs: LocalSkillInstall[];
+  extensions: ExtensionInstall[];
   tools: ToolConfig[];
   projects: ProjectConfig[];
   notifications: LocalNotification[];
@@ -186,6 +209,11 @@ export interface ScanFinding {
   id: string;
   kind: ScanFindingKind;
   skillID: string | null;
+  extensionID?: string | null;
+  extensionType?: ExtensionType | null;
+  extensionKind?: ExtensionKind | null;
+  writeCapability?: boolean;
+  enterpriseStatus?: EnterpriseExtensionStatus | null;
   targetType: TargetType;
   targetID: string;
   targetName: string;
@@ -382,6 +410,8 @@ export type DesktopModalState =
 export interface LocalEvent extends Omit<SharedLocalEvent, "fallbackReason" | "result"> {
   eventType: Extract<NotificationType, "enable_result" | "disable_result" | "uninstall_result" | "target_path_invalid" | "local_copy_blocked">;
   fallbackReason: string | null;
+  denialReason?: string | null;
+  enterpriseStatus?: EnterpriseExtensionStatus | null;
   result: "success" | "failed";
 }
 

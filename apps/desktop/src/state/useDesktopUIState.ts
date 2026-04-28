@@ -44,7 +44,7 @@ export { collectInstalledSkillIssues } from "./ui/installedSkillSelectors.ts";
 
 export type TopLevelSection = "home" | "community" | "local" | "manage";
 export type CommunityPane = "home" | "skills" | "mcp" | "plugins" | "publish" | "mine";
-export type LocalPane = "skills" | "tools" | "projects";
+export type LocalPane = "skills" | "extensions" | "tools" | "projects";
 export type ManagePane = "reviews" | "skills" | "departments" | "users" | "client_updates";
 export type PublisherPane = "compose" | "mine";
 
@@ -168,7 +168,7 @@ export function legacyPageForView(input: {
     case "community":
       return input.communityPane === "publish" || input.communityPane === "mine" ? "publisher" : "market";
     case "local":
-      return input.localPane === "skills" ? "my_installed" : "target_management";
+      return input.localPane === "skills" || input.localPane === "extensions" ? "my_installed" : "target_management";
     case "manage":
       switch (input.managePane) {
         case "reviews":

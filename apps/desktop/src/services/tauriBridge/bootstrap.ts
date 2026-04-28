@@ -1,8 +1,8 @@
-import type { LocalBootstrap, LocalSkillInstall } from "../../domain/p1.ts";
+import type { ExtensionInstall, LocalBootstrap, LocalSkillInstall } from "../../domain/p1.ts";
 import { P1_LOCAL_COMMANDS } from "@enterprise-agent-hub/shared-contracts";
 import { seedProjects, seedTools } from "../../fixtures/p1SeedData.ts";
 import { detectDesktopPlatform, previewCentralStorePath } from "../../utils/platformPaths.ts";
-import { browserPreviewBootstrap, mapPreviewProject, mapPreviewTool, seedLocalInstalls } from "./preview.ts";
+import { browserPreviewBootstrap, mapPreviewProject, mapPreviewTool, seedLocalExtensions, seedLocalInstalls } from "./preview.ts";
 import { allowTauriMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
 
 export async function getLocalBootstrap(): Promise<LocalBootstrap> {
@@ -19,6 +19,7 @@ export async function getLocalBootstrap(): Promise<LocalBootstrap> {
   await mockWait();
   return {
     installs: seedLocalInstalls(),
+    extensions: seedLocalExtensions(),
     tools: seedTools.map((tool) => mapPreviewTool(tool, detectDesktopPlatform())),
     projects: seedProjects.map((project) => mapPreviewProject(project, detectDesktopPlatform())),
     notifications: [],
@@ -42,4 +43,19 @@ export async function listLocalInstalls(): Promise<LocalSkillInstall[]> {
   }
   await mockWait();
   return seedLocalInstalls();
+}
+
+export async function listLocalExtensions(): Promise<ExtensionInstall[]> {
+  const invoke = getInvoke();
+  if (invoke) {
+    return invoke(P1_LOCAL_COMMANDS.listLocalExtensions);
+  }
+  if (isBrowserPreviewMode()) {
+    return [];
+  }
+  if (!allowTauriMocks) {
+    await requireInvoke();
+  }
+  await mockWait();
+  return seedLocalExtensions();
 }

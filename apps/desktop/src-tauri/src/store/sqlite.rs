@@ -4,6 +4,9 @@ pub const P1_INITIAL_MIGRATION_SQL: &str =
 pub const LOCAL_NOTIFICATION_CACHE_MIGRATION_NAME: &str = "0002_local_notification_cache";
 pub const LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL: &str =
     include_str!("../../sqlite/migrations/0002_local_notification_cache.sql");
+pub const EXTENSION_MANAGEMENT_MIGRATION_NAME: &str = "0003_extension_management";
+pub const EXTENSION_MANAGEMENT_MIGRATION_SQL: &str =
+    include_str!("../../sqlite/migrations/0003_extension_management.sql");
 
 /// Store-owned persistence statements. The Tauri application DB adapter should bind values
 /// to these statements instead of duplicating table/field names in command handlers.
@@ -110,13 +113,22 @@ ON CONFLICT(key) DO UPDATE SET
 "#;
 }
 
-pub fn ordered_migrations() -> [(&'static str, &'static str); 1] {
-    [(P1_INITIAL_MIGRATION_NAME, P1_INITIAL_MIGRATION_SQL)]
+pub fn ordered_migrations() -> [(&'static str, &'static str); 2] {
+    [
+        (P1_INITIAL_MIGRATION_NAME, P1_INITIAL_MIGRATION_SQL),
+        (
+            EXTENSION_MANAGEMENT_MIGRATION_NAME,
+            EXTENSION_MANAGEMENT_MIGRATION_SQL,
+        ),
+    ]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{statements, LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL, P1_INITIAL_MIGRATION_SQL};
+    use super::{
+        statements, EXTENSION_MANAGEMENT_MIGRATION_SQL, LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL,
+        P1_INITIAL_MIGRATION_SQL,
+    };
 
     #[test]
     fn migration_contains_store_owned_tables() {
@@ -135,6 +147,9 @@ mod tests {
         assert!(P1_INITIAL_MIGRATION_SQL.contains("fallback_reason"));
         assert!(LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL.contains("target_page"));
         assert!(LOCAL_NOTIFICATION_CACHE_MIGRATION_SQL.contains("source"));
+        assert!(EXTENSION_MANAGEMENT_MIGRATION_SQL.contains("local_extension_installs"));
+        assert!(EXTENSION_MANAGEMENT_MIGRATION_SQL.contains("plugin_targets"));
+        assert!(EXTENSION_MANAGEMENT_MIGRATION_SQL.contains("file_backed"));
     }
 
     #[test]

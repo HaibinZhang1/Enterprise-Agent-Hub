@@ -76,7 +76,7 @@ export class PublisherController {
   }
 
   @Post('submissions')
-  @UseInterceptors(AnyFilesInterceptor())
+  @UseInterceptors(AnyFilesInterceptor({ preservePath: true }))
   submit(
     @Req() request: P1AuthenticatedRequest,
     @Body() body: Record<string, string | undefined>,

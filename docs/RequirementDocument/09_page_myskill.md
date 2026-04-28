@@ -2,7 +2,7 @@
 
 当前设计不再使用“已安装”和“发布中心”两个一级导航，而是改为：
 
-1. **本地** 一级入口中的 `Skills` 子视图
+1. **本地** 一级入口中的 `Skills / 扩展` 子视图
 2. **社区** 一级入口中的作者工作区 `发布 / 我的`
 
 > 说明：Desktop 当前已经交付完整作者治理闭环。“本地 > Skills”继续承担本机使用闭环；作者治理入口当前收口到 `社区 > 发布 / 我的`，提供真实上传、初审、审核状态、撤回、重新提交、发布新版本、上下架、归档和权限变更入口。
@@ -12,7 +12,7 @@
 ## 8.3.1 本地 > Skills
 
 ### 页面结构
-- 左侧：本地入口切换（Skills / 工具 / 项目）
+- 左侧：本地入口切换（Skills / 扩展 / 工具 / 项目）
 - 中间：Skill 搜索、状态筛选、目标筛选、本地 Skill 主列表
 - 右侧：当前选中 Skill 的详情与主操作
 
@@ -58,7 +58,35 @@
 
 ---
 
-## 8.3.2 社区 > 我的
+## 8.3.2 本地 > 扩展
+
+### 页面定位
+`本地 > 扩展` 是插件集中管理 P0 的本机治理视图，用统一 Extension 库存展示 Skill、MCP Server、Plugin、Hook、Agent CLI 的本地状态。P0 不扩大真实写入面：只有 `extensionType=skill` 且 `extensionKind=file_backed` 的 Extension 可以通过既有 Adapter/Central Store 路径启用、停用或导入。
+
+### 展示字段
+- Extension 名称与 ID
+- 扩展类型：Skill / MCP Server / Plugin / Hook / Agent CLI
+- 写入类型：file-backed / config-backed / native-plugin / agent-cli
+- 来源：远端、本地导入、manifest、企业策略
+- 权限声明、风险等级、审计状态
+- 企业状态：allowed / disabled / revoked
+- 写入能力：可启用 或 仅审计/预检
+- 目标状态：目标工具 / 项目、启用状态、写入模式、降级原因、拒绝原因
+
+### 操作
+- file-backed Skill Extension 可选择工具或项目目标并启用
+- 已启用的 file-backed Skill Extension 可在目标行停用
+- MCP Server、Plugin、Hook、Agent CLI 在 P0 只展示审计/预检，不提供启用、导入、配置写入或二进制安装
+- 企业 `disabled` / `revoked` 状态阻止新增启用，且必须在本地事件/审计输出中记录 extensionID、extensionType、extensionKind、目标、企业状态和拒绝原因
+
+### 扫描与导入规则
+- `scan_extension_targets` 可返回 Extension 元数据；非 file-backed 发现项只能作为只读审计/预检记录展示
+- 只有有效 `SKILL.md` 根目录对应的 file-backed Skill 发现项可导入
+- 非 file-backed 发现项不得创建 enabled target / plugin target，不得覆盖或删除用户文件
+
+---
+
+## 8.3.3 社区 > 我的
 
 ### 展示字段
 - skill 名称
@@ -101,7 +129,7 @@
 
 ---
 
-## 8.3.3 社区 > 发布
+## 8.3.4 社区 > 发布
 
 ### 表单布局
 - 发布页采用单列表单流，不再使用“左侧主表单 + 右侧辅助栏”的双列结构
@@ -188,7 +216,7 @@
 
 ---
 
-## 8.3.4 入口规则
+## 8.3.5 入口规则
 
 作者工作区当前通过以下入口进入：
 - 社区左侧作者入口 `发布`

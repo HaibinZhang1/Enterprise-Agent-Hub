@@ -1930,19 +1930,21 @@ button:disabled,
 }
 
 .community-home {
-  gap: 22px;
-  padding: 2px;
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  gap: 18px;
+  padding: 0 2px 8px;
 }
 
 .community-home-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: clamp(260px, 34vh, 380px);
+  min-height: clamp(210px, 26vh, 300px);
   align-content: center;
   justify-items: center;
-  gap: 24px;
+  gap: 18px;
   flex: 0 0 auto;
-  padding: clamp(34px, 5vw, 68px);
+  padding: clamp(24px, 3.4vw, 44px);
   background:
     linear-gradient(135deg, oklch(75% 0.058 212 / 0.16), transparent 58%),
     linear-gradient(180deg, rgba(var(--accent-rgb), 0.08), transparent 72%),
@@ -1952,16 +1954,16 @@ button:disabled,
 
 .community-home-hero-copy {
   display: flex;
-  max-width: 820px;
+  max-width: 720px;
   align-items: center;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .community-home-hero-copy h1 {
   margin: 0;
-  font-size: clamp(36px, 5vw, 58px);
-  line-height: 1.08;
+  font-size: clamp(30px, 3.4vw, 42px);
+  line-height: var(--leading-tight);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0;
 }
@@ -1977,19 +1979,19 @@ button:disabled,
 .community-home-search {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 14px;
+  gap: 12px;
   align-items: stretch;
-  width: min(1080px, 100%);
+  width: min(880px, 100%);
   margin: 2px auto 0;
 }
 
 .community-home-search-shell {
   display: flex;
   min-width: 0;
-  min-height: 64px;
+  min-height: 54px;
   align-items: center;
-  gap: 14px;
-  padding: 0 22px;
+  gap: 12px;
+  padding: 0 18px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -2009,7 +2011,7 @@ button:disabled,
   color: var(--text-main);
   background: transparent;
   font: inherit;
-  font-size: var(--text-title);
+  font-size: var(--text-body);
 }
 
 .community-home-search-shell:focus-within {
@@ -2019,12 +2021,12 @@ button:disabled,
 
 .community-home-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .community-home-actions .btn {
-  min-height: 64px;
-  padding-inline: 24px;
+  min-height: 54px;
+  padding-inline: 18px;
   font-size: var(--text-ui);
 }
 
@@ -2033,21 +2035,21 @@ button:disabled,
   min-width: 0;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .community-home-section-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
   padding: 0 2px;
 }
 
 .community-home-section-head h2 {
   margin: 0;
   color: var(--text-main);
-  font-size: var(--text-section);
+  font-size: var(--text-title);
   line-height: var(--leading-snug);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0;
@@ -2055,7 +2057,7 @@ button:disabled,
 
 .community-home-section-head p {
   margin: 0;
-  max-width: 48ch;
+  max-width: 54ch;
   color: var(--text-secondary);
   font-size: var(--text-description);
   line-height: var(--leading-normal);
@@ -2065,12 +2067,12 @@ button:disabled,
 .community-home-leaderboards,
 .community-home-entry-grid {
   display: grid;
-  gap: var(--layout-gap);
+  gap: 14px;
   flex: 0 0 auto;
 }
 
 .community-home-leaderboards {
-  grid-template-columns: minmax(340px, 1.16fr) repeat(2, minmax(280px, 0.92fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
 }
 
@@ -2082,10 +2084,10 @@ button:disabled,
 .community-home-leaderboard-card {
   display: flex;
   min-width: 0;
-  min-height: 430px;
+  min-height: 0;
   flex-direction: column;
-  gap: 16px;
-  padding: 18px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .community-home-leaderboard-card.hot {
@@ -2098,16 +2100,16 @@ button:disabled,
 
 .community-home-card-head {
   display: flex;
-  min-height: 44px;
+  min-height: 34px;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .community-home-card-head h2 {
   margin: 0;
-  font-size: var(--text-title);
+  font-size: var(--text-body-strong);
   line-height: var(--leading-snug);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
 }
 
 .community-home-card-icon,
@@ -2121,8 +2123,8 @@ button:disabled,
 }
 
 .community-home-card-icon {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
 }
 
 .community-home-card-icon.hot {
@@ -2145,35 +2147,72 @@ button:disabled,
 
 .community-home-leaderboard-card .stack-list {
   min-height: 0;
-  gap: 10px;
+  gap: 6px;
 }
 
 .leaderboard-rank {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   color: var(--text-secondary);
   background: var(--chrome-inset-surface-soft);
-  font-size: var(--text-label);
+  font-size: var(--text-caption);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
 
 .community-home-leaderboard-card .community-leaderboard-row {
-  min-height: 86px;
-  padding: 12px;
+  min-height: 64px;
+  padding: 9px 10px;
   border-color: var(--line);
   background: var(--list-row-surface);
 }
 
+.community-home-leaderboard-card .leaderboard-row .initial-badge {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+}
+
+.community-home-leaderboard-card .leaderboard-copy {
+  gap: 4px;
+}
+
 .community-home-leaderboard-card .leaderboard-copy strong {
-  font-size: var(--text-body-strong);
+  font-size: 15px;
+  line-height: 1.28;
   font-weight: var(--font-weight-bold);
+}
+
+.community-home-leaderboard-card .leaderboard-copy small {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.community-home-leaderboard-card .leaderboard-metrics small {
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-semibold);
+}
+
+.community-home-leaderboard-card .empty-state {
+  min-height: 132px;
+  gap: 8px;
+  padding: 16px;
+}
+
+.community-home-leaderboard-card .empty-state strong {
+  font-size: 15px;
+  line-height: 1.28;
+}
+
+.community-home-leaderboard-card .empty-state p {
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .community-home-leaderboard-card.hot .leaderboard-row:first-child {
@@ -2190,10 +2229,10 @@ button:disabled,
 .community-home-entry-card {
   display: flex;
   min-width: 0;
-  min-height: 142px;
+  min-height: 96px;
   align-items: center;
-  gap: 18px;
-  padding: 24px;
+  gap: 14px;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -2208,9 +2247,9 @@ button:disabled,
 }
 
 .community-home-entry-icon {
-  width: 58px;
-  height: 58px;
-  flex: 0 0 58px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
   color: var(--page-accent);
 }
 
@@ -2218,13 +2257,13 @@ button:disabled,
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .community-home-entry-copy strong {
   overflow: hidden;
   color: var(--text-main);
-  font-size: var(--text-title);
+  font-size: var(--text-ui);
   font-weight: var(--font-weight-bold);
   line-height: var(--leading-snug);
   text-overflow: ellipsis;
@@ -2342,7 +2381,7 @@ button:disabled,
 
 .community-grid-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--layout-inspector-width);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--layout-gap);
   flex: 1 1 auto;
   min-height: 0;
@@ -5544,7 +5583,6 @@ button:disabled,
     width: 180px;
   }
 
-  .community-grid-layout,
   .list-detail-shell,
   .local-browser,
   .publisher-page-layout,
@@ -5661,7 +5699,6 @@ button:disabled,
     width: min(1520px, 100%);
   }
 
-  .community-grid-layout,
   .list-detail-shell,
   .local-browser,
   .publisher-page-layout,
@@ -6082,6 +6119,11 @@ button:disabled,
     padding: 20px;
   }
 
+  .community-home-hero-copy h1 {
+    font-size: clamp(24px, 6vw, 30px);
+    line-height: 1.25;
+  }
+
   .community-home-search-shell {
     min-height: 56px;
     padding: 0 16px;
@@ -6116,14 +6158,14 @@ button:disabled,
   }
 
   .community-home-entry-card {
-    min-height: 118px;
-    padding: 18px;
+    min-height: 96px;
+    padding: 16px;
   }
 
   .community-home-entry-icon {
-    width: 48px;
-    height: 48px;
-    flex-basis: 48px;
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
   }
 
   .local-browser {

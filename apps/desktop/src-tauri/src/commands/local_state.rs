@@ -5,9 +5,11 @@ use reqwest::blocking::Client;
 use rusqlite::{params, Connection};
 
 pub use crate::commands::local_state_types::{
-    DisableSkillPayload, DownloadTicketPayload, EnabledTargetPayload, ImportLocalSkillPayload,
+    DisableExtensionPayload, DisableSkillPayload, DownloadTicketPayload, EnableExtensionPayload,
+    EnabledTargetPayload, ExtensionInstallPayload, ExtensionManifestPayload,
+    ExtensionPermissionPayload, ImportLocalExtensionPayload, ImportLocalSkillPayload,
     LocalBootstrapPayload, LocalEventPayload, LocalNotificationPayload, LocalSkillInstallPayload,
-    OfflineSyncAckPayload, ProjectConfigInputPayload, ProjectConfigPayload,
+    OfflineSyncAckPayload, PluginTargetPayload, ProjectConfigInputPayload, ProjectConfigPayload,
     ScanFindingCountsPayload, ScanFindingPayload, ScanTargetSummaryPayload, ToolConfigInputPayload,
     ToolConfigPayload, UninstallSkillPayload, ValidateTargetPathPayload,
 };
@@ -17,6 +19,7 @@ use crate::store::sqlite::{ordered_migrations, statements};
 mod checksum;
 mod configuration;
 mod distribution_lifecycle;
+mod extension_lifecycle;
 mod notification_sync;
 mod package_lifecycle;
 mod pathing;
@@ -104,6 +107,10 @@ impl P1LocalState {
         query::list_local_installs(self)
     }
 
+    pub fn list_local_extensions(&self) -> Result<Vec<ExtensionInstallPayload>, String> {
+        query::list_local_extensions(self)
+    }
+
     pub fn save_project_config(
         &self,
         input: ProjectConfigInputPayload,
@@ -163,6 +170,31 @@ impl P1LocalState {
 
     pub fn scan_local_targets(&self) -> Result<Vec<ScanTargetSummaryPayload>, String> {
         scan::scan_local_targets(self)
+    }
+
+    pub fn scan_extension_targets(&self) -> Result<Vec<ScanTargetSummaryPayload>, String> {
+        scan::scan_extension_targets(self)
+    }
+
+    pub fn import_local_extension(
+        &self,
+        input: ImportLocalExtensionPayload,
+    ) -> Result<ExtensionInstallPayload, String> {
+        extension_lifecycle::import_local_extension(self, input)
+    }
+
+    pub fn enable_extension(
+        &self,
+        input: EnableExtensionPayload,
+    ) -> Result<PluginTargetPayload, String> {
+        extension_lifecycle::enable_extension(self, input)
+    }
+
+    pub fn disable_extension(
+        &self,
+        input: DisableExtensionPayload,
+    ) -> Result<PluginTargetPayload, String> {
+        extension_lifecycle::disable_extension(self, input)
     }
 
     pub fn disable_skill(

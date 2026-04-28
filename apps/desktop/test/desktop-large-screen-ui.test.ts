@@ -14,8 +14,9 @@ test("desktop large-screen tokens cap and center the workspace shell", () => {
   expectBlock(/@media \(min-width:\s*1500px\)\s*\{[\s\S]*\.workspace-page\s*\{[\s\S]*width:\s*min\(1520px,\s*100%\);/, "ultra-wide workspace width cap should be explicit");
 });
 
-test("desktop density layout keeps shared two-pane rules across standard and large desktop widths", () => {
-  expectBlock(/@media \(min-width:\s*801px\)\s*\{[\s\S]*\.community-grid-layout,\s*[\s\S]*\.list-detail-shell,\s*[\s\S]*\.local-browser,\s*[\s\S]*\.publisher-page-layout,\s*[\s\S]*\.manage-hub-users\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.12fr\)\s+var\(--layout-inspector-width\);/, "desktop two-pane grid should stay shared across primary desktop surfaces before the 1100px fallback");
+test("desktop density layout keeps shared two-pane rules away from the community skills grid", () => {
+  expectBlock(/\.community-grid-layout\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/, "community Skills results should stay single-column because ranking lives on the community home");
+  expectBlock(/@media \(min-width:\s*801px\)\s*\{[\s\S]*\.list-detail-shell,\s*[\s\S]*\.local-browser,\s*[\s\S]*\.publisher-page-layout,\s*[\s\S]*\.manage-hub-users\s*\{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.12fr\)\s+var\(--layout-inspector-width\);/, "desktop two-pane grid should stay shared across primary inspector surfaces before the 1100px fallback");
   expectBlock(/\.manage-pane-grid\.departments-workbench\s*\{[\s\S]*grid-template-columns:\s*minmax\(var\(--layout-rail-width\),\s*0\.72fr\)\s+minmax\(0,\s*1fr\)\s+var\(--layout-inspector-width\);/, "departments workbench should use explicit large-screen pane hierarchy");
 });
 

@@ -17,6 +17,7 @@ export async function moveWorkspaceToGuest(input: {
   setLeaderboards?: (value: null) => void;
   setLeaderboardsLoading?: (value: false) => void;
   setSkills: (skills: SkillSummary[] | ((current: SkillSummary[]) => SkillSummary[])) => void;
+  setExtensions: (extensions: LocalBootstrap["extensions"]) => void;
   setOfflineEvents: (events: LocalBootstrap["offlineEvents"]) => void;
   setScanTargets: (targets: Awaited<ReturnType<typeof desktopBridge.scanLocalTargets>>) => void;
   setNotifications: (notifications: LocalBootstrap["notifications"]) => void;
@@ -33,6 +34,7 @@ export async function moveWorkspaceToGuest(input: {
   input.setLeaderboards?.(null);
   input.setLeaderboardsLoading?.(false);
   input.setSkills(localSkills);
+  input.setExtensions(localBootstrap.extensions ?? []);
   input.setOfflineEvents(localBootstrap.offlineEvents);
   input.setScanTargets(localScanTargets);
   input.setNotifications(localBootstrap.notifications);
@@ -60,6 +62,7 @@ export async function hydrateAuthenticatedWorkspace(input: {
   setBootstrap: (bootstrap: Awaited<ReturnType<typeof p1Client.bootstrap>>) => void;
   setSkills: (skills: SkillSummary[] | ((current: SkillSummary[]) => SkillSummary[])) => void;
   setTools: (tools: LocalBootstrap["tools"]) => void;
+  setExtensions: (extensions: LocalBootstrap["extensions"]) => void;
   setProjects: (projects: LocalBootstrap["projects"]) => void;
   setOfflineEvents: (events: LocalBootstrap["offlineEvents"]) => void;
   setScanTargets: (targets: Awaited<ReturnType<typeof desktopBridge.scanLocalTargets>>) => void;
@@ -81,6 +84,7 @@ export async function hydrateAuthenticatedWorkspace(input: {
   input.setBootstrap(remoteBootstrap);
   input.setSkills(mergedSkills);
   input.setTools(currentLocalBootstrap.tools);
+  input.setExtensions(currentLocalBootstrap.extensions ?? []);
   input.setProjects(currentLocalBootstrap.projects);
   input.setOfflineEvents(currentLocalBootstrap.offlineEvents);
   input.setScanTargets(localScanTargets);

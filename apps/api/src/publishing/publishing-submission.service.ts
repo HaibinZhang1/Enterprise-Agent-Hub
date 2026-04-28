@@ -32,6 +32,7 @@ export class PublishingSubmissionService {
   ): Promise<{ actorUserID: string; reviewID: string }> {
     const actor = await this.publishingRepository.loadActor(userID);
     const input = parseSubmissionInput(body);
+    const uploadFiles = applySubmittedFileRelativePaths(files, body.fileRelativePaths);
     const currentSkill = await this.publishingRepository.loadSkillByID(input.skillID);
 
     if (input.submissionType === 'publish' && currentSkill && currentSkill.status !== 'archived') {
@@ -51,10 +52,10 @@ export class PublishingSubmissionService {
 
     if (input.submissionType === 'permission_change') {
       input.version = currentSkill?.version ?? input.version;
-      if (files.length > 0) {
+      if (uploadFiles.length > 0) {
         throw new BadRequestException('validation_failed');
       }
-    } else if (files.length === 0) {
+    } else if (uploadFiles.length === 0) {
       throw new BadRequestException('validation_failed');
     }
 
@@ -62,7 +63,7 @@ export class PublishingSubmissionService {
     const stagedPackage =
       input.submissionType === 'permission_change'
         ? null
-        : await this.packageStorage.stageSubmissionPackage(reviewID, input, files);
+        : await this.packageStorage.stageSubmissionPackage(reviewID, input, uploadFiles);
 
     const payload: SubmissionPayload = {
       description: input.description,
@@ -217,4 +218,33 @@ export class PublishingSubmissionService {
     );
     return actor.userID;
   }
+}
+
+function applySubmittedFileRelativePaths(
+  files: UploadedSubmissionFile[],
+  rawRelativePaths: string | undefined,
+): UploadedSubmissionFile[] {
+  if (!rawRelativePaths) {
+    return files;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawRelativePaths);
+  } catch {
+    throw new BadRequestException('validation_failed');
+  }
+
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== files.length ||
+    !parsed.every((item) => typeof item === 'string' && item.trim())
+  ) {
+    throw new BadRequestException('validation_failed');
+  }
+
+  return files.map((file, index) => ({
+    ...file,
+    originalname: parsed[index].trim(),
+  }));
 }

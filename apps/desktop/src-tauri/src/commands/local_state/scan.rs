@@ -20,6 +20,17 @@ pub(super) fn scan_local_targets(
     scan_local_targets_from_conn(&conn)
 }
 
+pub(super) fn scan_extension_targets(
+    state: &P1LocalState,
+) -> Result<Vec<ScanTargetSummaryPayload>, String> {
+    let conn = state.open_connection().map_err(|error| error.to_string())?;
+    let mut summaries = scan_local_targets_from_conn(&conn)?;
+    for summary in &mut summaries {
+        append_read_only_extension_findings(summary);
+    }
+    Ok(summaries)
+}
+
 pub(super) fn scan_local_targets_from_conn(
     conn: &Connection,
 ) -> Result<Vec<ScanTargetSummaryPayload>, String> {
@@ -90,6 +101,67 @@ pub(super) fn scan_local_targets_from_conn(
     }
 
     Ok(targets)
+}
+
+fn append_read_only_extension_findings(summary: &mut ScanTargetSummaryPayload) {
+    let readonly_samples = [
+        (
+            "p0-mcp-server-precheck",
+            "mcp_server",
+            "config_backed",
+            ".mcp.json",
+            "MCP Server 在 P0 仅审计/预检，不可纳入或写入配置。",
+        ),
+        (
+            "p0-native-plugin-precheck",
+            "plugin",
+            "native_plugin",
+            ".plugins",
+            "原生 Plugin 在 P0 仅审计/预检，不可纳入或加载运行时。",
+        ),
+        (
+            "p0-hook-precheck",
+            "hook",
+            "config_backed",
+            ".hooks",
+            "Hook 在 P0 仅审计/预检，不可纳入或写入配置。",
+        ),
+        (
+            "p0-agent-cli-precheck",
+            "agent_cli",
+            "agent_cli",
+            ".agent-cli",
+            "Agent CLI 在 P0 仅审计/预检，不安装外部二进制。",
+        ),
+    ];
+
+    for (extension_id, extension_type, extension_kind, relative_path, message) in readonly_samples {
+        summary.findings.push(ScanFindingPayload {
+            id: format!(
+                "{}:{}:{}",
+                summary.target_type, summary.target_id, extension_id
+            ),
+            kind: "unmanaged".to_string(),
+            skill_id: None,
+            extension_id: Some(extension_id.to_string()),
+            extension_type: Some(extension_type.to_string()),
+            extension_kind: Some(extension_kind.to_string()),
+            write_capability: false,
+            enterprise_status: Some("allowed".to_string()),
+            target_type: summary.target_type.clone(),
+            target_id: summary.target_id.clone(),
+            target_name: summary.target_name.clone(),
+            target_path: summary.target_path.clone(),
+            relative_path: relative_path.to_string(),
+            checksum: None,
+            can_import: false,
+            import_display_name: Some(extension_id.to_string()),
+            import_description: Some(message.to_string()),
+            import_version: Some("0.0.0-policy".to_string()),
+            message: message.to_string(),
+        });
+    }
+    summary.counts = build_scan_counts(&summary.findings);
 }
 
 fn scan_target_root(
@@ -308,6 +380,11 @@ fn build_scan_finding(
     ScanFindingPayload {
         id: format!("{target_type}:{target_id}:{relative_path}"),
         kind: kind.to_string(),
+        extension_id: skill_id.clone(),
+        extension_type: skill_id.as_ref().map(|_| "skill".to_string()),
+        extension_kind: skill_id.as_ref().map(|_| "file_backed".to_string()),
+        write_capability: import_metadata.is_some() && kind == "unmanaged",
+        enterprise_status: skill_id.as_ref().map(|_| "allowed".to_string()),
         skill_id,
         target_type: target_type.to_string(),
         target_id: target_id.to_string(),
