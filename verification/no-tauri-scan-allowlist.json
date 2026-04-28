@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "policyId": "no-tauri-scan",
+  "description": "Tracks every active Tauri-era reference during the Electron migration. Non-strict mode allows named transition blockers for parallel work; strict mode rejects them for release.",
+  "terms": [
+    "tauri",
+    "Tauri",
+    "__TAURI__",
+    "src-tauri"
+  ],
+  "includeGlobs": [
+    "package.json",
+    "package-lock.json",
+    "apps/desktop/**",
+    "packages/**",
+    "verification/**",
+    "scripts/**",
+    "tests/**",
+    "docs/RequirementDocument/**",
+    "docs/DetailedDesign/**",
+    "docs/Architecture/**"
+  ],
+  "allowedHistoricalGlobs": [
+    "verification/no-tauri-scan-allowlist.json",
+    "scripts/checks/check-no-tauri-scan.mjs",
+    "tests/smoke/no-tauri-scan.test.mjs",
+    "verification/rust-exception-gate.json",
+    "scripts/checks/check-rust-exception-gate.mjs",
+    "tests/smoke/rust-exception-gate.test.mjs",
+    "docs/DetailedDesign/tauri-to-electron-migration-map.md"
+  ],
+  "transitionalBlockerGlobs": [
+    "package.json",
+    "package-lock.json",
+    "apps/desktop/package.json",
+    "apps/desktop/src-tauri/**",
+    "apps/desktop/src/services/tauriBridge.ts",
+    "apps/desktop/src/services/tauriBridge/**",
+    "apps/desktop/src/services/externalLinks.ts",
+    "apps/desktop/src/ui/DesktopApp.tsx",
+    "apps/desktop/test/**",
+    "packages/shared-contracts/src/index.ts",
+    "verification/p1-verification.config.json",
+    "scripts/full-closure/**",
+    "tests/smoke/**",
+    "docs/RequirementDocument/**",
+    "docs/DetailedDesign/**",
+    "docs/Architecture/**",
+    "apps/desktop/package-lock.json",
+    "apps/desktop/src/**",
+    "packages/shared-contracts/test/**"
+  ],
+  "strictReleaseExpectation": "Run scripts/checks/check-no-tauri-scan.mjs --strict after Electron lanes integrate; strict mode must have zero transitional blockers and zero unclassified hits."
+}
