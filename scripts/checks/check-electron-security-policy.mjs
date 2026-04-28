@@ -70,10 +70,14 @@ for (const [label, relativeFilePath] of Object.entries(config.requiredFiles ?? {
 const mainSource = config.requiredFiles?.main ? readFileIfPresent(config.requiredFiles.main) : null;
 const preloadSource = config.requiredFiles?.preload ? readFileIfPresent(config.requiredFiles.preload) : null;
 const ipcPolicySource = config.requiredFiles?.ipcPolicy ? readFileIfPresent(config.requiredFiles.ipcPolicy) : null;
+const ipcContractSource = config.requiredFiles?.ipcContract ? readFileIfPresent(config.requiredFiles.ipcContract) : null;
+const securitySource = config.requiredFiles?.security ? readFileIfPresent(config.requiredFiles.security) : null;
 
 if (mainSource === null) pending.push(`missing ${config.requiredFiles?.main}`);
 if (preloadSource === null) pending.push(`missing ${config.requiredFiles?.preload}`);
-if (ipcPolicySource === null) pending.push(`missing ${config.requiredFiles?.ipcPolicy}`);
+if (config.requiredFiles?.ipcPolicy && ipcPolicySource === null) pending.push(`missing ${config.requiredFiles.ipcPolicy}`);
+if (config.requiredFiles?.ipcContract && ipcContractSource === null) pending.push(`missing ${config.requiredFiles.ipcContract}`);
+if (config.requiredFiles?.security && securitySource === null) pending.push(`missing ${config.requiredFiles.security}`);
 
 if (mainSource !== null) checkRequiredPatterns('main', mainSource, config.mainRequiredPatterns, failures);
 if (preloadSource !== null) {
@@ -81,6 +85,8 @@ if (preloadSource !== null) {
   checkForbiddenPatterns('preload', preloadSource, config.preloadForbiddenPatterns, failures);
 }
 if (ipcPolicySource !== null) checkRequiredPatterns('ipc policy', ipcPolicySource, config.ipcPolicyRequiredPatterns, failures);
+if (ipcContractSource !== null) checkRequiredPatterns('ipc contract', ipcContractSource, config.ipcContractRequiredPatterns, failures);
+if (securitySource !== null) checkRequiredPatterns('security', securitySource, config.securityRequiredPatterns, failures);
 
 if (strict && pending.length > 0) {
   failures.push(`strict mode rejects pending Electron security files: ${pending.join(', ')}`);

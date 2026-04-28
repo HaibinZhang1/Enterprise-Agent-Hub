@@ -5,7 +5,8 @@
   "requiredFiles": {
     "main": "apps/desktop/src-electron/main.ts",
     "preload": "apps/desktop/src-electron/preload.ts",
-    "ipcPolicy": "apps/desktop/src-electron/ipc/policy.ts"
+    "ipcContract": "apps/desktop/src-electron/ipcContract.ts",
+    "security": "apps/desktop/src-electron/security.ts"
   },
   "mainRequiredPatterns": [
     "contextIsolation\\s*:\\s*true",
@@ -20,7 +21,8 @@
   "preloadRequiredPatterns": [
     "contextBridge\\.exposeInMainWorld\\s*\\(",
     "desktopBridge",
-    "APPROVED_IPC_CHANNELS|approvedIpcChannels|approvedChannels"
+    "DESKTOP_IPC_CHANNELS",
+    "assertLocalCommandName"
   ],
   "preloadForbiddenPatterns": [
     "exposeInMainWorld\\s*\\([^)]*ipcRenderer",
@@ -29,25 +31,38 @@
     "exposeInMainWorld\\s*\\([^)]*\\bfs\\b",
     "exposeInMainWorld\\s*\\([^)]*\\bprocess\\b",
     "\\bsend\\s*:\\s*ipcRenderer\\.send",
-    "\\binvoke\\s*:\\s*ipcRenderer\\.invoke"
-  ],
-  "ipcPolicyRequiredPatterns": [
-    "APPROVED_IPC_CHANNELS|approvedIpcChannels|approvedChannels",
-    "validate.*Origin|assert.*Origin|isAllowed.*Origin",
-    "senderFrame",
-    "127\\.0\\.0\\.1",
-    "file://|app://|protocol"
+    "\\binvoke\\s*:\\s*ipcRenderer\\.invoke",
+    "\\binvoke\\s*:\\s*async\\s*<"
   ],
   "requiredControls": [
     "contextIsolation true",
     "nodeIntegration false",
     "sandbox true",
-    "webSecurity true",
+    "webSecurity true explicitly set in BrowserWindow options",
     "senderFrame origin validation for every IPC handler",
     "static IPC channel allowlist",
     "no raw ipcRenderer/ipcMain/fs/process/child_process exposure",
+    "no generic preload invoke dispatcher exposed to renderer; prefer explicit methods or generated per-command wrappers",
     "navigation and new-window denial by default",
     "permission request denial by default",
     "packaged renderer CSP"
+  ],
+  "ipcContractRequiredPatterns": [
+    "DESKTOP_IPC_CHANNELS",
+    "LOCAL_COMMAND_NAMES",
+    "assertLocalCommandName",
+    "assertWindowControlAction",
+    "desktop:local-command",
+    "desktop:window-control",
+    "desktop:open-external-url"
+  ],
+  "securityRequiredPatterns": [
+    "assertAllowedSenderURL",
+    "isAllowedRendererURL",
+    "senderFrame|getURL",
+    "127\\.0\\.0\\.1",
+    "file:",
+    "isSafeExternalURL",
+    "buildRendererContentSecurityPolicy"
   ]
 }

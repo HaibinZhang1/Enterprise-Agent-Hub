@@ -27,7 +27,8 @@ function config(overrides = {}) {
     requiredFiles: {
       main: 'electron/main.ts',
       preload: 'electron/preload.ts',
-      ipcPolicy: 'electron/ipc-policy.ts',
+      ipcContract: 'electron/ipc-contract.ts',
+      security: 'electron/security.ts',
     },
     mainRequiredPatterns: [
       'contextIsolation\\s*:\\s*true',
@@ -39,9 +40,10 @@ function config(overrides = {}) {
       'setPermissionRequestHandler\\s*\\(',
       'Content-Security-Policy|csp',
     ],
-    preloadRequiredPatterns: ['contextBridge\\.exposeInMainWorld\\s*\\(', 'desktopBridge', 'APPROVED_IPC_CHANNELS'],
-    preloadForbiddenPatterns: ['send\\s*:\\s*ipcRenderer\\.send', 'invoke\\s*:\\s*ipcRenderer\\.invoke'],
-    ipcPolicyRequiredPatterns: ['APPROVED_IPC_CHANNELS', 'senderFrame', '127\\.0\\.0\\.1', 'file://'],
+    preloadRequiredPatterns: ['contextBridge\\.exposeInMainWorld\\s*\\(', 'desktopBridge', 'DESKTOP_IPC_CHANNELS', 'assertLocalCommandName'],
+    preloadForbiddenPatterns: ['send\\s*:\\s*ipcRenderer\\.send', 'invoke\\s*:\\s*ipcRenderer\\.invoke', 'invoke\\s*:\\s*async\\s*<'],
+    ipcContractRequiredPatterns: ['DESKTOP_IPC_CHANNELS', 'assertLocalCommandName'],
+    securityRequiredPatterns: ['assertAllowedSenderURL', 'senderFrame', '127\\.0\\.0\\.1', 'file:', 'buildRendererContentSecurityPolicy'],
     requiredControls: ['contextIsolation true'],
     ...overrides,
   };
@@ -58,15 +60,19 @@ const csp = 'Content-Security-Policy';
 `);
   writeFileSync(path.join(root, 'electron/preload.ts'), `
 import { contextBridge, ipcRenderer } from 'electron';
-import { APPROVED_IPC_CHANNELS } from './ipc-policy';
-contextBridge.exposeInMainWorld('desktopBridge', { openExternal: (url: string) => ipcRenderer.invoke(APPROVED_IPC_CHANNELS.openExternal, { url }) });
+import { DESKTOP_IPC_CHANNELS, assertLocalCommandName } from './ipc-contract';
+contextBridge.exposeInMainWorld('desktopBridge', { openExternalURL: (url: string) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.openExternalURL, { url }), getLocalBootstrap: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.localCommand, { command: assertLocalCommandName('get_local_bootstrap') }) });
 `);
-  writeFileSync(path.join(root, 'electron/ipc-policy.ts'), `
-export const APPROVED_IPC_CHANNELS = { openExternal: 'desktop:open-external' } as const;
-export function assertAllowedOrigin(event: { senderFrame?: { url?: string } }) {
+  writeFileSync(path.join(root, 'electron/ipc-contract.ts'), `
+export const DESKTOP_IPC_CHANNELS = { localCommand: 'desktop:local-command', windowControl: 'desktop:window-control', openExternalURL: 'desktop:open-external-url' } as const;
+export function assertLocalCommandName(command: string) { return command; }
+`);
+  writeFileSync(path.join(root, 'electron/security.ts'), `
+export function assertAllowedSenderURL(event: { senderFrame?: { url?: string } }) {
   const url = event.senderFrame?.url ?? '';
-  return url.startsWith('file://') || url.startsWith('http://127.0.0.1:');
+  return url.startsWith('file:') || url.startsWith('http://127.0.0.1:');
 }
+export function buildRendererContentSecurityPolicy() { return 'default-src self'; }
 `);
 }
 
@@ -93,12 +99,12 @@ test('missing origin validation fails strict policy when Electron files exist', 
   const root = mkdtempSync(path.join(tmpdir(), 'electron-security-fail-'));
   try {
     writeCompleteFixture(root);
-    writeFileSync(path.join(root, 'electron/ipc-policy.ts'), 'export const APPROVED_IPC_CHANNELS = {};\n');
+    writeFileSync(path.join(root, 'electron/security.ts'), 'export function buildRendererContentSecurityPolicy() { return \"default-src self\"; }\n');
     writeJson(path.join(root, 'policy.json'), config());
 
     const result = runPolicy(['--root', root, '--config', 'policy.json', '--strict']);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /ipc policy missing required security pattern/);
+    assert.match(result.stderr, /security missing required security pattern/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -110,8 +116,8 @@ test('raw invoke exposure fails preload policy', () => {
     writeCompleteFixture(root);
     writeFileSync(path.join(root, 'electron/preload.ts'), `
 import { contextBridge, ipcRenderer } from 'electron';
-import { APPROVED_IPC_CHANNELS } from './ipc-policy';
-contextBridge.exposeInMainWorld('desktopBridge', { invoke: ipcRenderer.invoke, openExternal: (url: string) => ipcRenderer.invoke(APPROVED_IPC_CHANNELS.openExternal, { url }) });
+import { DESKTOP_IPC_CHANNELS, assertLocalCommandName } from './ipc-contract';
+contextBridge.exposeInMainWorld('desktopBridge', { invoke: ipcRenderer.invoke, openExternalURL: (url: string) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.openExternalURL, { url }), getLocalBootstrap: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.localCommand, { command: assertLocalCommandName('get_local_bootstrap') }) });
 `);
     writeJson(path.join(root, 'policy.json'), config());
 
