@@ -129,6 +129,7 @@ function isAbsolutePathLike(value: string): boolean {
 }
 
 function targetName(targetType: TargetType, targetID: string, state: PersistedLocalState): string {
+  validateLocalID(targetID, "targetID");
   if (targetType === "tool") {
     return state.tools.find((tool) => tool.toolID === targetID)?.displayName ?? targetID;
   }
@@ -136,6 +137,7 @@ function targetName(targetType: TargetType, targetID: string, state: PersistedLo
 }
 
 function targetPath(targetType: TargetType, targetID: string, state: PersistedLocalState): string {
+  validateLocalID(targetID, "targetID");
   if (targetType === "tool") {
     return state.tools.find((tool) => tool.toolID === targetID)?.skillsPath ?? "";
   }
@@ -336,14 +338,16 @@ export class ElectronLocalRuntime {
       },
       [P1_LOCAL_COMMANDS.saveToolConfig]: async (args) => this.#saveToolConfig(args),
       [P1_LOCAL_COMMANDS.deleteToolConfig]: async (args) => {
+        const toolID = validateLocalID(args.toolID, "toolID");
         await this.#mutateState((state) => {
-          state.tools = state.tools.filter((tool) => tool.toolID !== args.toolID);
+          state.tools = state.tools.filter((tool) => tool.toolID !== toolID);
         });
       },
       [P1_LOCAL_COMMANDS.saveProjectConfig]: async (args) => this.#saveProjectConfig(args),
       [P1_LOCAL_COMMANDS.deleteProjectConfig]: async (args) => {
+        const projectID = validateLocalID(args.projectID, "projectID");
         await this.#mutateState((state) => {
-          state.projects = state.projects.filter((project) => project.projectID !== args.projectID);
+          state.projects = state.projects.filter((project) => project.projectID !== projectID);
         });
       },
       [P1_LOCAL_COMMANDS.validateTargetPath]: async (args) => this.#validateTargetPath(args.targetPath),
@@ -392,17 +396,18 @@ export class ElectronLocalRuntime {
 
   async #saveToolConfig(args: LocalCommandRequestMap["save_tool_config"]): Promise<ToolConfig> {
     const input = normalizeSaveToolInput(args);
+    const toolID = validateLocalID(input.toolID, "toolID");
     const now = isoNow(this.#options.now);
     const saved: ToolConfig = {
-      toolID: input.toolID,
-      displayName: input.name ?? input.toolID,
+      toolID,
+      displayName: input.name ?? toolID,
       adapterStatus: AdapterStatus.Manual,
       configuredPath: input.configPath,
       configPath: input.configPath,
       skillsPath: input.skillsPath,
       enabled: input.enabled ?? true,
       detectionMethod: "manual",
-      transformStrategy: DEFAULT_TRANSFORMS[input.toolID] ?? "generic_directory",
+      transformStrategy: DEFAULT_TRANSFORMS[toolID] ?? "generic_directory",
       lastScannedAt: now
     };
     await this.#mutateState((state) => {
@@ -413,9 +418,10 @@ export class ElectronLocalRuntime {
 
   async #saveProjectConfig(args: LocalCommandRequestMap["save_project_config"]): Promise<ProjectConfig> {
     const input = normalizeSaveProjectInput(args);
+    const projectID = input.projectID ? validateLocalID(input.projectID, "projectID") : slugify(input.name);
     const now = isoNow(this.#options.now);
     const saved: ProjectConfig = {
-      projectID: input.projectID ?? slugify(input.name),
+      projectID,
       displayName: input.name,
       projectPath: input.projectPath,
       skillsPath: input.skillsPath,
@@ -440,19 +446,51 @@ export class ElectronLocalRuntime {
     if (!trimmed) {
       return { valid: false, writable: false, exists: false, canCreate: false, reason: "路径不能为空" };
     }
+    if (trimmed.includes("\0")) {
+      return { valid: false, writable: false, exists: false, canCreate: false, reason: "路径包含非法字符" };
+    }
+    if (!isAbsolutePathLike(trimmed)) {
+      return { valid: false, writable: false, exists: false, canCreate: false, reason: "路径必须为绝对路径" };
+    }
+    if (hasPathTraversalSegment(trimmed)) {
+      return { valid: false, writable: false, exists: false, canCreate: false, reason: "路径不能包含上级目录跳转" };
+    }
     try {
       const targetStat = await stat(trimmed);
-      return { valid: targetStat.isDirectory(), writable: true, exists: true, canCreate: false, reason: targetStat.isDirectory() ? undefined : "目标路径不是目录" };
+      if (!targetStat.isDirectory()) {
+        return { valid: false, writable: false, exists: true, canCreate: false, reason: "目标路径不是目录" };
+      }
+      try {
+        await access(trimmed, fsConstants.W_OK);
+        return { valid: true, writable: true, exists: true, canCreate: false };
+      } catch {
+        return { valid: false, writable: false, exists: true, canCreate: false, reason: "目标路径不可写" };
+      }
     } catch {
-      return { valid: true, writable: true, exists: false, canCreate: true };
+      const parent = path.dirname(trimmed);
+      if (!parent || parent === trimmed) {
+        return { valid: false, writable: false, exists: false, canCreate: false, reason: "父目录不存在" };
+      }
+      try {
+        const parentStat = await stat(parent);
+        if (!parentStat.isDirectory()) {
+          return { valid: false, writable: false, exists: false, canCreate: false, reason: "父路径不是目录" };
+        }
+        await access(parent, fsConstants.W_OK);
+        return { valid: true, writable: true, exists: false, canCreate: true };
+      } catch {
+        return { valid: false, writable: false, exists: false, canCreate: false, reason: "父目录不存在或不可写" };
+      }
     }
   }
 
   async #upsertPackageInstall(downloadTicket: DownloadTicketResponse, sourceType: LocalSkillInstall["sourceType"]): Promise<LocalSkillInstall> {
+    const skillID = validateLocalID(downloadTicket.skillID, "skillID");
+    const centralStorePath = centralStoreItemPath(this.#paths.centralStorePath, skillID, "skillID");
     const now = isoNow(this.#options.now);
     const install: MutableDeep<LocalSkillInstall> = {
-      skillID: downloadTicket.skillID,
-      displayName: downloadTicket.skillID,
+      skillID,
+      displayName: skillID,
       localVersion: downloadTicket.version,
       localHash: downloadTicket.packageHash,
       sourcePackageHash: downloadTicket.packageHash,
@@ -460,7 +498,7 @@ export class ElectronLocalRuntime {
       installedAt: now,
       updatedAt: now,
       localStatus: "installed",
-      centralStorePath: path.join(this.#paths.centralStorePath, downloadTicket.skillID),
+      centralStorePath,
       enabledTargets: [],
       hasUpdate: false,
       isScopeRestricted: false,
@@ -479,12 +517,16 @@ export class ElectronLocalRuntime {
 
   async #importLocalSkill(args: ImportLocalSkillInput): Promise<LocalSkillInstall> {
     const input = normalizeImportSkillInput(args);
+    const skillID = validateLocalID(input.skillID, "skillID");
+    validateLocalID(input.targetID, "targetID");
+    const relativePath = validateRelativeInputPath(input.relativePath, "relativePath");
+    const centralStorePath = centralStoreItemPath(this.#paths.centralStorePath, skillID, "skillID");
     const now = isoNow(this.#options.now);
-    const sourceHash = hashString(`${input.targetType}:${input.targetID}:${input.relativePath}:${input.skillID}`);
-    const target = makeEnabledTarget({ skillID: input.skillID, targetType: input.targetType, targetID: input.targetID, requestedMode: "copy", state: await this.#loadState(), now });
+    const sourceHash = hashString(`${input.targetType}:${input.targetID}:${relativePath}:${skillID}`);
+    const target = makeEnabledTarget({ skillID, targetType: input.targetType, targetID: input.targetID, requestedMode: "copy", state: await this.#loadState(), now });
     const install: MutableDeep<LocalSkillInstall> = {
-      skillID: input.skillID,
-      displayName: input.skillID,
+      skillID,
+      displayName: skillID,
       localVersion: "0.0.0-local",
       localHash: sourceHash,
       sourcePackageHash: sourceHash,
@@ -492,7 +534,7 @@ export class ElectronLocalRuntime {
       installedAt: now,
       updatedAt: now,
       localStatus: "enabled",
-      centralStorePath: path.join(this.#paths.centralStorePath, input.skillID),
+      centralStorePath,
       enabledTargets: [target],
       hasUpdate: false,
       isScopeRestricted: false,
@@ -507,7 +549,8 @@ export class ElectronLocalRuntime {
   async #enableSkill(args: LocalCommandRequestMap["enable_skill"]): Promise<EnabledTarget> {
     const now = isoNow(this.#options.now);
     const target = await this.#mutateState((state) => {
-      const skillID = args.skillId;
+      const skillID = validateLocalID(args.skillId, "skillID");
+      validateLocalID(args.targetId, "targetID");
       const install = state.installs.find((item) => item.skillID === skillID);
       const enabledTarget = makeEnabledTarget({
         skillID,
@@ -544,9 +587,11 @@ export class ElectronLocalRuntime {
   async #disableSkill(args: LocalCommandRequestMap["disable_skill"]): Promise<EnabledTarget> {
     const now = isoNow(this.#options.now);
     return this.#mutateState((state) => {
-      const install = state.installs.find((item) => item.skillID === args.skillId);
+      const skillID = validateLocalID(args.skillId, "skillID");
+      validateLocalID(args.targetId, "targetID");
+      const install = state.installs.find((item) => item.skillID === skillID);
       const existing = install?.enabledTargets.find((target) => target.targetType === args.targetType && target.targetID === args.targetId)
-        ?? makeEnabledTarget({ skillID: args.skillId, targetType: args.targetType, targetID: args.targetId, requestedMode: "copy", state, now });
+        ?? makeEnabledTarget({ skillID, targetType: args.targetType, targetID: args.targetId, requestedMode: "copy", state, now });
       const disabled: EnabledTarget = { ...existing, status: "disabled" };
       if (install) {
         install.enabledTargets = install.enabledTargets.filter((target) => !(target.targetType === args.targetType && target.targetID === args.targetId));
@@ -555,7 +600,7 @@ export class ElectronLocalRuntime {
       }
       state.offlineEvents.push(makeLocalEvent({
         eventType: "disable_result",
-        skillID: args.skillId,
+        skillID,
         version: install?.localVersion ?? "0.0.0-local",
         targetType: args.targetType,
         targetID: args.targetId,
@@ -569,12 +614,14 @@ export class ElectronLocalRuntime {
   }
 
   async #uninstallSkill(skillID: string): Promise<LocalCommandResponseMap["uninstall_skill"]> {
+    const safeSkillID = validateLocalID(skillID, "skillID");
+    const centralStorePath = centralStoreItemPath(this.#paths.centralStorePath, safeSkillID, "skillID");
     return this.#mutateState(async (state) => {
-      const install = state.installs.find((item) => item.skillID === skillID);
-      state.installs = state.installs.filter((item) => item.skillID !== skillID);
-      await rm(path.join(this.#paths.centralStorePath, skillID), { recursive: true, force: true });
+      const install = state.installs.find((item) => item.skillID === safeSkillID);
+      state.installs = state.installs.filter((item) => item.skillID !== safeSkillID);
+      await rm(centralStorePath, { recursive: true, force: true });
       return {
-        skillID,
+        skillID: safeSkillID,
         removedCentralStorePath: true,
         removedTargets: install?.enabledTargets ?? [],
         failedTargets: []
@@ -584,21 +631,27 @@ export class ElectronLocalRuntime {
 
   async #importLocalExtension(args: ImportLocalExtensionInput): Promise<ExtensionInstall> {
     const input = normalizeImportExtensionInput(args);
+    const extensionID = validateLocalID(input.extensionID, "extensionID");
+    validateLocalID(input.targetID, "targetID");
+    const relativePath = validateRelativeInputPath(input.relativePath, "relativePath");
+    const centralStorePath = input.extensionKind === "file_backed"
+      ? centralStoreItemPath(this.#paths.centralStorePath, extensionID, "extensionID")
+      : null;
     const now = isoNow(this.#options.now);
     const install: MutableDeep<ExtensionInstall> = {
-      extensionID: input.extensionID,
+      extensionID,
       extensionType: input.extensionType,
       extensionKind: input.extensionKind,
-      displayName: input.extensionID,
+      displayName: extensionID,
       localVersion: "0.0.0-local",
-      localHash: hashString(`${input.extensionType}:${input.extensionID}:${input.relativePath}`),
+      localHash: hashString(`${input.extensionType}:${extensionID}:${relativePath}`),
       sourceType: "local_import",
-      sourceURI: input.relativePath,
+      sourceURI: relativePath,
       manifest: {
-        extensionID: input.extensionID,
+        extensionID,
         extensionType: input.extensionType,
         extensionKind: input.extensionKind,
-        displayName: input.extensionID,
+        displayName: extensionID,
         version: "0.0.0-local",
         permissions: [],
         riskLevel: "unknown",
@@ -608,7 +661,7 @@ export class ElectronLocalRuntime {
       riskLevel: "unknown",
       auditStatus: "unknown",
       enterpriseStatus: "allowed",
-      centralStorePath: input.extensionKind === "file_backed" ? path.join(this.#paths.centralStorePath, input.extensionID) : null,
+      centralStorePath,
       installedAt: now,
       updatedAt: now,
       writeCapability: input.extensionKind === "file_backed",
@@ -623,10 +676,12 @@ export class ElectronLocalRuntime {
   async #enableExtension(args: LocalCommandRequestMap["enable_extension"]): Promise<PluginTarget> {
     const now = isoNow(this.#options.now);
     return this.#mutateState((state) => {
-      const extension = state.extensions.find((item) => item.extensionID === args.extensionID);
+      const extensionID = validateLocalID(args.extensionID, "extensionID");
+      validateLocalID(args.targetID, "targetID");
+      const extension = state.extensions.find((item) => item.extensionID === extensionID);
       const target: PluginTarget = {
-        id: `${args.extensionID}:${args.targetType}:${args.targetID}`,
-        extensionID: args.extensionID,
+        id: `${extensionID}:${args.targetType}:${args.targetID}`,
+        extensionID,
         extensionType: args.extensionType,
         extensionKind: args.extensionKind,
         targetType: args.targetType,
@@ -652,12 +707,14 @@ export class ElectronLocalRuntime {
   async #disableExtension(args: LocalCommandRequestMap["disable_extension"]): Promise<PluginTarget> {
     const now = isoNow(this.#options.now);
     return this.#mutateState((state) => {
-      const extension = state.extensions.find((item) => item.extensionID === args.extensionID);
+      const extensionID = validateLocalID(args.extensionID, "extensionID");
+      validateLocalID(args.targetID, "targetID");
+      const extension = state.extensions.find((item) => item.extensionID === extensionID);
       const existing = extension?.targets.find((target) => target.targetType === args.targetType && target.targetID === args.targetID);
       const disabled: PluginTarget = {
         ...(existing ?? {
-          id: `${args.extensionID}:${args.targetType}:${args.targetID}`,
-          extensionID: args.extensionID,
+          id: `${extensionID}:${args.targetType}:${args.targetID}`,
+          extensionID,
           extensionType: args.extensionType,
           extensionKind: args.extensionKind,
           targetType: args.targetType,

@@ -167,3 +167,54 @@ test("Electron local runtime preserves local command contracts for bootstrap, co
 
   assert.deepEqual(await runtime.invoke(P1_LOCAL_COMMANDS.pickProjectDirectory, undefined), { projectPath: "/workspace/project-a" });
 });
+
+test("Electron local runtime rejects path traversal IDs and relative target paths", async () => {
+  const electronUserData = await tempDir("runtime-security");
+  const runtime = createElectronLocalRuntime({
+    electronUserDataDir: electronUserData,
+    appVersion: "0.1.0",
+    now: fixedNow
+  });
+
+  await assert.rejects(
+    () => runtime.invoke(P1_LOCAL_COMMANDS.installSkillPackage, {
+      downloadTicket: {
+        skillID: "../escape",
+        version: "1.0.0",
+        packageRef: "pkg-escape",
+        packageURL: "https://example.test/escape.zip",
+        packageHash: "sha256:abc123",
+        packageSize: 42,
+        packageFileCount: 2,
+        expiresAt: "2026-04-28T13:00:00.000Z"
+      }
+    }),
+    /skillID must be a stable local identifier/
+  );
+
+  await assert.rejects(
+    () => runtime.invoke(P1_LOCAL_COMMANDS.importLocalExtension, {
+      input: {
+        extensionID: "safe-extension",
+        extensionType: "skill",
+        extensionKind: "file_backed",
+        targetType: "tool",
+        targetID: "codex",
+        relativePath: "../outside",
+        conflictStrategy: "rename"
+      }
+    }),
+    /relativePath cannot contain traversal segments/
+  );
+
+  const relativeValidation = await runtime.invoke(P1_LOCAL_COMMANDS.validateTargetPath, { targetPath: "relative/path" });
+  assert.equal(relativeValidation.valid, false);
+  assert.equal(relativeValidation.canCreate, false);
+  assert.match(relativeValidation.reason ?? "", /绝对路径/);
+
+  const missingParentValidation = await runtime.invoke(P1_LOCAL_COMMANDS.validateTargetPath, {
+    targetPath: path.join(electronUserData, "missing-parent", "skills")
+  });
+  assert.equal(missingParentValidation.valid, false);
+  assert.equal(missingParentValidation.canCreate, false);
+});
