@@ -12,8 +12,16 @@
     {
       "id": "bootstrap-login-p1-navigation",
       "title": "Login then bootstrap exposes publish capability inside 我的 Skill and keeps admin menus gated",
-      "coverage": ["auth/login", "GET /desktop/bootstrap", "P1 navigation keeps publish inside 我的 Skill while review/admin stay permission-gated"],
-      "preconditions": ["Seed user exists", "API is reachable", "Desktop starts from clean local state"],
+      "coverage": [
+        "auth/login",
+        "GET /desktop/bootstrap",
+        "P1 navigation keeps publish inside 我的 Skill while review/admin stay permission-gated"
+      ],
+      "preconditions": [
+        "Seed user exists",
+        "API is reachable",
+        "Desktop starts from clean local state"
+      ],
       "steps": [
         "Log in with the seed P1 user.",
         "Fetch desktop bootstrap context.",
@@ -29,8 +37,15 @@
     {
       "id": "market-search-filter-sort",
       "title": "Market search, filter and sort compose correctly",
-      "coverage": ["GET /skills", "search", "department/tool/risk filters", "sort order"],
-      "preconditions": ["Seed market data includes multiple departments, compatible tools and risk levels"],
+      "coverage": [
+        "GET /skills",
+        "search",
+        "department/tool/risk filters",
+        "sort order"
+      ],
+      "preconditions": [
+        "Seed market data includes multiple departments, compatible tools and risk levels"
+      ],
       "steps": [
         "Run a keyword search with compatibleTool and riskLevel filters.",
         "Change sort from composite to latest_published.",
@@ -45,8 +60,14 @@
     {
       "id": "restricted-detail-no-leakage",
       "title": "Restricted detail does not leak private package data",
-      "coverage": ["GET /skills/{skillID}", "detailAccess=summary", "permission_denied error"],
-      "preconditions": ["Seed includes one summary-only Skill and one inaccessible Skill"],
+      "coverage": [
+        "GET /skills/{skillID}",
+        "detailAccess=summary",
+        "permission_denied error"
+      ],
+      "preconditions": [
+        "Seed includes one summary-only Skill and one inaccessible Skill"
+      ],
       "steps": [
         "Open a summary-only Skill detail.",
         "Open a no-access Skill detail or direct URL."
@@ -59,8 +80,16 @@
     {
       "id": "install-hash-success-central-store",
       "title": "Install succeeds after SHA-256 verification and writes Central Store state",
-      "coverage": ["download-ticket", "packageHash", "Central Store", "SQLite local_skill_installs"],
-      "preconditions": ["Installable seed Skill has packageHash=sha256:<hex>", "Central Store is empty"],
+      "coverage": [
+        "download-ticket",
+        "packageHash",
+        "Central Store",
+        "SQLite local_skill_installs"
+      ],
+      "preconditions": [
+        "Installable seed Skill has packageHash=sha256:<hex>",
+        "Central Store is empty"
+      ],
       "steps": [
         "Request a download-ticket for install.",
         "Download the package and compute SHA-256.",
@@ -76,8 +105,14 @@
     {
       "id": "install-hash-failure-preserves-state",
       "title": "Hash mismatch blocks install and preserves old state",
-      "coverage": ["hash_mismatch", "temp cleanup", "no Central Store pollution"],
-      "preconditions": ["A corrupt/tampered package fixture is available"],
+      "coverage": [
+        "hash_mismatch",
+        "temp cleanup",
+        "no Central Store pollution"
+      ],
+      "preconditions": [
+        "A corrupt/tampered package fixture is available"
+      ],
       "steps": [
         "Request a ticket whose expected hash does not match the tampered package.",
         "Attempt install.",
@@ -92,8 +127,15 @@
     {
       "id": "update-local-hash-change-warning",
       "title": "Update warns before overwriting locally changed package",
-      "coverage": ["localHash", "sourcePackageHash", "update confirmation"],
-      "preconditions": ["Installed Skill localHash differs from sourcePackageHash", "A newer installable version exists"],
+      "coverage": [
+        "localHash",
+        "sourcePackageHash",
+        "update confirmation"
+      ],
+      "preconditions": [
+        "Installed Skill localHash differs from sourcePackageHash",
+        "A newer installable version exists"
+      ],
       "steps": [
         "Open the update action for the modified local Skill.",
         "Confirm that overwrite warning is shown.",
@@ -108,8 +150,15 @@
     {
       "id": "enable-codex-symlink-success",
       "title": "Enable to Codex succeeds by symlink without copying source content",
-      "coverage": ["adapter=codex", "requestedMode=symlink", "resolvedMode=symlink"],
-      "preconditions": ["Codex target path is writable and supports symlinks", "Skill is installed in Central Store"],
+      "coverage": [
+        "adapter=codex",
+        "requestedMode=symlink",
+        "resolvedMode=symlink"
+      ],
+      "preconditions": [
+        "Codex target path is writable and supports symlinks",
+        "Skill is installed in Central Store"
+      ],
       "steps": [
         "Enable the installed Skill to Codex with default mode.",
         "Inspect target path and local enabled target record.",
@@ -124,8 +173,16 @@
     {
       "id": "enable-symlink-failure-copy-fallback",
       "title": "Symlink failure falls back to copy and records fallbackReason",
-      "coverage": ["symlink failure", "copy fallback", "fallbackReason", "local-events"],
-      "preconditions": ["Target path is configured to reject symlink creation", "Skill is installed"],
+      "coverage": [
+        "symlink failure",
+        "copy fallback",
+        "fallbackReason",
+        "local-events"
+      ],
+      "preconditions": [
+        "Target path is configured to reject symlink creation",
+        "Skill is installed"
+      ],
       "steps": [
         "Enable with requestedMode=symlink into the restricted target.",
         "Inspect target path and enabled target record.",
@@ -140,8 +197,14 @@
     {
       "id": "disable-preserves-central-store",
       "title": "Disable removes only managed target and preserves Central Store",
-      "coverage": ["disable_skill", "managed symlink/copy cleanup", "Central Store safety"],
-      "preconditions": ["Skill is installed and enabled to at least one target"],
+      "coverage": [
+        "disable_skill",
+        "managed symlink/copy cleanup",
+        "Central Store safety"
+      ],
+      "preconditions": [
+        "Skill is installed and enabled to at least one target"
+      ],
       "steps": [
         "Disable one enabled target.",
         "Inspect target path and Central Store package path.",
@@ -156,8 +219,15 @@
     {
       "id": "uninstall-managed-targets-with-confirmation",
       "title": "Uninstall lists and removes Central Store plus managed targets after confirmation",
-      "coverage": ["uninstall_skill", "managed targets", "confirmation", "partial failures"],
-      "preconditions": ["Skill is installed and enabled to multiple managed targets"],
+      "coverage": [
+        "uninstall_skill",
+        "managed targets",
+        "confirmation",
+        "partial failures"
+      ],
+      "preconditions": [
+        "Skill is installed and enabled to multiple managed targets"
+      ],
       "steps": [
         "Start uninstall.",
         "Verify all managed target paths are listed for confirmation.",
@@ -173,8 +243,15 @@
     {
       "id": "offline-enable-disable-queue-restart",
       "title": "Offline enable/disable queues events and survives app restart",
-      "coverage": ["offline mode", "offline_event_queue", "restart persistence"],
-      "preconditions": ["Skill is installed locally", "API is unreachable or app is forced offline"],
+      "coverage": [
+        "offline mode",
+        "offline_event_queue",
+        "restart persistence"
+      ],
+      "preconditions": [
+        "Skill is installed locally",
+        "API is unreachable or app is forced offline"
+      ],
       "steps": [
         "Enter offline mode.",
         "Enable then disable the installed Skill.",
@@ -190,8 +267,15 @@
     {
       "id": "local-events-idempotent-sync",
       "title": "Restored connection syncs local-events idempotently without governance mutation",
-      "coverage": ["POST /desktop/local-events", "idempotency", "server governance untouched"],
-      "preconditions": ["offline_event_queue contains duplicate/retryable events", "API is reachable again"],
+      "coverage": [
+        "POST /desktop/local-events",
+        "idempotency",
+        "server governance untouched"
+      ],
+      "preconditions": [
+        "offline_event_queue contains duplicate/retryable events",
+        "API is reachable again"
+      ],
       "steps": [
         "Flush local events after network recovery.",
         "Repeat the flush with the same event IDs.",
@@ -207,8 +291,16 @@
     {
       "id": "publisher-upload-review-browser-flow",
       "title": "Browser publish flow submits ZIP/folder and drives admin review actions",
-      "coverage": ["POST /publisher/submissions", "GET /publisher/skills", "POST /admin/reviews/{id}/claim", "POST /admin/reviews/{id}/approve"],
-      "preconditions": ["API, PostgreSQL, Redis and MinIO are running", "Desktop Vite app is connected to the real API"],
+      "coverage": [
+        "POST /publisher/submissions",
+        "GET /publisher/skills",
+        "POST /admin/reviews/{id}/claim",
+        "POST /admin/reviews/{id}/approve"
+      ],
+      "preconditions": [
+        "API, PostgreSQL, Redis and MinIO are running",
+        "Desktop Vite app is connected to the real API"
+      ],
       "steps": [
         "Log in as a normal author and submit one folder package and one ZIP package.",
         "Wait for system precheck to move each submission into 待审核 or 待人工复核.",
@@ -225,8 +317,16 @@
     {
       "id": "publisher-return-resubmit-browser-flow",
       "title": "Browser return-for-changes flow supports folder resubmission and later publish",
-      "coverage": ["POST /publisher/submissions", "POST /admin/reviews/{id}/return", "GET /publisher/skills", "folder upload"],
-      "preconditions": ["API, PostgreSQL, Redis and MinIO are running", "Desktop Vite app is connected to the real API"],
+      "coverage": [
+        "POST /publisher/submissions",
+        "POST /admin/reviews/{id}/return",
+        "GET /publisher/skills",
+        "folder upload"
+      ],
+      "preconditions": [
+        "API, PostgreSQL, Redis and MinIO are running",
+        "Desktop Vite app is connected to the real API"
+      ],
       "steps": [
         "Log in as a normal author and submit one folder package.",
         "Log in as an eligible admin and return the review for changes.",
@@ -242,8 +342,14 @@
     {
       "id": "publisher-reject-no-market-leakage",
       "title": "Rejected publish attempts never leak into market visibility or download-ticket paths",
-      "coverage": ["POST /admin/reviews/{id}/reject", "GET /skills", "POST /skills/{skillID}/download-ticket"],
-      "preconditions": ["A new publish submission exists and is reviewable"],
+      "coverage": [
+        "POST /admin/reviews/{id}/reject",
+        "GET /skills",
+        "POST /skills/{skillID}/download-ticket"
+      ],
+      "preconditions": [
+        "A new publish submission exists and is reviewable"
+      ],
       "steps": [
         "Log in as an eligible admin and reject the new publish review.",
         "Search the market for that skillID.",
@@ -258,8 +364,15 @@
     {
       "id": "permission-change-visibility-switch-after-approval",
       "title": "Permission change keeps old market visibility until approval, then switches atomically",
-      "coverage": ["permission_change review flow", "market detailAccess", "canInstall gating"],
-      "preconditions": ["A published public_installable skill exists", "At least one outsider user can observe market access changes"],
+      "coverage": [
+        "permission_change review flow",
+        "market detailAccess",
+        "canInstall gating"
+      ],
+      "preconditions": [
+        "A published public_installable skill exists",
+        "At least one outsider user can observe market access changes"
+      ],
       "steps": [
         "Create a permission_change submission that narrows visibility/access.",
         "Check market access for an outsider user before approval.",
@@ -275,8 +388,14 @@
     {
       "id": "update-publish-old-version-remains-live",
       "title": "Update publish keeps the old market version live until review approval",
-      "coverage": ["update publish flow", "market version visibility", "download-ticket versioning"],
-      "preconditions": ["A published v1 skill exists and a v2 package is available for submission"],
+      "coverage": [
+        "update publish flow",
+        "market version visibility",
+        "download-ticket versioning"
+      ],
+      "preconditions": [
+        "A published v1 skill exists and a v2 package is available for submission"
+      ],
       "steps": [
         "Submit an update review for v2.",
         "Before approval, open the market detail and inspect the visible version.",
@@ -291,13 +410,24 @@
     },
     {
       "id": "same-skill-market-download-install-enable",
-      "title": "The same newly published skill can be downloaded, installed, enabled, restarted, and uninstalled locally",
-      "coverage": ["same skill continuity", "download-ticket", "Tauri install", "Central Store", "enable_skill", "restart restore", "uninstall_skill"],
-      "preconditions": ["A newly published skill from the happy-path browser flow exists", "Native local-state harness can access the real API"],
+      "title": "The same newly published skill can be downloaded, installed, enabled, restarted, and uninstalled through Electron desktop local runtime",
+      "coverage": [
+        "same skill continuity",
+        "download-ticket",
+        "Electron desktop install",
+        "Central Store",
+        "enable_skill",
+        "restart restore",
+        "uninstall_skill"
+      ],
+      "preconditions": [
+        "A newly published skill from the happy-path browser flow exists",
+        "Electron desktop local-state harness can access the real API"
+      ],
       "steps": [
         "Use the exact same skillID/version published in the browser happy path.",
         "Fetch a real download-ticket for that skill.",
-        "Install, enable to one tool and one project, restart local state, then uninstall."
+        "Install through the Electron desktop bridge, enable to one tool and one project, restart local state, then uninstall."
       ],
       "expectedEvidence": [
         "download-ticket hash matches the downloaded ZIP archive.",
@@ -309,8 +439,15 @@
     {
       "id": "notifications-read-offline-cache",
       "title": "Notifications support mark-read and offline cache display",
-      "coverage": ["GET /notifications", "POST /notifications/mark-read", "local_notifications"],
-      "preconditions": ["Seed user has unread notifications", "Desktop has performed one online notification sync"],
+      "coverage": [
+        "GET /notifications",
+        "POST /notifications/mark-read",
+        "local_notifications"
+      ],
+      "preconditions": [
+        "Seed user has unread notifications",
+        "Desktop has performed one online notification sync"
+      ],
       "steps": [
         "Open notification center and mark one notification as read.",
         "Mark all as read.",
@@ -320,6 +457,106 @@
         "Unread count updates after single and all mark-read actions.",
         "local_notifications cache shows recent notifications offline.",
         "Offline state clearly indicates data is cached."
+      ]
+    },
+    {
+      "id": "electron-ipc-security-gate",
+      "title": "Electron preload exposes only approved desktop bridge methods and rejects unsafe renderer access",
+      "coverage": [
+        "Electron IPC",
+        "preload allowlist",
+        "context isolation",
+        "sender validation",
+        "external URL policy"
+      ],
+      "preconditions": [
+        "Electron main/preload sources are present."
+      ],
+      "steps": [
+        "Inspect the preload API exposed to the renderer.",
+        "Verify the renderer cannot access raw ipcRenderer, ipcMain, filesystem, or child process APIs.",
+        "Exercise unknown channel and unsafe external URL rejection paths in the static/runtime smoke."
+      ],
+      "expectedEvidence": [
+        "contextIsolation is enabled and nodeIntegration is disabled.",
+        "Only typed desktopBridge methods are exposed.",
+        "Unknown channels and unsafe external URL protocols are rejected."
+      ]
+    },
+    {
+      "id": "electron-data-migration-preserves-local-store",
+      "title": "Electron first launch preserves existing local Store data or reports a recoverable conflict",
+      "coverage": [
+        "userData migration",
+        "skills.db",
+        "central-store",
+        "manifest",
+        "backup",
+        "idempotency"
+      ],
+      "preconditions": [
+        "A fixture legacy local Store source exists or migration tests create one."
+      ],
+      "steps": [
+        "Launch migration with no source and verify fresh initialization.",
+        "Launch migration with existing skills.db and central-store into an empty Electron userData path.",
+        "Re-run migration and verify idempotent success without deleting source data.",
+        "Run conflict and partial-copy failure cases."
+      ],
+      "expectedEvidence": [
+        "skills.db and central-store are copied or safely referenced in Electron userData.",
+        "Migration manifest records source, target, version, and outcome.",
+        "Conflicts and partial failures keep source data intact and surface recovery instructions."
+      ]
+    },
+    {
+      "id": "electron-updater-manual-semantics",
+      "title": "Electron updater preserves P1 manual ticket, download, verify, confirm, launch, and event flow",
+      "coverage": [
+        "download-ticket",
+        "size check",
+        "SHA-256 check",
+        "signature status",
+        "user confirmation",
+        "installer launch",
+        "event reporting"
+      ],
+      "preconditions": [
+        "A client update release artifact is available from a local or fixture update server."
+      ],
+      "steps": [
+        "Request a release download-ticket.",
+        "Download the installer artifact and reject size or hash mismatches.",
+        "Verify signature status using the platform path, preserving skipped_non_windows where appropriate.",
+        "Require explicit user confirmation before launching the installer.",
+        "Report download, hash, signature, and installer launch events."
+      ],
+      "expectedEvidence": [
+        "hash_failed and signature_failed events are reported for failed verification.",
+        "installer_started is reported only after ready-to-install and explicit confirmation.",
+        "Event reporting failures do not break an otherwise successful update."
+      ]
+    },
+    {
+      "id": "no-legacy-runtime-reference-scan",
+      "title": "Release gates reject active legacy desktop runtime references in product delivery paths",
+      "coverage": [
+        "static scan",
+        "package scripts",
+        "verification config",
+        "runtime source",
+        "docs"
+      ],
+      "preconditions": [
+        "All Electron migration lanes have been integrated."
+      ],
+      "steps": [
+        "Run the legacy runtime reference scan over package manifests, desktop source, tests, scripts, verification config, and active docs.",
+        "Allow only explicit migration-history artifacts that are not part of runtime delivery."
+      ],
+      "expectedEvidence": [
+        "No active runtime, script, verification, or docs path refers to the removed desktop runtime.",
+        "The scan fails if a removed runtime global, source directory, package script, or dependency reappears."
       ]
     }
   ]
