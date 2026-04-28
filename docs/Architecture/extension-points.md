@@ -7,8 +7,8 @@ Only extension points with clear near-term use are documented here.
 Touchpoints:
 
 - Desktop path and transform helpers
-- Tauri bridge commands
-- Rust adapter/runtime layer
+- Electron IPC bridge commands
+- Electron/Node adapter runtime layer or approved standalone helper
 - shared contract fields if a new capability changes command payloads
 
 Checklist:
@@ -26,7 +26,7 @@ Touchpoints:
 
 - desktop platform path helpers
 - local-sync/runtime slice
-- Rust validation/adapter commands when platform-specific
+- local validation/adapter handlers when platform-specific
 
 Rule: path strategy must stay in path/runtime layers, not leak into page components.
 

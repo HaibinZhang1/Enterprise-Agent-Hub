@@ -43,7 +43,7 @@ This project uses explicit domain boundaries without introducing a DDD framework
 
 - Scope: local bootstrap, scan, install, enable, disable, uninstall, path resolution
 - Application: workspace state facade and local-sync slices
-- Infrastructure: Tauri bridge and Rust commands
+- Infrastructure: Electron IPC bridge and local command handlers
 
 ## Notification / Local Event Sync
 

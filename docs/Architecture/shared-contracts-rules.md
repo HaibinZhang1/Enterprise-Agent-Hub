@@ -15,7 +15,7 @@
 - app-local UI state
 - server-only persistence records
 - SQL row types
-- Tauri runtime implementation details
+- Electron runtime implementation details
 
 ## Evolution rules
 

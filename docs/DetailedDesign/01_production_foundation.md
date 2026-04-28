@@ -2,11 +2,11 @@
 
 ## 1. 范围与目标
 
-本设计面向企业内网正式运行的第一阶段工程基础架构，覆盖 Desktop/Tauri 使用闭环和最小服务端能力。当前正式安装包交付仍以 Windows exe 为主，同时为 macOS 保留 Desktop runtime 的编译、运行和测试支持。目标是让用户可以登录、浏览市场、搜索、查看详情、安装、更新、卸载、启用/停用 Skill，并在离线时继续使用本地已安装 Skill。
+本设计面向企业内网正式运行的第一阶段工程基础架构，覆盖 Desktop/Electron 使用闭环和最小服务端能力。当前正式安装包交付仍以 Windows exe 为主，同时为 macOS 保留 Desktop runtime 的编译、运行和测试支持。目标是让用户可以登录、浏览市场、搜索、查看详情、安装、更新、卸载、启用/停用 Skill，并在离线时继续使用本地已安装 Skill。
 
 设计原则：
 
-- 桌面端只用 Tauri 承载窗口、权限隔离和本地系统能力，业务 UI 不直接写本地文件。
+- 桌面端只用 Electron 主进程/预加载层承载窗口、权限隔离和本地系统能力，业务 UI 不直接写本地文件。
 - 服务端采用 NestJS 模块化单体，模块边界清晰但部署单一。
 - Skill 包和资源文件只进入 MinIO，数据库只保存元数据、权限、索引和对象引用。
 - 搜索第一阶段使用 PostgreSQL FTS，避免引入额外搜索基础设施。
@@ -38,35 +38,36 @@ EnterpriseAgentHub/
 │   │   │   │   └── settings/
 │   │   │   ├── services/
 │   │   │   │   ├── apiClient.ts
-│   │   │   │   ├── tauriCommands.ts
+│   │   │   │   ├── desktopBridge.ts
 │   │   │   │   └── queryKeys.ts
 │   │   │   ├── state/
 │   │   │   ├── styles/
 │   │   │   └── types/
-│   │   └── src-tauri/
-│   │       ├── Cargo.toml
-│   │       ├── tauri.conf.json
-│   │       ├── migrations/
-│   │       └── src/
-│   │           ├── main.rs
-│   │           ├── commands/
-│   │           │   ├── central_store.rs
-│   │           │   ├── distribution.rs
-│   │           │   ├── local_db.rs
-│   │           │   ├── offline_queue.rs
-│   │           │   ├── tool_detection.rs
-│   │           │   └── path_validation.rs
-│   │           ├── adapters/
-│   │           │   ├── codex.rs
-│   │           │   ├── claude.rs
-│   │           │   ├── cursor.rs
-│   │           │   ├── windsurf.rs
-│   │           │   ├── opencode.rs
-│   │           │   └── custom_directory.rs
-│   │           ├── store/
-│   │           ├── sqlite/
-│   │           ├── sync/
-│   │           └── windows/
+│   │   └── src-electron/
+│   │       ├── main.ts
+│   │       ├── preload.ts
+│   │       ├── ipc/
+│   │       │   ├── channels.ts
+│   │       │   ├── security.ts
+│   │       │   └── handlers.ts
+│   │       ├── local-runtime/
+│   │       │   ├── centralStore.ts
+│   │       │   ├── distribution.ts
+│   │       │   ├── localDb.ts
+│   │       │   ├── offlineQueue.ts
+│   │       │   ├── toolDetection.ts
+│   │       │   └── pathValidation.ts
+│   │       ├── adapters/
+│   │       │   ├── codex.ts
+│   │       │   ├── claude.ts
+│   │       │   ├── cursor.ts
+│   │       │   ├── windsurf.ts
+│   │       │   ├── opencode.ts
+│   │       │   └── customDirectory.ts
+│   │       ├── store/
+│   │       ├── sqlite/
+│   │       ├── sync/
+│   │       └── windows/
 │   └── api/
 │       ├── package.json
 │       ├── nest-cli.json
@@ -117,7 +118,7 @@ EnterpriseAgentHub/
 说明：
 
 - `apps/desktop/src` 承接 `docs/design-ui/layout-prototype/` 中已验证的页面结构，但生产实现需要隐藏发布、审核、管理等 后续版本 入口。
-- `apps/desktop/src-tauri` 是所有本地系统能力的唯一入口，React 只通过 `invoke` 调用命令。
+- `apps/desktop/src-electron` 是所有本地系统能力的唯一入口，React 只通过 preload 暴露的 typed desktop bridge 调用命令。
 - `packages/shared-contracts` 放 API DTO、枚举和跨端类型，避免 Desktop 与 API 字段漂移。
 - `packages/tool-adapter-fixtures` 放 Codex、Claude、Cursor、Windsurf、opencode 的格式转换 golden fixture；opencode 产物保留 `SKILL.md` 入口以匹配其 skill 扫描行为。
 - `infra` 只提供单机内网生产/预生产可用的基础设施编排，不引入微服务网关。
@@ -137,20 +138,22 @@ EnterpriseAgentHub/
 | `notifications` | 应用内通知、未读筛选、标记已读、跳转关联对象。 |
 | `settings` | 语言、Central Store 路径展示、本地同步偏好。 |
 | `services/apiClient` | 只调用服务端 HTTP API，不直接处理本地文件。 |
-| `services/tauriCommands` | 只封装 Tauri `invoke`，不包含业务 UI 状态。 |
+| `services/desktopBridge` | 只封装 preload/Electron IPC 调用，不包含业务 UI 状态。 |
 
-### 3.2 Tauri Rust 模块
+### 3.2 Electron 本地运行时模块
 
 | 模块 | 责任 |
 | --- | --- |
-| `tool_detection` | Windows 注册表扫描、默认路径探测、手动路径校验、marker file 检测。 |
-| `central_store` | 下载临时目录、SHA-256 校验、包大小/文件数校验、写入/覆盖/删除 Central Store。 |
+| `toolDetection` | Windows 注册表扫描、默认路径探测、手动路径校验、marker file 检测。 |
+| `centralStore` | 下载临时目录、SHA-256 校验、包大小/文件数校验、写入/覆盖/删除 Central Store。 |
 | `adapters` | Codex、Claude、Cursor、Windsurf、opencode、自定义目录的目标布局和格式转换。 |
 | `distribution` | 从 Central Store 的转换产物启用到工具/项目；优先 symlink，失败自动 copy；停用和卸载目标清理。 |
-| `local_db` | SQLite 迁移、读写本地安装状态、工具/项目配置、启用目标、同步状态。 |
-| `offline_queue` | 离线启用/停用事件入队、恢复网络后批量上报、成功后确认删除。 |
-| `path_validation` | 路径存在性、可写性、目标冲突、覆盖确认所需的预检查。 |
+| `localDb` | SQLite 迁移、读写本地安装状态、工具/项目配置、启用目标、同步状态。 |
+| `offlineQueue` | 离线启用/停用事件入队、恢复网络后批量上报、成功后确认删除。 |
+| `pathValidation` | 路径存在性、可写性、目标冲突、覆盖确认所需的预检查。 |
 | `windows` | Windows 专属能力封装，避免平台细节散落在业务命令中。 |
+
+Rust 仅在迁移例外门确认 Node/Electron 重写会削弱安全性或可靠性时，作为 standalone helper 被调用；该 helper 不得引入 legacy desktop-runtime 依赖或旧运行时目录。
 
 ### 3.3 NestJS 服务端模块
 
@@ -169,14 +172,14 @@ EnterpriseAgentHub/
 | `JobsModule` | BullMQ 队列注册、包入库校验、通知生成、后台维护任务。 |
 | `HealthModule` | 服务健康检查、数据库/Redis/MinIO 连通性探测。 |
 
-## 4. Tauri 前端层与 Rust 层边界
+## 4. Electron 渲染层与主进程/本地运行时边界
 
 ### 4.1 React 可以做的事
 
 - 渲染页面、弹窗、表格、筛选器和进度状态。
 - 调用 NestJS API 获取市场、详情、通知、download-ticket。
-- 调用 Rust command 执行本地安装、启用、停用、卸载、检测、离线同步。
-- 根据 Rust 返回的结构化结果展示成功、失败、重试和覆盖确认。
+- 调用 Electron preload 暴露的本地命令执行安装、启用、停用、卸载、检测、离线同步。
+- 根据本地命令返回的结构化结果展示成功、失败、重试和覆盖确认。
 
 React 不直接做：
 
@@ -186,21 +189,21 @@ React 不直接做：
 - 维护 SQLite 连接或手写本地持久化文件。
 - 推导服务端权限、下架、版本、可安装资格。
 
-### 4.2 Rust command 边界
+### 4.2 Electron IPC command 边界
 
-建议第一阶段暴露以下命令：
+建议第一阶段通过 preload/IPC 暴露以下 typed 命令：
 
 | Command | 输入 | 输出 | 说明 |
 | --- | --- | --- | --- |
 | `get_local_bootstrap` | 无 | 本地安装、工具、项目、队列概览 | 启动时支撑离线首页和我的 Skill。 |
-| `scan_tools` | `toolIDs?` | 工具检测结果列表 | 执行注册表、默认路径、marker file、可写性检查。 |
+| `detect_tools` | `toolIDs?` | 工具检测结果列表 | 执行注册表、默认路径、marker file、可写性检查。 |
 | `validate_target_path` | `targetPath` | 路径状态 | 添加工具/项目或修改路径前调用。 |
 | `install_skill_package` | `downloadTicket` | `LocalSkillInstall` | 下载、校验、写入 Central Store 和 SQLite。 |
 | `update_skill_package` | `downloadTicket` | `LocalSkillInstall` | 校验后全量覆盖 Central Store。 |
 | `enable_skill` | `skillID, version, targetType, targetID, preferredMode` | `EnabledTarget` | 默认 `preferredMode=symlink`，失败降级 `copy`。 |
 | `disable_skill` | `skillID, targetType, targetID` | `EnabledTarget` | 删除目标 symlink 或 copy，保留 Central Store。 |
 | `uninstall_skill` | `skillID` | 卸载结果 | 删除 Central Store 和所有启用目标，部分失败需返回失败路径。 |
-| `flush_offline_events` | 服务端地址/认证上下文 | 同步结果 | 联网后调用 `/desktop/local-events` 并更新队列状态。 |
+| `mark_offline_events_synced` | `eventIDs` | 同步确认结果 | 联网后成功上报 `/desktop/local-events` 时确认删除本地队列项。 |
 
 ### 4.3 symlink 优先、copy 降级规则
 
