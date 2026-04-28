@@ -1,7 +1,7 @@
 import packageInfo from "../../../package.json" with { type: "json" };
 import { detectDesktopPlatform } from "../../utils/platformPaths.ts";
 import { localCommandErrorMessage, pendingLocalCommand } from "./common.ts";
-import { allowTauriMocks, getInvoke, invokeWithTimeout, isBrowserPreviewMode, mockWait, requireInvoke, type TauriInvoker } from "./runtime.ts";
+import { allowElectronMocks, getInvoke, invokeWithTimeout, isBrowserPreviewMode, mockWait, requireInvoke, type DesktopInvoker } from "./runtime.ts";
 
 export const CLIENT_UPDATE_LOCAL_COMMANDS = {
   getClientAppVersion: "get_client_app_version",
@@ -75,7 +75,7 @@ export interface ClientUpdateLaunchResult {
 }
 
 async function callClientUpdateCommand<T>(
-  invoke: TauriInvoker,
+  invoke: DesktopInvoker,
   command: string,
   args: Record<string, unknown> | undefined,
   actionLabel: string,
@@ -153,7 +153,7 @@ export async function getClientAppVersion(): Promise<ClientAppVersionInfo> {
   if (isBrowserPreviewMode()) {
     return previewVersionInfo();
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(60);
@@ -174,7 +174,7 @@ export async function downloadClientUpdate(input: ClientUpdateArtifactInput): Pr
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("download_client_update");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(220);
@@ -195,7 +195,7 @@ export async function verifyClientUpdate(input: ClientUpdateVerifyInput): Promis
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("verify_client_update");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(180);
@@ -216,7 +216,7 @@ export async function launchClientInstaller(input: ClientUpdateLaunchInput): Pro
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("launch_client_installer");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(120);

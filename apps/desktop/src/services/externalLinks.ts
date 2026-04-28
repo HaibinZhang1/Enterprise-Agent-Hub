@@ -1,16 +1,14 @@
 declare global {
   interface Window {
-    __TAURI__?: {
-      core?: {
-        invoke?: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
-      };
+    enterpriseAgentHubDesktop?: {
+      invoke?: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
     };
   }
 }
 
 function getExternalInvoke() {
   if (typeof window === "undefined") return null;
-  return window.__TAURI__?.core?.invoke ?? null;
+  return window.enterpriseAgentHubDesktop?.invoke ?? null;
 }
 
 export function isSafeExternalURL(url: string): boolean {

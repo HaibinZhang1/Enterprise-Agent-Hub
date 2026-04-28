@@ -4,7 +4,7 @@ import { seedTools } from "../../fixtures/p1SeedData.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsCandidates, detectDesktopPlatform } from "../../utils/platformPaths.ts";
 import { pendingLocalCommand } from "./common.ts";
 import { mapPreviewTool } from "./preview.ts";
-import { allowTauriMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
+import { allowElectronMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
 
 export async function saveToolConfig(tool: { toolID: string; name?: string; configPath: string; skillsPath: string; enabled?: boolean }): Promise<ToolConfig> {
   const invoke = getInvoke();
@@ -14,7 +14,7 @@ export async function saveToolConfig(tool: { toolID: string; name?: string; conf
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("save_tool_config");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(180);
@@ -49,7 +49,7 @@ export async function deleteToolConfig(toolID: string): Promise<void> {
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("delete_tool_config");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(120);
@@ -63,7 +63,7 @@ export async function saveProjectConfig(project: { projectID?: string; name: str
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("save_project_config");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(200);
@@ -90,7 +90,7 @@ export async function deleteProjectConfig(projectID: string): Promise<void> {
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("delete_project_config");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(120);
@@ -104,7 +104,7 @@ export async function pickProjectDirectory(): Promise<ProjectDirectorySelection 
   if (isBrowserPreviewMode()) {
     return null;
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(120);

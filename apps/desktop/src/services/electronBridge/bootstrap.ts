@@ -3,7 +3,7 @@ import { P1_LOCAL_COMMANDS } from "@enterprise-agent-hub/shared-contracts";
 import { seedProjects, seedTools } from "../../fixtures/p1SeedData.ts";
 import { detectDesktopPlatform, previewCentralStorePath } from "../../utils/platformPaths.ts";
 import { browserPreviewBootstrap, mapPreviewProject, mapPreviewTool, seedLocalExtensions, seedLocalInstalls } from "./preview.ts";
-import { allowTauriMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
+import { allowElectronMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
 
 export async function getLocalBootstrap(): Promise<LocalBootstrap> {
   const invoke = getInvoke();
@@ -13,7 +13,7 @@ export async function getLocalBootstrap(): Promise<LocalBootstrap> {
   if (isBrowserPreviewMode()) {
     return browserPreviewBootstrap();
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait();
@@ -38,7 +38,7 @@ export async function listLocalInstalls(): Promise<LocalSkillInstall[]> {
   if (isBrowserPreviewMode()) {
     return [];
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait();
@@ -53,7 +53,7 @@ export async function listLocalExtensions(): Promise<ExtensionInstall[]> {
   if (isBrowserPreviewMode()) {
     return [];
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait();

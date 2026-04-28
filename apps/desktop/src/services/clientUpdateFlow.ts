@@ -1,11 +1,11 @@
 import type { P1Client, ClientUpdateDownloadTicket } from "./p1Client.ts";
-import type { DesktopBridge } from "./tauriBridge.ts";
+import type { DesktopBridge } from "./electronBridge.ts";
 import type {
   ClientUpdateArtifactInput,
   ClientUpdateDownloadResult,
   ClientUpdateLaunchResult,
   ClientUpdateVerificationResult
-} from "./tauriBridge/clientUpdates.ts";
+} from "./electronBridge/clientUpdates.ts";
 
 export interface ClientUpdateFlowInput {
   currentVersion: string;

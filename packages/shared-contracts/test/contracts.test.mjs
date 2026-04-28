@@ -65,7 +65,7 @@ test("local events may carry extension denial audit context", () => {
   assert.equal(event.denialReason, "extension_write_denied");
 });
 
-test("cut-slice route and Tauri command names are centralized", () => {
+test("cut-slice route and Electron command names are centralized", () => {
   assert.equal(P1_API_ROUTES.desktopBootstrap, "/desktop/bootstrap");
   assert.equal(P1_API_ROUTES.clientUpdatesCheck, "/client-updates/check");
   assert.equal(P1_API_ROUTES.clientUpdateDownloadTicket, "/client-updates/releases/:releaseID/download-ticket");

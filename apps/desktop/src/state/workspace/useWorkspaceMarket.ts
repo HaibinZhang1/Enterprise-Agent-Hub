@@ -13,7 +13,7 @@ import type {
   TargetType
 } from "../../domain/p1";
 import { isPermissionError, isUnauthenticatedError, p1Client } from "../../services/p1Client";
-import { desktopBridge } from "../../services/tauriBridge";
+import { desktopBridge } from "../../services/electronBridge";
 import {
   applyLocalInstallToSkill,
   applySkill,
@@ -194,7 +194,7 @@ export function useWorkspaceMarketActions(input: {
     async (skillID: string, targetType: TargetType, targetID: string, requestedMode: RequestedMode = "symlink", allowOverwrite = false) => {
       const skill = skills.find((item) => item.skillID === skillID);
       if (!skill || !skill.localVersion || skill.isScopeRestricted) return;
-      updateSkillProgress({ operation: "enable", skillID, stage: "目标转换与写入", result: "running", message: "正在调用 Tauri Adapter 启用 Skill。" });
+      updateSkillProgress({ operation: "enable", skillID, stage: "目标转换与写入", result: "running", message: "正在调用 Electron Adapter 启用 Skill。" });
       try {
         const result = await desktopBridge.enableSkill({ skill, targetType, targetID, requestedMode, allowOverwrite });
         const localBootstrap = await refreshLocalBootstrap();

@@ -9,11 +9,11 @@ const p1ClientMarket = readFileSync('apps/desktop/src/services/p1Client/market.t
 const p1ClientPublisher = readFileSync('apps/desktop/src/services/p1Client/publisher.ts', 'utf8');
 const p1ClientReview = readFileSync('apps/desktop/src/services/p1Client/review.ts', 'utf8');
 const p1ClientAdmin = readFileSync('apps/desktop/src/services/p1Client/admin.ts', 'utf8');
-const tauriRuntime = readFileSync('apps/desktop/src/services/tauriBridge/runtime.ts', 'utf8');
-const tauriPackageOps = readFileSync('apps/desktop/src/services/tauriBridge/packageOps.ts', 'utf8');
-const tauriConfigOps = readFileSync('apps/desktop/src/services/tauriBridge/configOps.ts', 'utf8');
-const tauriNotificationOps = readFileSync('apps/desktop/src/services/tauriBridge/notificationOps.ts', 'utf8');
-const tauriBootstrap = readFileSync('apps/desktop/src/services/tauriBridge/bootstrap.ts', 'utf8');
+const tauriRuntime = readFileSync('apps/desktop/src/services/electronBridge/runtime.ts', 'utf8');
+const tauriPackageOps = readFileSync('apps/desktop/src/services/electronBridge/packageOps.ts', 'utf8');
+const tauriConfigOps = readFileSync('apps/desktop/src/services/electronBridge/configOps.ts', 'utf8');
+const tauriNotificationOps = readFileSync('apps/desktop/src/services/electronBridge/notificationOps.ts', 'utf8');
+const tauriBootstrap = readFileSync('apps/desktop/src/services/electronBridge/bootstrap.ts', 'utf8');
 const sharedContracts = readFileSync('packages/shared-contracts/src/index.ts', 'utf8');
 const desktopPackage = JSON.parse(readFileSync('apps/desktop/package.json', 'utf8'));
 const tauriConfig = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
@@ -55,12 +55,12 @@ test('Desktop client defaults to the real API surface and does not auto-fallback
 });
 
 test('Tauri bridge only permits local command mocks behind an explicit env flag', () => {
-  assert.match(tauriRuntime, /VITE_P1_ALLOW_TAURI_MOCKS/);
-  assert.match(tauriRuntime, /Boolean\(importMetaEnv\?\.DEV\) && importMetaEnv\?\.VITE_P1_ALLOW_TAURI_MOCKS === "true"/);
-  assert.match(tauriRuntime, /Tauri runtime is unavailable/);
-  assert.match(tauriRuntime, /if \(allowTauriMocks\) \{/);
-  assert.match(tauriRuntime, /throw new Error\("Tauri mock dispatcher must be handled by the caller"\)/);
-  assert.match(tauriRuntime, /return getInvoke\(\) === null && !allowTauriMocks;/);
+  assert.match(tauriRuntime, /VITE_P1_ALLOW_ELECTRON_MOCKS/);
+  assert.match(tauriRuntime, /Boolean\(importMetaEnv\?\.DEV\) && importMetaEnv\?\.VITE_P1_ALLOW_ELECTRON_MOCKS === "true"/);
+  assert.match(tauriRuntime, /Electron runtime is unavailable/);
+  assert.match(tauriRuntime, /if \(allowElectronMocks\) \{/);
+  assert.match(tauriRuntime, /throw new Error\("Electron mock dispatcher must be handled by the caller"\)/);
+  assert.match(tauriRuntime, /return getInvoke\(\) === null && !allowElectronMocks;/);
 });
 
 test('Desktop login defaults do not hardcode demo credentials in the product UI', () => {

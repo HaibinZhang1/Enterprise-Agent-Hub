@@ -7,7 +7,7 @@ import {
   launchClientInstaller,
   verifyClientUpdate,
   type ClientUpdateArtifactInput
-} from "../src/services/tauriBridge/clientUpdates.ts";
+} from "../src/services/electronBridge/clientUpdates.ts";
 
 type InvokeCall = {
   command: string;

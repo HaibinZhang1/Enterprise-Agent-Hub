@@ -3,7 +3,7 @@ import { P1_LOCAL_COMMANDS } from "@enterprise-agent-hub/shared-contracts";
 import { seedTools } from "../../fixtures/p1SeedData.ts";
 import { detectDesktopPlatform } from "../../utils/platformPaths.ts";
 import { mapPreviewTool, mockScanSummaries } from "./preview.ts";
-import { allowTauriMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
+import { allowElectronMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
 
 const readOnlyExtensionScanSeeds = [
   {
@@ -75,7 +75,7 @@ export async function refreshToolDetection(): Promise<ToolConfig[]> {
   if (isBrowserPreviewMode()) {
     return [];
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(240);
@@ -92,7 +92,7 @@ export async function scanLocalTargets(): Promise<ScanTargetSummary[]> {
   if (isBrowserPreviewMode()) {
     return [];
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(240);
@@ -107,7 +107,7 @@ export async function scanExtensionTargets(): Promise<ScanTargetSummary[]> {
   if (isBrowserPreviewMode()) {
     return [];
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(240);
@@ -125,10 +125,10 @@ export async function validateTargetPath(targetPath: string): Promise<ValidateTa
       writable: false,
       exists: false,
       canCreate: false,
-      reason: "当前运行在浏览器预览模式；本地路径校验需要在 Tauri desktop app 中执行。"
+      reason: "当前运行在浏览器预览模式；本地路径校验需要在 Electron desktop app 中执行。"
     };
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(120);

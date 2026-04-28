@@ -1,5 +1,5 @@
 import type { DownloadTicket, EnabledTarget, ExtensionInstall, ExtensionKind, ExtensionType, LocalBootstrap, LocalEvent, LocalNotification, LocalSkillInstall, PluginTarget, ProjectConfig, ProjectDirectorySelection, RequestedMode, ScanTargetSummary, SkillSummary, TargetType, ToolConfig, ValidateTargetPathResult } from "../domain/p1.ts";
-import { getLocalBootstrap, listLocalExtensions, listLocalInstalls } from "./tauriBridge/bootstrap.ts";
+import { getLocalBootstrap, listLocalExtensions, listLocalInstalls } from "./electronBridge/bootstrap.ts";
 import type {
   ClientAppVersionInfo,
   ClientUpdateArtifactInput,
@@ -8,12 +8,12 @@ import type {
   ClientUpdateLaunchResult,
   ClientUpdateVerificationResult,
   ClientUpdateVerifyInput
-} from "./tauriBridge/clientUpdates.ts";
-import { downloadClientUpdate, getClientAppVersion, launchClientInstaller, verifyClientUpdate } from "./tauriBridge/clientUpdates.ts";
-import { deleteProjectConfig, deleteToolConfig, saveProjectConfig, saveToolConfig, pickProjectDirectory } from "./tauriBridge/configOps.ts";
-import { disableExtension, disableSkill, enableExtension, enableSkill, importLocalExtension, importLocalSkill, installSkillPackage, uninstallSkill, updateSkillPackage } from "./tauriBridge/packageOps.ts";
-import { markLocalNotificationsRead, markOfflineEventsSynced, upsertLocalNotifications } from "./tauriBridge/notificationOps.ts";
-import { refreshToolDetection, scanExtensionTargets, scanLocalTargets, validateTargetPath } from "./tauriBridge/scanOps.ts";
+} from "./electronBridge/clientUpdates.ts";
+import { downloadClientUpdate, getClientAppVersion, launchClientInstaller, verifyClientUpdate } from "./electronBridge/clientUpdates.ts";
+import { deleteProjectConfig, deleteToolConfig, saveProjectConfig, saveToolConfig, pickProjectDirectory } from "./electronBridge/configOps.ts";
+import { disableExtension, disableSkill, enableExtension, enableSkill, importLocalExtension, importLocalSkill, installSkillPackage, uninstallSkill, updateSkillPackage } from "./electronBridge/packageOps.ts";
+import { markLocalNotificationsRead, markOfflineEventsSynced, upsertLocalNotifications } from "./electronBridge/notificationOps.ts";
+import { refreshToolDetection, scanExtensionTargets, scanLocalTargets, validateTargetPath } from "./electronBridge/scanOps.ts";
 
 export interface DesktopBridge {
   getClientAppVersion(): Promise<ClientAppVersionInfo>;

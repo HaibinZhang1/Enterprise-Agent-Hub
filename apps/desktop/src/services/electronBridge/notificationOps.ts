@@ -1,7 +1,7 @@
 import type { LocalNotification } from "../../domain/p1.ts";
 import { P1_LOCAL_COMMANDS } from "@enterprise-agent-hub/shared-contracts";
 import { pendingLocalCommand } from "./common.ts";
-import { allowTauriMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
+import { allowElectronMocks, getInvoke, isBrowserPreviewMode, mockWait, requireInvoke } from "./runtime.ts";
 
 export async function upsertLocalNotifications(notifications: LocalNotification[]): Promise<void> {
   if (notifications.length === 0) {
@@ -15,7 +15,7 @@ export async function upsertLocalNotifications(notifications: LocalNotification[
   if (isBrowserPreviewMode()) {
     return;
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(80);
@@ -30,7 +30,7 @@ export async function markLocalNotificationsRead(notificationIDs: string[] | "al
   if (isBrowserPreviewMode()) {
     return;
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(80);
@@ -64,7 +64,7 @@ export async function markOfflineEventsSynced(eventIDs: string[]): Promise<strin
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("mark_offline_events_synced");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(120);

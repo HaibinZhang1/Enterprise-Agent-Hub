@@ -3,7 +3,7 @@ import "react";
 
 interface ImportMetaEnv {
   readonly VITE_DESKTOP_API_BASE_URL?: string;
-  readonly VITE_P1_ALLOW_TAURI_MOCKS?: string;
+  readonly VITE_P1_ALLOW_ELECTRON_MOCKS?: string;
   readonly VITE_P1_DEV_LOGIN_PHONE_NUMBER?: string;
   readonly VITE_P1_DEV_LOGIN_PASSWORD?: string;
 }

@@ -5,9 +5,9 @@ import { appendSkillPath, detectDesktopPlatform, previewCentralStorePath } from 
 import { localCommandErrorMessage, pendingLocalCommand } from "./common.ts";
 import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "./localCommandArgs.ts";
 import { buildLocalEvent, buildTarget } from "./preview.ts";
-import { allowTauriMocks, getInvoke, invokeWithTimeout, isBrowserPreviewMode, mockWait, requireInvoke, type TauriInvoker } from "./runtime.ts";
+import { allowElectronMocks, getInvoke, invokeWithTimeout, isBrowserPreviewMode, mockWait, requireInvoke, type DesktopInvoker } from "./runtime.ts";
 
-async function callLocalCommand<T>(invoke: TauriInvoker, command: string, args: Record<string, unknown> | undefined, actionLabel: string): Promise<T> {
+async function callLocalCommand<T>(invoke: DesktopInvoker, command: string, args: Record<string, unknown> | undefined, actionLabel: string): Promise<T> {
   try {
     return await invokeWithTimeout<T>(invoke, command, args);
   } catch (error) {
@@ -72,7 +72,7 @@ export async function installSkillPackage(downloadTicket: DownloadTicket): Promi
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("install_skill_package");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(220);
@@ -87,7 +87,7 @@ export async function updateSkillPackage(downloadTicket: DownloadTicket): Promis
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("update_skill_package");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(220);
@@ -108,7 +108,7 @@ export async function importLocalSkill(input: {
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("import_local_skill");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(220);
@@ -146,7 +146,7 @@ export async function uninstallSkill(skillID: string): Promise<{ removedTargetID
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("uninstall_skill");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(220);
@@ -190,7 +190,7 @@ export async function enableSkill(input: { skill: SkillSummary; targetType: Targ
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("enable_skill");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(240);
@@ -228,7 +228,7 @@ export async function disableSkill(input: { skill: SkillSummary; targetID: strin
   if (isBrowserPreviewMode()) {
     throw pendingLocalCommand("disable_skill");
   }
-  if (!allowTauriMocks) {
+  if (!allowElectronMocks) {
     await requireInvoke();
   }
   await mockWait(180);

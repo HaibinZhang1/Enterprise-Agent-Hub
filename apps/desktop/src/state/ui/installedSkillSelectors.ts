@@ -75,7 +75,7 @@ export function buildTargetDrafts(skill: SkillSummary, workspace: P1WorkspaceSta
     disabled: false,
     statusLabel: project.enabled ? `项目级优先${findScanSummary(workspace, "project", project.projectID)?.counts.conflict ? ` · 异常 ${findScanSummary(workspace, "project", project.projectID)?.counts.conflict}` : ""}` : "已停用",
     selected: enabledKeys.has(`project:${project.projectID}`),
-    availability: { kind: "live" as const, label: "已接入", reason: "项目级目标已接到 Tauri SQLite 真源与分发命令。" }
+    availability: { kind: "live" as const, label: "已接入", reason: "项目级目标已接到 Electron local store 真源与分发命令。" }
   }));
 
   return [...toolDrafts, ...projectDrafts];

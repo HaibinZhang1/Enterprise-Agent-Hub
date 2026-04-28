@@ -1,6 +1,6 @@
 import type { LocalBootstrap, PageID, SkillSummary } from "../../../domain/p1";
 import { p1Client } from "../../../services/p1Client";
-import { desktopBridge } from "../../../services/tauriBridge";
+import { desktopBridge } from "../../../services/electronBridge";
 import {
   buildGuestBootstrap,
   localSummaryFromInstall,

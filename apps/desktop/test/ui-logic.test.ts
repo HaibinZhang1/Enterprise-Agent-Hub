@@ -32,15 +32,15 @@ import { normalizePreferences, resolveDisplayLanguage } from "../src/state/ui/us
 import { deriveMarketSkills, deriveVisibleNavigation, deriveWorkspaceState } from "../src/state/workspace/workspaceDerivedState.ts";
 import { iconToneForLabel, iconTones } from "../src/ui/iconTone.ts";
 import { themeLabel } from "../src/ui/themeLabels.ts";
-import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "../src/services/tauriBridge/localCommandArgs.ts";
-import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs } from "../src/services/tauriBridge/notificationOps.ts";
+import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "../src/services/electronBridge/localCommandArgs.ts";
+import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs } from "../src/services/electronBridge/notificationOps.ts";
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath } from "../src/utils/platformPaths.ts";
 import { sanitizePhoneNumberInput, validatePhoneNumber } from "../src/utils/phoneNumber.ts";
 import { isCommunityVisibleSkill, mergeLocalInstalls, removeSkillFromLeaderboards } from "../src/state/p1WorkspaceHelpers.ts";
 import { shouldCloseFromBackdropPointerDown } from "../src/ui/modalInteraction.ts";
-import { mockScanSummaries, seedLocalExtensions } from "../src/services/tauriBridge/preview.ts";
-import { appendReadOnlyExtensionScanFindings } from "../src/services/tauriBridge/scanOps.ts";
+import { mockScanSummaries, seedLocalExtensions } from "../src/services/electronBridge/preview.ts";
+import { appendReadOnlyExtensionScanFindings } from "../src/services/electronBridge/scanOps.ts";
 
 const baseDraft: PublishDraft = {
   submissionType: "publish",
@@ -1136,7 +1136,7 @@ test("platform path helpers emit expected defaults", () => {
   assert.equal(defaultProjectSkillsPath("/Users/demo/EnterpriseAgentHub", "macos"), "/Users/demo/EnterpriseAgentHub/.codex/skills");
 });
 
-test("local command args use Tauri camelCase IDs", () => {
+test("local command args use Electron camelCase IDs", () => {
   assert.deepEqual(
     buildEnableSkillArgs({
       skill: { skillID: "ops-oncall-companion", localVersion: "1.2.0", version: "1.2.0" },

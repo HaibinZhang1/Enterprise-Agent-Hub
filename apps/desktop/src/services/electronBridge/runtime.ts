@@ -1,50 +1,48 @@
-export type TauriInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+export type DesktopInvoker = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
 const DEFAULT_LOCAL_COMMAND_TIMEOUT_MS = 20_000;
 const importMetaEnv = (import.meta as ImportMeta & {
   env?: {
     DEV?: boolean;
-    VITE_P1_ALLOW_TAURI_MOCKS?: string;
+    VITE_P1_ALLOW_ELECTRON_MOCKS?: string;
   };
 }).env;
 
 declare global {
   interface Window {
-    __TAURI__?: {
-      core?: {
-        invoke?: TauriInvoker;
-      };
+    enterpriseAgentHubDesktop?: {
+      invoke?: DesktopInvoker;
     };
   }
 }
 
-export const allowTauriMocks = Boolean(importMetaEnv?.DEV) && importMetaEnv?.VITE_P1_ALLOW_TAURI_MOCKS === "true";
+export const allowElectronMocks = Boolean(importMetaEnv?.DEV) && importMetaEnv?.VITE_P1_ALLOW_ELECTRON_MOCKS === "true";
 
 export const mockWait = (ms = 160) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
-export function getInvoke(): TauriInvoker | null {
-  return window.__TAURI__?.core?.invoke ?? null;
+export function getInvoke(): DesktopInvoker | null {
+  return window.enterpriseAgentHubDesktop?.invoke ?? null;
 }
 
-export async function requireInvoke(): Promise<TauriInvoker> {
+export async function requireInvoke(): Promise<DesktopInvoker> {
   const invoke = getInvoke();
   if (invoke) {
     return invoke;
   }
-  if (allowTauriMocks) {
+  if (allowElectronMocks) {
     await mockWait();
     return async () => {
-      throw new Error("Tauri mock dispatcher must be handled by the caller");
+      throw new Error("Electron mock dispatcher must be handled by the caller");
     };
   }
-  throw new Error("Tauri runtime is unavailable; local Store/Adapter commands cannot run outside the Tauri desktop app.");
+  throw new Error("Electron runtime is unavailable; local Store/Adapter commands cannot run outside the Electron desktop app.");
 }
 
 export function isBrowserPreviewMode(): boolean {
-  return getInvoke() === null && !allowTauriMocks;
+  return getInvoke() === null && !allowElectronMocks;
 }
 
 export async function invokeWithTimeout<T>(
-  invoke: TauriInvoker,
+  invoke: DesktopInvoker,
   command: string,
   args?: Record<string, unknown>,
   timeoutMs = DEFAULT_LOCAL_COMMAND_TIMEOUT_MS
@@ -52,7 +50,7 @@ export async function invokeWithTimeout<T>(
   let timeoutID: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timeoutID = window.setTimeout(() => {
-      reject(new Error(`本地命令 ${command} 超时，请确认 Tauri Adapter 是否仍在运行。`));
+      reject(new Error(`本地命令 ${command} 超时，请确认 Electron Adapter 是否仍在运行。`));
     }, timeoutMs);
   });
 

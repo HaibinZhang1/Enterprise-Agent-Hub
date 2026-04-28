@@ -77,13 +77,13 @@ export function buildPublishPrecheck(draft: PublishDraft): PublishPrecheckResult
         ? "选择文件后可校验数量。"
         : fileCountKnown
           ? `当前目录共 ${draft.files.length} 个文件。`
-          : "ZIP 内部文件数需由后端或 Tauri 解压后校验。"
+          : "ZIP 内部文件数需由后端或 Electron 解压后校验。"
     },
     {
       id: "risk",
       label: "脚本风险待人工复核",
       status: "pending",
-      message: "风险脚本扫描与深层结构校验由后端或 Tauri 接手。"
+      message: "风险脚本扫描与深层结构校验由后端或 Electron 接手。"
     }
   ];
 

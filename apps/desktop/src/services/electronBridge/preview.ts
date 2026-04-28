@@ -13,7 +13,7 @@ export function browserPreviewBootstrap(): LocalBootstrap {
     offlineEvents: [],
     pendingOfflineEventCount: 0,
     unreadLocalNotificationCount: 0,
-    centralStorePath: `Browser preview: Tauri desktop app required for local state (${previewCentralStorePath(platform)})`
+    centralStorePath: `Browser preview: Electron desktop app required for local state (${previewCentralStorePath(platform)})`
   };
 }
 
