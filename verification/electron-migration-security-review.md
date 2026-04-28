@@ -51,3 +51,18 @@ The current no-Tauri scan has no unclassified hits, but strict mode must still f
 - Task 15 (worker-5 docs/migration map): not completed at this review point.
 
 Worker-6 should run strict security/no-Tauri/Rust gates and update this report after those lane outputs are available in the integration branch.
+
+## Current final-review status
+
+Reviewed/accepted peer outputs so far:
+
+- Task 11: `a08760ea` strict Electron security follow-up passes worker-6 policy extraction check.
+- Task 12: `f11ec4bd` / `d438b73b` path containment and target-path validation follow-up accepted.
+- Task 14: `221e755e` / `72a481a7` scan-alignment follow-up accepted.
+- Task 15: `b41ec8cf` docs/migration map reviewed; active docs scan excluding migration map has no legacy runtime hits.
+
+Still pending for task 16 terminal acceptance:
+
+- Task 13 packaging/updater lane terminal output.
+- Final integrated strict no-Tauri scan after runtime/package/test/docs lanes remove legacy references.
+- Windows installer/signature real-machine evidence, unless explicitly recorded as environment-gated Not-tested.
