@@ -1,0 +1,50 @@
+{
+  "name": "@enterprise-agent-hub/api",
+  "version": "0.1.0-p1",
+  "private": true,
+  "description": "P1 NestJS modular-monolith API for EnterpriseAgentHub.",
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "npm run build --workspace @enterprise-agent-hub/shared-contracts && tsc -p tsconfig.build.json",
+    "typecheck": "npm run build --workspace @enterprise-agent-hub/shared-contracts && tsc --noEmit -p tsconfig.json",
+    "test": "node --test test/*.test.mjs",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.mjs\"",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node src/main.ts",
+    "migrate": "node dist/scripts/migrate.js",
+    "seed": "node dist/scripts/seed.js",
+    "client-update:publish": "ts-node src/scripts/client-update-publish.ts",
+    "client-update:rollout": "ts-node src/scripts/client-update-rollout.ts",
+    "client-update:pause": "ts-node src/scripts/client-update-pause.ts",
+    "client-update:yank": "ts-node src/scripts/client-update-yank.ts",
+    "migrate:dev": "ts-node src/scripts/migrate.ts",
+    "seed:dev": "ts-node src/scripts/seed.ts"
+  },
+  "dependencies": {
+    "@enterprise-agent-hub/shared-contracts": "0.1.0",
+    "@nestjs/common": "^11.1.18",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.1.18",
+    "@nestjs/platform-express": "^11.1.18",
+    "bullmq": "^5.34.2",
+    "ioredis": "^5.4.2",
+    "minio": "^8.0.3",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "eslint": "^9.17.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  },
+  "engines": {
+    "node": ">=20.11.0"
+  }
+}

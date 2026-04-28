@@ -1,0 +1,41 @@
+{
+  "name": "enterprise-agent-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EnterpriseAgentHub monorepo for the P1 desktop foundation loop.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "check:boundaries": "node scripts/checks/check-import-boundaries.mjs",
+    "check:docs": "node scripts/checks/check-doc-structure.mjs",
+    "check:env": "node scripts/checks/check-env-safety.mjs",
+    "clean": "npm run clean --workspaces --if-present",
+    "client-update:pause": "npm run client-update:pause --workspace @enterprise-agent-hub/api --",
+    "client-update:publish": "npm run client-update:publish --workspace @enterprise-agent-hub/api --",
+    "client-update:rollout": "npm run client-update:rollout --workspace @enterprise-agent-hub/api --",
+    "client-update:smoke": "node scripts/verification/client-update-publish-smoke.mjs",
+    "client-update:yank": "npm run client-update:yank --workspace @enterprise-agent-hub/api --",
+    "desktop:dev": "npm run dev --workspace @enterprise-agent-hub/desktop",
+    "desktop:tauri:dev": "npm run tauri:dev --workspace @enterprise-agent-hub/desktop",
+    "lint": "npm run lint --workspaces --if-present",
+    "p1:full-closure": "node scripts/full-closure/run.mjs",
+    "p1:live-smoke": "node scripts/verification/p1-live-smoke.mjs",
+    "p1:native-closure": "node scripts/full-closure/run-native-smoke.mjs",
+    "p1:source-live-smoke": "bash scripts/verification/p1-source-api-live-smoke.sh",
+    "p1:ui-closure": "node scripts/full-closure/run-ui-smoke.mjs",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.2.0"
+  }
+}

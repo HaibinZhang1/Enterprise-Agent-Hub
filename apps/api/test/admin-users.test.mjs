@@ -1,0 +1,44 @@
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+const controller = readFileSync(new URL('../src/admin/admin.controller.ts', import.meta.url), 'utf8');
+const service = readFileSync(new URL('../src/admin/admin.service.ts', import.meta.url), 'utf8');
+const writeService = readFileSync(new URL('../src/admin/admin-write.service.ts', import.meta.url), 'utf8');
+const repository = readFileSync(new URL('../src/admin/admin.repository.ts', import.meta.url), 'utf8');
+
+function methodBody(source, name) {
+  const start = source.indexOf(`async ${name}(`);
+  assert.notEqual(start, -1, `expected async ${name} to exist`);
+  const nextMethod = source.indexOf('\n  async ', start + 1);
+  return source.slice(start, nextMethod === -1 ? source.length : nextMethod);
+}
+
+test('admin user password management uses a dedicated route and revokes active sessions', () => {
+  assert.match(controller, /@Post\('users\/:phoneNumber\/password'\)/);
+  assert.match(controller, /changeUserPassword\(/);
+  assert.match(service, /async changeUserPassword\(/);
+  assert.match(writeService, /async changeUserPassword\(/);
+  assert.match(writeService, /validatePasswordStrength\(password\)/);
+  assert.match(writeService, /loadManagedUserByPhoneNumber\(normalizePhoneNumber\(targetUserID\)\)/);
+  assert.match(writeService, /updateUserPassword\(\{/);
+  assert.match(writeService, /revokeAllSessionsForUser\(target\.user_id\)/);
+  assert.match(repository, /updateUserPassword\(input: \{ targetUserID: string; passwordHash: string \}\)/);
+});
+
+test('admin user creation uses the fixed initial password and marks first-login password change', () => {
+  const createUserBody = methodBody(writeService, 'createUser');
+  assert.doesNotMatch(createUserBody, /input\.password/);
+  assert.match(createUserBody, /hashPassword\(INITIAL_PASSWORD\)/);
+  assert.match(repository, /password_must_change\)/);
+  assert.match(repository, /'active', true\)/);
+  assert.match(repository, /password_must_change = false/);
+});
+
+test('department rename keeps subtree guard but allows level-1 admins to rename the root node they own', () => {
+  assert.match(writeService, /async updateDepartment\(/);
+  assert.match(writeService, /canRenameOwnRootDepartment/);
+  assert.match(writeService, /actor\.adminLevel === 1 && target\.level === 0/);
+  assert.match(writeService, /!isWithinScope\(target\.path, actor\.departmentPath\) && !canRenameOwnRootDepartment/);
+  assert.match(writeService, /target\.id === actor\.departmentID && !canRenameOwnRootDepartment/);
+});

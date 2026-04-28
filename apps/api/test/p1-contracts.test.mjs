@@ -1,0 +1,105 @@
+import { readFileSync, statSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+
+const contracts = readFileSync(new URL('../src/common/p1-contracts.ts', import.meta.url), 'utf8');
+const sharedContracts = readFileSync(new URL('../../../packages/shared-contracts/src/index.ts', import.meta.url), 'utf8');
+const seedSql = readFileSync(new URL('../src/database/seeds/p1_seed.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../src/database/migrations/001_p1_base.sql', import.meta.url), 'utf8');
+const publishingMigration = readFileSync(new URL('../src/database/migrations/002_publishing_workflow.sql', import.meta.url), 'utf8');
+const passwordResetMigration = readFileSync(new URL('../src/database/migrations/006_reset_existing_user_passwords.sql', import.meta.url), 'utf8');
+const initialPasswordMigration = readFileSync(new URL('../src/database/migrations/009_initial_password_challenge.sql', import.meta.url), 'utf8');
+const packageDownloadService = readFileSync(new URL('../src/skills/package-download.service.ts', import.meta.url), 'utf8');
+const packageDownloadController = readFileSync(new URL('../src/skills/package-download.controller.ts', import.meta.url), 'utf8');
+const publishingService = readFileSync(new URL('../src/publishing/publishing-publication.service.ts', import.meta.url), 'utf8');
+const publisherController = readFileSync(new URL('../src/publishing/publisher.controller.ts', import.meta.url), 'utf8');
+const permissionResolver = readFileSync(new URL('../src/auth/permission-resolver.service.ts', import.meta.url), 'utf8');
+const seedPackage = new URL('../src/database/seeds/packages/codex-review-helper/1.2.0/package.zip', import.meta.url);
+const seedPackageHash = `sha256:${createHash('sha256').update(readFileSync(seedPackage)).digest('hex')}`;
+
+test('P1 API contracts preserve symlink-first copy fallback fields', () => {
+  assert.match(contracts, /@enterprise-agent-hub\/shared-contracts/);
+  for (const field of ['RequestedMode', 'ResolvedMode']) {
+    assert.match(contracts, new RegExp(field));
+  }
+  for (const field of ['requestedMode', 'resolvedMode', 'fallbackReason', 'installMode']) {
+    assert.match(sharedContracts, new RegExp(field));
+  }
+  assert.match(sharedContracts, /RequestedMode = InstallMode/);
+  assert.match(sharedContracts, /ResolvedMode = InstallMode/);
+  assert.match(sharedContracts, /Symlink: "symlink"/);
+  assert.match(sharedContracts, /Copy: "copy"/);
+  assert.match(sharedContracts, /authChangePassword: "\/auth\/change-password"/);
+  assert.match(sharedContracts, /menuPermissions/);
+  assert.match(sharedContracts, /Notifications: "notifications"/);
+  assert.match(sharedContracts, /SkillReviewTask: "skill_review_task"/);
+  assert.match(sharedContracts, /SkillReviewProgress: "skill_review_progress"/);
+  assert.match(sharedContracts, /\| "review"/);
+  assert.match(sharedContracts, /\| "publisher_submission"/);
+  assert.match(sharedContracts, /PrecheckOverrideCommentRequired: "precheck_override_comment_required"/);
+  assert.match(sharedContracts, /ReviewLockExpired: "review_lock_expired"/);
+  assert.match(sharedContracts, /adminLevel/);
+  assert.match(sharedContracts, /authCompleteInitialPasswordChange: "\/auth\/complete-initial-password-change"/);
+  assert.match(sharedContracts, /status: "password_change_required"/);
+  assert.match(sharedContracts, /adminUserPassword: "\/admin\/users\/:phoneNumber\/password"/);
+  assert.match(sharedContracts, /readonly passwordMustChange: boolean/);
+  assert.match(sharedContracts, /readonly phoneNumber: string/);
+  assert.match(sharedContracts, /readonly username: string/);
+  assert.doesNotMatch(sharedContracts, /interface CurrentUser \{[\s\S]*readonly userID:/);
+  assert.match(sharedContracts, /interface LoginRequest \{[\s\S]*readonly phoneNumber: string/);
+  assert.match(contracts, /WorkflowState/);
+  assert.match(contracts, /PublisherSkillSummaryDto/);
+  assert.match(contracts, /ReviewPrecheckItemDto/);
+});
+
+test('authenticated menu permissions include notifications for bootstrap and API guards', () => {
+  assert.match(permissionResolver, /const basePermissions: MenuPermission\[] = \[[\s\S]*'notifications'/);
+  assert.match(permissionResolver, /const adminBasePermissions: MenuPermission\[] = \[[\s\S]*'notifications'/);
+  assert.match(permissionResolver, /return \[\.\.\.adminBasePermissions, \.\.\.adminPermissions\]/);
+  assert.match(publisherController, /@RequireMenuPermission\('publisher'\)/);
+});
+
+test('P1 seed covers full, restricted, and delisted skill scenarios', () => {
+  assert.match(seedSql, /'codex-review-helper'[\s\S]*'public_installable'/);
+  assert.match(seedSql, /'design-guideline-lite'[\s\S]*'summary_visible'/);
+  assert.match(seedSql, /'legacy-dept-runbook'[\s\S]*'delisted'/);
+  assert.match(seedSql, /UPDATE skills s\s+SET current_version_id = v\.id\s+FROM desired_versions dv/s);
+  assert.match(seedSql, /sha256:[a-f0-9]{64}/);
+  assert.match(packageDownloadService, /packageHash: packageRow\.sha256/);
+  assert.match(publishingService, /publishSubmission/);
+  assert.match(publishingService, /refresh_skill_search_document/);
+  assert.match(seedSql, /eagenthub20260422fixedsalt000001/);
+  assert.match(seedSql, /password_must_change/);
+  assert.match(passwordResetMigration, /UPDATE users/);
+  assert.match(passwordResetMigration, /UPDATE auth_sessions/);
+  assert.match(initialPasswordMigration, /password_must_change BOOLEAN NOT NULL DEFAULT false/);
+  assert.match(initialPasswordMigration, /auth_password_change_challenges/);
+});
+
+test('download-ticket points at a real package download URL with matching seed package metadata', () => {
+  assert.match(packageDownloadService, /issuePackageDownloadTicket/);
+  assert.ok(packageDownloadService.includes('packageURL: `/skill-packages/${encodeURIComponent(packageRow.id)}/download?ticket=${encodeURIComponent(ticket)}`'));
+  assert.ok(packageDownloadController.includes("@Controller('skill-packages')"));
+  assert.match(packageDownloadController, /StreamableFile/);
+  assert.match(packageDownloadController, /content-disposition/);
+  assert.match(seedSql, new RegExp(seedPackageHash.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(seedSql, new RegExp(`, ${statSync(seedPackage).size}, 2`));
+});
+
+test('PostgreSQL migration includes FTS and local-event idempotency gates', () => {
+  assert.match(migration, /TSVECTOR NOT NULL/);
+  assert.match(migration, /USING GIN\(search_vector\)/);
+  assert.match(migration, /UNIQUE\(device_id, event_id\)/);
+  assert.match(migration, /requested_mode TEXT CHECK/);
+  assert.match(migration, /resolved_mode TEXT CHECK/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS auth_sessions/);
+  assert.match(migration, /phone_number TEXT NOT NULL UNIQUE/);
+  assert.doesNotMatch(migration, /username TEXT NOT NULL UNIQUE/);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS review_items/);
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS admin_level/);
+  assert.match(publishingMigration, /ALTER TABLE review_items/);
+  assert.match(publishingMigration, /review_item_scope_departments/);
+  assert.match(publishingMigration, /workflow_state/);
+  assert.match(readFileSync(new URL('../src/database/migrations/008_publish_review_events.sql', import.meta.url), 'utf8'), /claimed_from_workflow_state/);
+});

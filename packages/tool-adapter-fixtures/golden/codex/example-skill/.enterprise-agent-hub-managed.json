@@ -1,0 +1,6 @@
+{
+  "managedBy": "EnterpriseAgentHub",
+  "skillID": "example-skill",
+  "version": "1.0.0",
+  "transformStrategy": "codex_skill"
+}

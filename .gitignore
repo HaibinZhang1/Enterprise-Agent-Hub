@@ -1,0 +1,17 @@
+.omx/
+.run-logs/
+.DS_Store
+node_modules/
+packages/*/dist/
+*.tsbuildinfo
+apps/*/dist/
+coverage/
+target/
+*.log
+test-results/
+.env
+.env.*
+infra/env/*.local
+infra/env/*.secret
+apps/desktop/src-tauri/gen/
+release/

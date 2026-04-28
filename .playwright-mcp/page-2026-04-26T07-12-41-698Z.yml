@@ -1,0 +1,78 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - button "回到主页" [ref=e6] [cursor=pointer]: A
+      - generic [ref=e7]:
+        - strong [ref=e8]: Enterprise Agent Hub
+        - generic [ref=e9]: Desktop Skills Workspace
+    - navigation "一级导航" [ref=e10]:
+      - button "社区" [ref=e11] [cursor=pointer]
+      - button "主页" [ref=e12] [cursor=pointer]
+      - button "本地" [ref=e13] [cursor=pointer]
+    - generic [ref=e14]:
+      - button "打开通知" [ref=e16] [cursor=pointer]:
+        - img [ref=e17]
+      - generic [ref=e20]:
+        - generic [ref=e21]: 本地
+        - button "打开账号菜单" [expanded] [active] [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: 本地模式
+          - img [ref=e25]
+        - generic "账号菜单" [ref=e93]:
+          - button "设置 偏好、本地环境与关于信息" [ref=e94] [cursor=pointer]:
+            - img [ref=e96]
+            - generic [ref=e99]:
+              - strong [ref=e100]: 设置
+              - generic [ref=e101]: 偏好、本地环境与关于信息
+          - button "登录 同步企业服务能力" [ref=e102] [cursor=pointer]:
+            - img [ref=e104]
+            - generic [ref=e107]:
+              - strong [ref=e108]: 登录
+              - generic [ref=e109]: 同步企业服务能力
+      - generic [ref=e28]:
+        - button "最小化" [ref=e29] [cursor=pointer]:
+          - img [ref=e30]
+        - button "最大化" [ref=e31] [cursor=pointer]:
+          - img [ref=e32]
+        - button "关闭" [ref=e34] [cursor=pointer]:
+          - img [ref=e35]
+  - main [ref=e38]:
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - heading "Agent 探索" [level=1] [ref=e44]
+        - paragraph [ref=e45]: 输入目标，接上工作区、本地文件和已安装 Skills。
+      - generic [ref=e47]:
+        - textbox "向 Agent 提问，@ 添加文件，/ 输入命令，$ 使用技能" [ref=e48]
+        - generic [ref=e49]:
+          - generic [ref=e50]:
+            - button "添加" [ref=e51] [cursor=pointer]:
+              - img [ref=e52]
+            - button "完全访问权限" [ref=e53] [cursor=pointer]
+          - generic [ref=e54]:
+            - button "GPT-5.4" [ref=e55] [cursor=pointer]
+            - button "超高" [ref=e56] [cursor=pointer]
+            - button "语音" [ref=e57] [cursor=pointer]: ◌
+            - button "发送" [ref=e58] [cursor=pointer]: ↑
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - img [ref=e61]
+          - generic [ref=e64]: 开始探索
+        - generic [ref=e65]:
+          - button "梳理当前工作区可用的 Skills" [ref=e66] [cursor=pointer]
+          - button "根据需求文档生成发布前检查清单" [ref=e67] [cursor=pointer]
+          - button "检查本地技能目录是否存在异常" [ref=e68] [cursor=pointer]
+      - generic "快捷入口" [ref=e69]:
+        - button "社区 缓存市场" [ref=e70] [cursor=pointer]:
+          - generic [ref=e71]:
+            - img [ref=e72]
+            - strong [ref=e75]: 社区
+          - generic [ref=e76]: 缓存市场
+        - button "本地 0 已纳管" [ref=e77] [cursor=pointer]:
+          - generic [ref=e78]:
+            - img [ref=e79]
+            - strong [ref=e84]: 本地
+          - generic [ref=e85]: 0 已纳管
+        - button "发布 登录后" [ref=e86] [cursor=pointer]:
+          - generic [ref=e87]:
+            - img [ref=e88]
+            - strong [ref=e91]: 发布
+          - generic [ref=e92]: 登录后

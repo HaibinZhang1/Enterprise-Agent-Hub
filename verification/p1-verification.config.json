@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "name": "P1 foundation loop verification path",
+  "mode": "release-gate-strictable",
+  "description": "Command and artifact gates for the P1 基础闭环 team implementation. Missing product-lane artifacts are pending during parallel development and fail only with --strict.",
+  "reportDefaults": {
+    "directory": "test-results/verification",
+    "markdownFile": "p1-verification-report.md",
+    "jsonFile": "p1-verification-report.json"
+  },
+  "artifactChecks": [
+    {
+      "id": "root-workspace-manifest",
+      "label": "Root npm workspace manifest exists",
+      "path": "package.json",
+      "owner": "worker-1",
+      "requiredForRelease": true
+    },
+    {
+      "id": "shared-contracts-package",
+      "label": "Shared P1 DTO/enums/errors package exists",
+      "path": "packages/shared-contracts/src/index.ts",
+      "owner": "worker-1",
+      "requiredForRelease": true
+    },
+    {
+      "id": "api-package",
+      "label": "NestJS API package exists",
+      "path": "apps/api/package.json",
+      "owner": "worker-2",
+      "requiredForRelease": true
+    },
+    {
+      "id": "desktop-package",
+      "label": "Desktop React package exists",
+      "path": "apps/desktop/package.json",
+      "owner": "worker-3",
+      "requiredForRelease": true
+    },
+    {
+      "id": "tauri-manifest",
+      "label": "Tauri Rust manifest exists",
+      "path": "apps/desktop/src-tauri/Cargo.toml",
+      "owner": "worker-4/worker-5",
+      "requiredForRelease": true
+    },
+    {
+      "id": "tool-adapter-fixtures",
+      "label": "Tool Adapter golden fixtures exist",
+      "path": "packages/tool-adapter-fixtures",
+      "owner": "worker-5",
+      "requiredForRelease": true
+    },
+    {
+      "id": "server-prod-compose",
+      "label": "Production Docker Compose file exists",
+      "path": "infra/docker-compose.prod.yml",
+      "owner": "worker-2",
+      "requiredForRelease": true
+    },
+    {
+      "id": "server-env-example",
+      "label": "Server environment template exists",
+      "path": "infra/env/server.env.example",
+      "owner": "worker-2",
+      "requiredForRelease": true
+    },
+    {
+      "id": "server-up-script",
+      "label": "Server deployment script exists",
+      "path": "deploy/server-up.sh",
+      "owner": "worker-2",
+      "requiredForRelease": true
+    },
+    {
+      "id": "server-check-script",
+      "label": "Server preflight check script exists",
+      "path": "deploy/server-check.sh",
+      "owner": "worker-2",
+      "requiredForRelease": true
+    },
+    {
+      "id": "fixture-acceptance-report",
+      "label": "Fixture acceptance report document exists",
+      "path": "docs/Verification/p1-fixture-acceptance-report.md",
+      "owner": "worker-6",
+      "requiredForRelease": true
+    },
+    {
+      "id": "packaging-evidence-doc",
+      "label": "Packaging/deployment evidence document exists",
+      "path": "docs/Verification/p1-packaging-deployment-evidence.md",
+      "owner": "worker-6",
+      "requiredForRelease": true
+    }
+  ],
+  "commands": [
+    {
+      "id": "workspace-typecheck",
+      "label": "Workspace TypeScript typecheck",
+      "command": "npm run typecheck",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "workspace-test",
+      "label": "Workspace test suite",
+      "command": "npm test",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "api-test",
+      "label": "API package tests",
+      "command": "npm test --workspace apps/api",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "apps/api/package.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "desktop-frontend-test",
+      "label": "Desktop frontend tests",
+      "command": "npm test --workspace apps/desktop",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "apps/desktop/package.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "cargo-check",
+      "label": "Tauri Rust cargo check",
+      "command": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "cwd": ".",
+      "whenPathExists": [
+        "apps/desktop/src-tauri/Cargo.toml"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "cargo-test",
+      "label": "Tauri Rust cargo test",
+      "command": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "cwd": ".",
+      "whenPathExists": [
+        "apps/desktop/src-tauri/Cargo.toml"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "fixture-transform-check",
+      "label": "Tool Adapter fixture transform checks",
+      "command": "npm test --workspace packages/tool-adapter-fixtures",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "packages/tool-adapter-fixtures/package.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "docker-config-prod",
+      "label": "Docker Compose production config validation",
+      "command": "docker compose -f infra/docker-compose.prod.yml config",
+      "cwd": ".",
+      "whenPathExists": [
+        "infra/docker-compose.prod.yml"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "docker-config-legacy",
+      "label": "Docker Compose legacy config validation",
+      "command": "docker compose -f infra/docker-compose.legacy.yml config",
+      "cwd": ".",
+      "whenPathExists": [
+        "infra/docker-compose.legacy.yml"
+      ],
+      "requiredForRelease": false
+    },
+    {
+      "id": "deploy-script-syntax",
+      "label": "Deployment shell script syntax",
+      "command": "bash -n deploy/server-up.sh deploy/server-down.sh deploy/server-check.sh deploy/load-offline-images.sh",
+      "cwd": ".",
+      "whenPathExists": [
+        "deploy/server-up.sh",
+        "deploy/server-down.sh",
+        "deploy/server-check.sh",
+        "deploy/load-offline-images.sh"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "w6-acceptance-matrix-test",
+      "label": "W6 verification matrix self-test",
+      "command": "node --test tests/smoke/p1-acceptance-matrix.test.mjs",
+      "cwd": ".",
+      "whenPathExists": [
+        "tests/smoke/p1-acceptance-matrix.test.mjs",
+        "verification/p1-verification.config.json",
+        "tests/smoke/p1-e2e-smoke-spec.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-real-delivery-static-test",
+      "label": "P1 real delivery static regression checks",
+      "command": "node --test tests/smoke/p1-real-delivery-static.test.mjs",
+      "cwd": ".",
+      "whenPathExists": [
+        "tests/smoke/p1-real-delivery-static.test.mjs",
+        "apps/desktop/src/services/p1Client.ts",
+        "apps/desktop/src-tauri/tauri.conf.json",
+        "apps/api/Dockerfile"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-ui-closure",
+      "label": "Full UI publish/review/market closure suite",
+      "command": "npm run p1:ui-closure",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "scripts/full-closure/run-ui-smoke.mjs",
+        "tests/full-closure/playwright.config.ts",
+        "tests/full-closure/ui/full-closure.spec.ts"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-native-closure",
+      "label": "Native Tauri install/enable closure smoke",
+      "command": "npm run p1:native-closure",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "scripts/full-closure/run-native-smoke.mjs",
+        "apps/desktop/src-tauri/tests/full_closure.rs"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-full-closure",
+      "label": "Isolated end-to-end closure harness",
+      "command": "npm run p1:full-closure",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "scripts/full-closure/run.mjs",
+        "tests/full-closure/playwright.config.ts",
+        "apps/desktop/src-tauri/tests/full_closure.rs"
+      ],
+      "requiredForRelease": true
+    }
+  ],
+  "acceptanceScenarioIds": [
+    "bootstrap-login-p1-navigation",
+    "market-search-filter-sort",
+    "restricted-detail-no-leakage",
+    "install-hash-success-central-store",
+    "install-hash-failure-preserves-state",
+    "update-local-hash-change-warning",
+    "enable-codex-symlink-success",
+    "enable-symlink-failure-copy-fallback",
+    "disable-preserves-central-store",
+    "uninstall-managed-targets-with-confirmation",
+    "offline-enable-disable-queue-restart",
+    "local-events-idempotent-sync",
+    "publisher-upload-review-browser-flow",
+    "publisher-return-resubmit-browser-flow",
+    "publisher-reject-no-market-leakage",
+    "permission-change-visibility-switch-after-approval",
+    "update-publish-old-version-remains-live",
+    "same-skill-market-download-install-enable",
+    "notifications-read-offline-cache"
+  ],
+  "generatedArtifactChecks": [
+    {
+      "id": "tracked-generated-artifacts",
+      "label": "No generated dependency/build artifacts are tracked",
+      "owner": "worker-6/leader-integration",
+      "requiredForRelease": true,
+      "disallowedGlobs": [
+        "node_modules/**",
+        "*/node_modules/**",
+        "packages/*/dist/**",
+        "apps/*/dist/**",
+        "apps/*/build/**",
+        "coverage/**",
+        "*/coverage/**"
+      ],
+      "remediation": "Remove tracked generated artifacts (for example node_modules/ and packages/shared-contracts/dist/) from the integration branch or explicitly report a leader-owned blocker before release sign-off."
+    }
+  ]
+}

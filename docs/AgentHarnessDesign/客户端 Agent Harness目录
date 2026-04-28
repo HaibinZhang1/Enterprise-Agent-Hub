@@ -1,0 +1,247 @@
+客户端 Agent Harness 推荐目录
+
+├─ 1. Product Interaction 产品交互层
+│  ├─ Agent 首页
+│  ├─ 对话窗口
+│  ├─ 任务工作台
+│  ├─ 结构化任务卡片
+│  ├─ 快捷命令
+│  ├─ 定时任务入口
+│  ├─ 工具能力页面
+│  ├─ Skill / Workflow 页面
+│  ├─ 执行记录页面
+│  ├─ 人工接管入口
+│  ├─ 通知中心
+│  └─ 设置页面
+│
+├─ 2. Agent Core 核心编排层
+│  ├─ Run Manager
+│  ├─ Run State Machine
+│  ├─ Conversation Manager
+│  ├─ Planner / Task Decomposer
+│  ├─ Context Builder
+│  ├─ Prompt / Instruction Builder
+│  ├─ Model Orchestrator
+│  ├─ Tool Call Parser
+│  ├─ Agent Loop Controller
+│  ├─ Observation Handler
+│  ├─ Error Recovery
+│  ├─ Completion Judge
+│  └─ Result Composer
+│
+├─ 3. Model & Inference 模型推理层
+│  ├─ 模型配置管理
+│  ├─ OpenAI-Compatible Adapter
+│  ├─ 本地大模型 Adapter
+│  ├─ 模型能力声明
+│  ├─ 模型能力协商
+│  ├─ 多模型路由
+│  ├─ 流式响应适配
+│  ├─ Tool Calling 适配
+│  ├─ JSON 降级协议
+│  ├─ Embedding / Reranker Adapter
+│  ├─ 模型健康检查
+│  └─ 模型调用限流
+│
+├─ 4. Context / Memory / Knowledge 上下文记忆知识层
+│  ├─ 当前会话上下文
+│  ├─ 当前任务上下文
+│  ├─ 文件 / 网页 / 工具结果引用
+│  ├─ 上下文优先级
+│  ├─ 上下文裁剪 / 压缩
+│  ├─ Token 预算管理
+│  ├─ 会话摘要
+│  ├─ 长任务续跑上下文
+│  ├─ 用户偏好记忆
+│  ├─ 操作流程记忆
+│  ├─ 常用内网地址记忆
+│  ├─ 个人知识库
+│  ├─ 企业知识库
+│  └─ 引用溯源
+│
+├─ 5. Policy / Instruction / Governance 策略指令治理层
+│  ├─ 企业级指令
+│  ├─ 部门级指令
+│  ├─ 用户级指令
+│  ├─ 项目 / 目录级指令
+│  ├─ Skill 内置指令
+│  ├─ 指令优先级
+│  ├─ 指令冲突处理
+│  ├─ 指令版本管理
+│  ├─ 策略继承
+│  ├─ 管理员模型策略
+│  ├─ 管理员工具策略
+│  ├─ 管理员内网白名单策略
+│  ├─ 管理员权限策略
+│  ├─ 管理员日志保留策略
+│  ├─ 策略下发
+│  ├─ 策略离线缓存
+│  └─ 策略生效预览
+│
+├─ 6. Tool System 工具系统层
+│  ├─ Tool Registry
+│  ├─ Tool Schema
+│  ├─ Tool Permission 声明
+│  ├─ Tool Risk Level
+│  ├─ Tool Availability 探测
+│  ├─ Runtime Executor
+│  ├─ Action 标准化
+│  ├─ Observation 标准化
+│  ├─ Tool Queue
+│  ├─ Timeout / Retry / Interrupt
+│  └─ Tool Result 回传
+│
+├─ 7. Built-in Tools 内置工具层
+│  ├─ Browser Automation
+│  │  ├─ 浏览器会话管理
+│  │  ├─ DOM / Accessibility Tree 提取
+│  │  ├─ 页面截图
+│  │  ├─ 点击 / 填写 / 等待
+│  │  ├─ 表格提取
+│  │  ├─ 上传 / 下载管理
+│  │  ├─ 登录态管理
+│  │  └─ MFA / 验证码人工接管
+│  ├─ File System & Document
+│  │  ├─ 授权目录管理
+│  │  ├─ 文件读写
+│  │  ├─ 路径安全检查
+│  │  ├─ Office 文档处理
+│  │  ├─ PDF 解析
+│  │  ├─ 表格处理
+│  │  ├─ 文件转换
+│  │  └─ 文件产物管理
+│  ├─ Shell / Command Runner
+│  │  ├─ PowerShell / CMD / Bash / WSL
+│  │  ├─ 命令白名单 / 黑名单
+│  │  ├─ 工作目录限制
+│  │  ├─ 超时与中断
+│  │  └─ 命令执行审计
+│  ├─ HTTP / Network
+│  │  ├─ HTTP 方法支持
+│  │  ├─ Header / Cookie 管理
+│  │  ├─ 内网 URL 白名单
+│  │  ├─ IP / 域名 / 端口策略
+│  │  ├─ 文件上传 / 下载
+│  │  └─ 网络访问审计
+│  ├─ Local System Tools
+│  └─ Enterprise System Connectors
+│
+├─ 8. Skill / MCP / Workflow 扩展层
+│  ├─ Skill Package 导入
+│  ├─ Skill Manifest
+│  ├─ Skill 启用 / 禁用
+│  ├─ Skill 权限声明
+│  ├─ Skill 版本管理
+│  ├─ Skill 运行上下文
+│  ├─ Skill 自进化建议
+│  ├─ MCP Server 配置
+│  ├─ MCP 工具发现
+│  ├─ MCP 权限映射
+│  ├─ Workflow / Task Template
+│  └─ 任务模板转 Skill
+│
+├─ 9. Hook / Middleware 生命周期钩子层
+│  ├─ Before Model Call Hook
+│  ├─ After Model Call Hook
+│  ├─ Before Tool Call Hook
+│  ├─ After Tool Call Hook
+│  ├─ Before File Write Hook
+│  ├─ Before Network Request Hook
+│  ├─ Before Browser Action Hook
+│  ├─ Before Credential Access Hook
+│  ├─ 企业策略 Hook
+│  └─ 自定义 Hook 扩展
+│
+├─ 10. Security / Permission / Credential 安全权限凭证层
+│  ├─ Sandbox & Isolation
+│  │  ├─ 工作区隔离
+│  │  ├─ 文件系统隔离
+│  │  ├─ 网络隔离
+│  │  ├─ 浏览器 Profile 隔离
+│  │  ├─ 进程隔离
+│  │  ├─ 命令执行隔离
+│  │  └─ 临时目录管理
+│  ├─ Permission & Approval
+│  │  ├─ 权限等级管理
+│  │  ├─ Allow / Ask / Deny 规则
+│  │  ├─ 用户确认弹窗
+│  │  ├─ 本次允许 / 始终允许 / 拒绝
+│  │  ├─ 高风险操作拦截
+│  │  ├─ 白名单 / 黑名单策略
+│  │  └─ 权限确认记录
+│  ├─ Credential / Secret
+│  │  ├─ 本地凭证安全存储
+│  │  ├─ API Key 管理
+│  │  ├─ Cookie / Token 管理
+│  │  ├─ SSO 凭证预留
+│  │  ├─ 凭证作用域
+│  │  ├─ 凭证授权给工具
+│  │  ├─ 凭证脱敏
+│  │  └─ 凭证访问审计
+│  └─ Security Defense
+│     ├─ Prompt Injection 防护
+│     ├─ 非可信内容隔离
+│     ├─ 敏感字段识别
+│     ├─ 凭证泄漏检测
+│     ├─ 高危命令检测
+│     ├─ 高危 URL 检测
+│     ├─ 数据外传检测
+│     └─ 安全事件记录
+│
+├─ 11. Runtime / Scheduler / Resource 运行时后台资源层
+│  ├─ 一次性任务
+│  ├─ 周期任务
+│  ├─ 条件触发任务
+│  ├─ 任务暂停 / 恢复 / 删除
+│  ├─ 立即执行
+│  ├─ 错过补偿
+│  ├─ 并发控制
+│  ├─ 本地 Daemon
+│  ├─ IPC 通信
+│  ├─ 浏览器服务进程
+│  ├─ 本地工具服务
+│  ├─ 健康检查
+│  ├─ 自启动管理
+│  ├─ 崩溃恢复
+│  ├─ CPU / 内存限制
+│  ├─ 磁盘占用限制
+│  ├─ 浏览器实例限制
+│  ├─ 任务超时
+│  ├─ 异常熔断
+│  └─ 资源使用统计
+│
+├─ 12. Checkpoint / Artifact / Audit / Replay 执行记录产物审计层
+│  ├─ 文件修改前快照
+│  ├─ 任务执行前快照
+│  ├─ 工作区快照
+│  ├─ 浏览器状态快照
+│  ├─ 产物版本管理
+│  ├─ 执行产物管理
+│  ├─ 回滚预览
+│  ├─ 单文件回滚
+│  ├─ 整个任务回滚
+│  ├─ 任务执行记录
+│  ├─ 工具调用记录
+│  ├─ 模型调用记录
+│  ├─ 权限确认记录
+│  ├─ 文件访问记录
+│  ├─ 网络访问记录
+│  ├─ 浏览器截图记录
+│  ├─ 执行轨迹回放
+│  ├─ 浏览器操作回放
+│  ├─ 审计导出
+│  ├─ Skill 回归测试
+│  └─ 失败案例库
+│
+└─ 13. Notification / Human Handoff 通知与人工接管层
+   ├─ 本地 Toast 通知
+   ├─ 任务完成通知
+   ├─ 任务失败通知
+   ├─ 定时任务通知
+   ├─ 用户确认提醒
+   ├─ 后台运行状态提醒
+   ├─ 通知历史
+   ├─ 人工接管请求
+   ├─ MFA / 验证码接管
+   ├─ 敏感操作接管
+   └─ 企业通知渠道预留
