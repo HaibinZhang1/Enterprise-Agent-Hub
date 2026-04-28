@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   AdapterStatus,
@@ -68,6 +69,7 @@ const DEFAULT_TRANSFORMS: Record<string, string> = {
   windsurf: "windsurf_rule",
   opencode: "opencode_skill"
 };
+const SAFE_LOCAL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 function isoNow(now?: () => Date): string {
   return (now?.() ?? new Date()).toISOString();
@@ -79,6 +81,51 @@ function slugify(value: string): string {
 
 function hashString(value: string): `sha256:${string}` {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function hasPathTraversalSegment(value: string): boolean {
+  return value.split(/[\\/]+/).some((segment) => segment === "..");
+}
+
+function validateLocalID(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (!SAFE_LOCAL_ID_PATTERN.test(trimmed)) {
+    throw new Error(`${label} must be a stable local identifier and cannot contain path separators or traversal segments.`);
+  }
+  return trimmed;
+}
+
+function validateRelativeInputPath(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes("\0")) {
+    throw new Error(`${label} must be a non-empty relative path.`);
+  }
+  if (path.isAbsolute(trimmed) || /^[A-Za-z]:[\\/]/.test(trimmed) || trimmed.startsWith("\\\\")) {
+    throw new Error(`${label} must be relative to the selected local target.`);
+  }
+  if (hasPathTraversalSegment(trimmed)) {
+    throw new Error(`${label} cannot contain traversal segments.`);
+  }
+  return trimmed;
+}
+
+function assertContainedPath(root: string, candidate: string, label: string): string {
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(candidate);
+  const relative = path.relative(resolvedRoot, resolvedCandidate);
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`${label} must stay inside the Electron Central Store root.`);
+  }
+  return resolvedCandidate;
+}
+
+function centralStoreItemPath(root: string, id: string, label: string): string {
+  const safeID = validateLocalID(id, label);
+  return assertContainedPath(root, path.join(root, safeID), label);
+}
+
+function isAbsolutePathLike(value: string): boolean {
+  return path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
 }
 
 function targetName(targetType: TargetType, targetID: string, state: PersistedLocalState): string {
