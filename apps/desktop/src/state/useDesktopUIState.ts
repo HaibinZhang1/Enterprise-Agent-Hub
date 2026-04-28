@@ -623,7 +623,8 @@ export function useDesktopUIState(workspace: P1WorkspaceState) {
                 packageName: appUpdate.packageName,
                 sizeBytes: appUpdate.sizeBytes,
                 sha256: appUpdate.sha256,
-                downloadResult: prepared.downloadResult
+                downloadResult: prepared.downloadResult,
+                userConfirmed: true
               },
               {
                 reportClientUpdateEvent: p1Client.reportClientUpdateEvent,

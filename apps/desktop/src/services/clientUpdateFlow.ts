@@ -24,6 +24,13 @@ export interface PreparedClientUpdateInstall {
   verificationResult: ClientUpdateVerificationResult;
 }
 
+export interface LaunchPreparedClientUpdateInstallInput extends ClientUpdateFlowInput {
+  downloadResult: ClientUpdateDownloadResult;
+  userConfirmed: boolean;
+}
+
+type ClientUpdateEventInput = Parameters<P1Client["reportClientUpdateEvent"]>[0];
+
 function requireNonEmptyString(value: string | null | undefined, field: string): string {
   if (typeof value === "string" && value.trim()) {
     return value;
@@ -40,14 +47,7 @@ function requirePositiveNumber(value: number | null | undefined, field: string):
 
 async function reportClientUpdateEventSafe(
   p1Client: Pick<P1Client, "reportClientUpdateEvent">,
-  input: {
-    releaseID: string;
-    eventType: string;
-    deviceID: string;
-    fromVersion: string;
-    toVersion?: string | null;
-    errorCode?: string | null;
-  }
+  input: ClientUpdateEventInput
 ): Promise<void> {
   try {
     await p1Client.reportClientUpdateEvent(input);
@@ -70,6 +70,54 @@ function buildArtifactInput(
   };
 }
 
+function clientUpdateEvent(
+  input: ClientUpdateFlowInput,
+  eventType: ClientUpdateEventInput["eventType"],
+  errorCode?: string | null
+): ClientUpdateEventInput {
+  return {
+    releaseID: input.releaseID,
+    eventType,
+    deviceID: input.deviceID,
+    fromVersion: input.currentVersion,
+    toVersion: input.latestVersion,
+    errorCode
+  };
+}
+
+function hashesMatch(expected: string, actual: string): boolean {
+  return expected.trim().trimStart().replace(/^sha256:/i, "").toLowerCase() ===
+    actual.trim().trimStart().replace(/^sha256:/i, "").toLowerCase();
+}
+
+function validateDownloadResult(
+  artifact: ClientUpdateArtifactInput,
+  result: ClientUpdateDownloadResult
+): { eventType: ClientUpdateEventInput["eventType"]; errorCode: string; message: string } | null {
+  if (!result.metadataPath.trim()) {
+    return {
+      eventType: "download_failed",
+      errorCode: "metadata_path_missing",
+      message: "客户端更新元数据路径缺失，请重新下载。"
+    };
+  }
+  if (result.packageSize !== artifact.packageSize) {
+    return {
+      eventType: "download_failed",
+      errorCode: `size_mismatch:${result.packageSize}`,
+      message: "客户端更新包大小校验失败，请重新下载。"
+    };
+  }
+  if (!result.hashVerified || !hashesMatch(artifact.packageHash, result.packageHash)) {
+    return {
+      eventType: "hash_failed",
+      errorCode: result.packageHash || "hash_failed",
+      message: "客户端更新包哈希校验失败，请重新下载。"
+    };
+  }
+  return null;
+}
+
 function verificationFailureMessage(result: ClientUpdateVerificationResult): string {
   if (!result.hashVerified) {
     return "客户端更新包哈希校验失败，请重新下载。";
@@ -85,59 +133,44 @@ export async function prepareClientUpdateInstall(
   const downloadTicket = await dependencies.requestClientUpdateDownloadTicket(input.releaseID);
   const artifact = buildArtifactInput(input, downloadTicket);
 
-  await reportClientUpdateEventSafe(dependencies, {
-    releaseID: input.releaseID,
-    eventType: "download_started",
-    deviceID: input.deviceID,
-    fromVersion: input.currentVersion,
-    toVersion: input.latestVersion
-  });
+  await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "download_started"));
 
   let downloadResult: ClientUpdateDownloadResult;
   try {
     downloadResult = await dependencies.downloadClientUpdate(artifact);
   } catch (error) {
-    await reportClientUpdateEventSafe(dependencies, {
-      releaseID: input.releaseID,
-      eventType: "download_failed",
-      deviceID: input.deviceID,
-      fromVersion: input.currentVersion,
-      toVersion: input.latestVersion,
-      errorCode: error instanceof Error ? error.message : "download_failed"
-    });
+    await reportClientUpdateEventSafe(
+      dependencies,
+      clientUpdateEvent(input, "download_failed", error instanceof Error ? error.message : "download_failed")
+    );
     throw error;
   }
 
-  await reportClientUpdateEventSafe(dependencies, {
-    releaseID: input.releaseID,
-    eventType: "downloaded",
-    deviceID: input.deviceID,
-    fromVersion: input.currentVersion,
-    toVersion: input.latestVersion
-  });
+  const downloadFailure = validateDownloadResult(artifact, downloadResult);
+  if (downloadFailure) {
+    await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, downloadFailure.eventType, downloadFailure.errorCode));
+    throw new Error(downloadFailure.message);
+  }
 
-  const verificationResult = await dependencies.verifyClientUpdate({ metadataPath: downloadResult.metadataPath });
+  await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "downloaded"));
+
+  let verificationResult: ClientUpdateVerificationResult;
+  try {
+    verificationResult = await dependencies.verifyClientUpdate({ metadataPath: downloadResult.metadataPath });
+  } catch (error) {
+    await reportClientUpdateEventSafe(
+      dependencies,
+      clientUpdateEvent(input, "signature_failed", error instanceof Error ? error.message : "verification_failed")
+    );
+    throw error;
+  }
   if (!verificationResult.hashVerified) {
-    await reportClientUpdateEventSafe(dependencies, {
-      releaseID: input.releaseID,
-      eventType: "hash_failed",
-      deviceID: input.deviceID,
-      fromVersion: input.currentVersion,
-      toVersion: input.latestVersion,
-      errorCode: verificationResult.actualHash || "hash_failed"
-    });
+    await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "hash_failed", verificationResult.actualHash || "hash_failed"));
     throw new Error(verificationFailureMessage(verificationResult));
   }
 
   if (!verificationResult.readyToInstall) {
-    await reportClientUpdateEventSafe(dependencies, {
-      releaseID: input.releaseID,
-      eventType: "signature_failed",
-      deviceID: input.deviceID,
-      fromVersion: input.currentVersion,
-      toVersion: input.latestVersion,
-      errorCode: verificationResult.signatureStatus
-    });
+    await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "signature_failed", verificationResult.signatureStatus));
     throw new Error(verificationFailureMessage(verificationResult));
   }
 
@@ -150,21 +183,20 @@ export async function prepareClientUpdateInstall(
 }
 
 export async function launchPreparedClientUpdateInstall(
-  input: ClientUpdateFlowInput & Pick<PreparedClientUpdateInstall, "downloadResult">,
+  input: LaunchPreparedClientUpdateInstallInput,
   dependencies: Pick<P1Client, "reportClientUpdateEvent"> & Pick<DesktopBridge, "launchClientInstaller">
 ): Promise<ClientUpdateLaunchResult> {
+  if (!input.userConfirmed) {
+    await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "install_cancelled", "user_not_confirmed"));
+    throw new Error("启动安装程序需要用户明确确认。");
+  }
+
   const launchResult = await dependencies.launchClientInstaller({
     metadataPath: input.downloadResult.metadataPath,
-    userConfirmed: true
+    userConfirmed: input.userConfirmed
   });
 
-  await reportClientUpdateEventSafe(dependencies, {
-    releaseID: input.releaseID,
-    eventType: "installer_started",
-    deviceID: input.deviceID,
-    fromVersion: input.currentVersion,
-    toVersion: input.latestVersion
-  });
+  await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "installer_started"));
 
   return launchResult;
 }
