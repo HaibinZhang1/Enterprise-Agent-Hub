@@ -61,7 +61,8 @@
     "apps/desktop/test/ui-logic.test.ts",
     "tests/smoke/p1-acceptance-matrix.test.mjs",
     "tests/smoke/p1-e2e-smoke-spec.json",
-    "tests/smoke/p1-real-delivery-static.test.mjs"
+    "tests/smoke/p1-real-delivery-static.test.mjs",
+    "apps/desktop/test/client-update-flow.test.ts"
   ],
   "strictReleaseExpectation": "Run scripts/checks/check-no-tauri-scan.mjs --strict after Electron lanes integrate; strict mode must have zero transitional blockers and zero unclassified hits."
 }
