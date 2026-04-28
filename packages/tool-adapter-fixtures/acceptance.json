@@ -6,7 +6,7 @@
     "claude_skill": ["SKILL.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"],
     "cursor_rule": ["example-skill.mdc", ".enterprise-agent-hub-managed.json"],
     "windsurf_rule": ["example-skill.md", ".enterprise-agent-hub-managed.json"],
-    "opencode_skill": ["AGENTS.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"],
+    "opencode_skill": ["SKILL.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"],
     "generic_directory": ["SKILL.md", "assets/example.txt", ".enterprise-agent-hub-managed.json"]
   },
   "distributionExpectations": {

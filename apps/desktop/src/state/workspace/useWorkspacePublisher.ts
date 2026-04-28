@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type {
   AuthState,
+  MarketFilters,
   PageID,
   PublisherSkillSummary,
-  PublisherSubmissionDetail
+  PublisherSubmissionDetail,
+  SkillLeaderboardsResponse,
+  SkillSummary
 } from "../../domain/p1";
 import { p1Client } from "../../services/p1Client";
-import { upsertPublisherSkillSummary } from "../p1WorkspaceHelpers";
+import { removeSkillFromLeaderboards, upsertPublisherSkillSummary } from "../p1WorkspaceHelpers";
 import type { HandleRemoteError, RequireAuthenticatedAction } from "./workspaceTypes";
 
 export function useWorkspacePublisherState() {
@@ -36,21 +39,29 @@ export function useWorkspacePublisherActions(input: {
   activePage: PageID;
   authState: AuthState;
   handleRemoteError: HandleRemoteError;
+  remoteMarketFilters: MarketFilters;
   requireAuthenticatedAction: RequireAuthenticatedAction;
   selectedPublisherSubmissionID: string | null;
+  setLeaderboards: Dispatch<SetStateAction<SkillLeaderboardsResponse | null>>;
   setPublisherSkills: Dispatch<SetStateAction<PublisherSkillSummary[]>>;
+  setSelectedSkillID: Dispatch<SetStateAction<string>>;
   setSelectedPublisherSubmission: Dispatch<SetStateAction<PublisherSubmissionDetail | null>>;
   setSelectedPublisherSubmissionID: Dispatch<SetStateAction<string | null>>;
+  setSkills: Dispatch<SetStateAction<SkillSummary[]>>;
 }) {
   const {
     activePage,
     authState,
     handleRemoteError,
+    remoteMarketFilters,
     requireAuthenticatedAction,
     selectedPublisherSubmissionID,
+    setLeaderboards,
     setPublisherSkills,
+    setSelectedSkillID,
     setSelectedPublisherSubmission,
-    setSelectedPublisherSubmissionID
+    setSelectedPublisherSubmissionID,
+    setSkills
   } = input;
 
   const refreshPublisherData = useCallback(async () => {
@@ -123,27 +134,39 @@ export function useWorkspacePublisherActions(input: {
     async (skillID: string) => {
       requireAuthenticatedAction("publisher", async () => {
         setPublisherSkills(await p1Client.delistPublisherSkill(skillID));
+        setSkills((current) => current.filter((skill) => skill.skillID !== skillID));
+        setLeaderboards((current) => removeSkillFromLeaderboards(current, skillID));
+        setSelectedSkillID((current) => (current === skillID ? "" : current));
       });
     },
-    [requireAuthenticatedAction, setPublisherSkills]
+    [requireAuthenticatedAction, setLeaderboards, setPublisherSkills, setSelectedSkillID, setSkills]
   );
 
   const relistPublisherSkill = useCallback(
     async (skillID: string) => {
       requireAuthenticatedAction("publisher", async () => {
         setPublisherSkills(await p1Client.relistPublisherSkill(skillID));
+        const [remoteSkills, nextLeaderboards] = await Promise.all([
+          p1Client.listSkills(remoteMarketFilters),
+          p1Client.listSkillLeaderboards()
+        ]);
+        setSkills(remoteSkills);
+        setLeaderboards(nextLeaderboards);
       });
     },
-    [requireAuthenticatedAction, setPublisherSkills]
+    [remoteMarketFilters, requireAuthenticatedAction, setLeaderboards, setPublisherSkills, setSkills]
   );
 
   const archivePublisherSkill = useCallback(
     async (skillID: string) => {
       requireAuthenticatedAction("publisher", async () => {
         setPublisherSkills(await p1Client.archivePublisherSkill(skillID));
+        setSkills((current) => current.filter((skill) => skill.skillID !== skillID));
+        setLeaderboards((current) => removeSkillFromLeaderboards(current, skillID));
+        setSelectedSkillID((current) => (current === skillID ? "" : current));
       });
     },
-    [requireAuthenticatedAction, setPublisherSkills]
+    [requireAuthenticatedAction, setLeaderboards, setPublisherSkills, setSelectedSkillID, setSkills]
   );
 
   const listPublisherSubmissionFiles = useCallback(async (submissionID: string) => {

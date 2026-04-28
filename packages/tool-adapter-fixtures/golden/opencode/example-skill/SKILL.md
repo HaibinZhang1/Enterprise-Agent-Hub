@@ -1,7 +1,3 @@
-# Example Skill
-
-This file was generated from EnterpriseAgentHub Skill `example-skill` for opencode.
-
 ---
 name: example-skill
 description: Fixture skill used to verify P1 adapter transforms.

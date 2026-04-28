@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -7,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::process::background_command;
-use crate::store::hash::sha256_hex;
+use crate::store::hash::{hex_digest, sha256_hex, Sha256};
 
 const CLIENT_UPDATES_DIR: &str = "EnterpriseAgentHub/client-updates";
 const CLIENT_UPDATE_METADATA_FILE: &str = "metadata.json";
@@ -268,13 +269,7 @@ fn verify_client_update_from_metadata(
         ));
     }
 
-    let bytes = fs::read(&staged_file_path).map_err(|error| {
-        format!(
-            "read staged installer {}: {error}",
-            staged_file_path.display()
-        )
-    })?;
-    let actual_hash = format!("sha256:{}", sha256_hex(&bytes));
+    let actual_hash = format!("sha256:{}", sha256_file_hex(&staged_file_path)?);
     let hash_verified = hashes_match(&metadata.package_hash, &actual_hash);
     let (signature_status, signature_details) = inspect_signature(&staged_file_path);
     let verified_at = now_stamp("verified");
@@ -508,6 +503,23 @@ fn hashes_match(expected: &str, actual: &str) -> bool {
         .trim()
         .trim_start_matches("sha256:")
         .eq_ignore_ascii_case(actual.trim().trim_start_matches("sha256:"))
+}
+
+fn sha256_file_hex(path: &Path) -> Result<String, String> {
+    let mut file = fs::File::open(path)
+        .map_err(|error| format!("open staged installer {}: {error}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 128 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("read staged installer {}: {error}", path.display()))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(hex_digest(&hasher.finalize()))
 }
 
 fn now_millis() -> u128 {

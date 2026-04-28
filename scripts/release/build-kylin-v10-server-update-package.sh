@@ -44,6 +44,7 @@ require_command git
 require_command npm
 require_command sed
 require_command shasum
+require_command awk
 
 assert_file "$BASE_API_IMAGE_TAR"
 assert_file "$SOURCE_BUNDLE_DIR/infra/docker-compose.yml"
@@ -122,6 +123,13 @@ cp "$SOURCE_BUNDLE_DIR/deploy/lib/common.sh" "$PACKAGE_DIR/deploy/lib/common.sh"
 cp "$SOURCE_BUNDLE_DIR/infra/nginx/nginx.conf" "$PACKAGE_DIR/infra/nginx/nginx.conf"
 sed "s|enterprise-agent-hub-api:0.1.0-p1|$API_IMAGE|g" \
   "$SOURCE_BUNDLE_DIR/infra/docker-compose.yml" >"$PACKAGE_DIR/infra/docker-compose.yml"
+tmp_compose="$(mktemp)"
+awk '
+  /^  api-seed:/ { skip = 1; next }
+  skip && /^  api:/ { skip = 0 }
+  !skip { print }
+' "$PACKAGE_DIR/infra/docker-compose.yml" >"$tmp_compose"
+mv "$tmp_compose" "$PACKAGE_DIR/infra/docker-compose.yml"
 sed "s|enterprise-agent-hub-api:0.1.0-p1|$API_IMAGE|g" \
   "$SOURCE_BUNDLE_DIR/infra/env/server.env.example" >"$PACKAGE_DIR/infra/env/server.env.example"
 
@@ -326,7 +334,6 @@ backup_postgres
 
 compose run --rm api-migrate
 compose run --rm minio-init
-compose run --rm api-seed
 verify_database_schema
 
 compose up -d --force-recreate api nginx
@@ -377,6 +384,7 @@ cat >"$tmp_doc" <<'DOC'
 - 复用上次部署的 PostgreSQL、Redis、MinIO、Nginx 基础镜像和 Docker/Compose 运行环境。
 - 复用 `COMPOSE_PROJECT_NAME=enterprise-agent-hub` 对应的数据卷，不清空业务数据。
 - 迁移脚本会执行镜像内全部 SQL 迁移，当前覆盖 `001` 到 `009`。
+- 增量更新不会执行 `api-seed`，避免初始化测试数据覆盖生产数据。
 
 ## 上传位置建议
 
@@ -400,7 +408,7 @@ sudo ./deploy/update.sh
 4. 导入本次 API 镜像。
 5. 启动依赖服务。
 6. 迁移前备份 PostgreSQL 到 `backups/<timestamp>/postgres.sql`。
-7. 执行数据库迁移、MinIO bucket 初始化和 seed 修复。
+7. 执行数据库迁移和 MinIO bucket 初始化。
 8. 验证新增表和新增列。
 9. 重建 API 和 nginx，健康检查通过后切换 `/opt/enterprise-agent-hub/current` 软链接。
 
@@ -445,6 +453,60 @@ __API_IMAGE__
 DOC
 replace_token "$tmp_doc" "$PACKAGE_DIR/docs/更新说明.md"
 rm -f "$tmp_doc"
+
+cat >"$PACKAGE_DIR/docs/数据恢复说明.md" <<'RECOVERY_DOC'
+# 数据恢复说明：升级后初始化数据回写
+
+如果已执行包含 `api-seed` 的旧更新包，并看到部门被重置、删除的初始化用户回到系统里，而新增用户仍然存在，这是因为旧更新脚本执行了 `api-seed`。`api-seed` 会对固定初始化 ID 执行 `ON CONFLICT DO UPDATE`，因此会覆盖固定部门、固定用户、固定技能、固定通知和固定审核单；非固定 ID 的新增用户通常不会被删除。
+
+## 先确认备份
+
+旧更新脚本在执行迁移和 seed 前会自动备份 PostgreSQL，默认位置在更新包目录下：
+
+```bash
+find /opt/enterprise-agent-hub -path '*/backups/*/postgres.sql' -type f -print
+```
+
+优先选择执行这次更新时生成、时间最接近升级前的 `postgres.sql`。
+
+## 恢复策略
+
+### 方案 A：整库恢复
+
+如果升级后没有产生需要保留的新业务数据，整库恢复最简单：
+
+```bash
+cd /opt/enterprise-agent-hub/current
+docker compose --env-file infra/env/server.env -f infra/docker-compose.yml stop api nginx
+docker compose --env-file infra/env/server.env -f infra/docker-compose.yml exec -T postgres \
+  psql -U "${POSTGRES_USER:-eah}" -d "${POSTGRES_DB:-enterprise_agent_hub}" \
+  < /path/to/backups/YYYYmmdd-HHMMSS/postgres.sql
+docker compose --env-file infra/env/server.env -f infra/docker-compose.yml up -d api nginx
+```
+
+### 方案 B：定向恢复固定初始化数据
+
+如果升级后已有新增用户、审核、技能等数据需要保留，不要直接整库覆盖。建议从备份库临时恢复到一个单独数据库或临时 Postgres 实例，再按表对比恢复受影响记录。
+
+重点受影响表：
+
+- `departments`
+- `users`
+- `skills`
+- `skill_versions`
+- `skill_packages`
+- `skill_tags`
+- `skill_tool_compatibilities`
+- `notifications`
+- `review_items`
+- `review_item_history`
+
+风险点：这些表之间有外键和搜索索引依赖，定向恢复前应先导出现库快照，再按固定 ID 对比恢复。
+
+## 已修正的更新包
+
+当前目录内的 `deploy/update.sh` 已移除 `api-seed` 执行，`infra/docker-compose.yml` 也已移除 `api-seed` 服务。后续使用本目录更新不会再次触发初始化测试数据回写。
+RECOVERY_DOC
 
 git_commit="$(git -C "$ROOT_DIR" rev-parse HEAD)"
 generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

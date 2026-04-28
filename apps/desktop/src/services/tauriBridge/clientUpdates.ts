@@ -78,14 +78,21 @@ async function callClientUpdateCommand<T>(
   invoke: TauriInvoker,
   command: string,
   args: Record<string, unknown> | undefined,
-  actionLabel: string
+  actionLabel: string,
+  timeoutMs?: number
 ): Promise<T> {
   try {
-    return await invokeWithTimeout<T>(invoke, command, args);
+    return await invokeWithTimeout<T>(invoke, command, args, timeoutMs);
   } catch (error) {
     throw new Error(localCommandErrorMessage(error, actionLabel));
   }
 }
+
+const CLIENT_UPDATE_COMMAND_TIMEOUT_MS = {
+  download: 10 * 60_000,
+  verify: 5 * 60_000,
+  launch: 60_000
+} as const;
 
 function previewVersionInfo(): ClientAppVersionInfo {
   const platform = detectDesktopPlatform();
@@ -160,7 +167,8 @@ export async function downloadClientUpdate(input: ClientUpdateArtifactInput): Pr
       invoke,
       CLIENT_UPDATE_LOCAL_COMMANDS.downloadClientUpdate,
       { input },
-      "下载客户端更新"
+      "下载客户端更新",
+      CLIENT_UPDATE_COMMAND_TIMEOUT_MS.download
     );
   }
   if (isBrowserPreviewMode()) {
@@ -180,7 +188,8 @@ export async function verifyClientUpdate(input: ClientUpdateVerifyInput): Promis
       invoke,
       CLIENT_UPDATE_LOCAL_COMMANDS.verifyClientUpdate,
       { input },
-      "校验客户端更新"
+      "校验客户端更新",
+      CLIENT_UPDATE_COMMAND_TIMEOUT_MS.verify
     );
   }
   if (isBrowserPreviewMode()) {
@@ -200,7 +209,8 @@ export async function launchClientInstaller(input: ClientUpdateLaunchInput): Pro
       invoke,
       CLIENT_UPDATE_LOCAL_COMMANDS.launchClientInstaller,
       { input },
-      "启动安装程序"
+      "启动安装程序",
+      CLIENT_UPDATE_COMMAND_TIMEOUT_MS.launch
     );
   }
   if (isBrowserPreviewMode()) {

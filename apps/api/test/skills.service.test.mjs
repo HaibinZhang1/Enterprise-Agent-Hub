@@ -149,6 +149,7 @@ test('buildSkillLeaderboardQueryPlan aggregates seven-day heat inputs and exclud
   assert.match(plan.text, /COALESCE\(recent_downloads\.recent_download_count, 0\) \* 6/);
   assert.match(plan.text, /COALESCE\(recent_stars\.recent_star_count, 0\) \* 3/);
   assert.match(plan.text, /WHEN COALESCE\(v\.risk_level, 'unknown'\) = 'high' THEN 0\.5/);
+  assert.match(plan.text, /s\.status = 'published'/);
   assert.match(plan.text, /s\.visibility_level <> 'private'/);
   assert.deepEqual(plan.values, [7]);
 });

@@ -14,4 +14,4 @@ test-results/
 infra/env/*.local
 infra/env/*.secret
 apps/desktop/src-tauri/gen/
-release/kylin-v10-x86_64-offline-bundle/
+release/

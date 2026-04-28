@@ -121,6 +121,7 @@ disable-model-invocation: false
 - 根目录存在 `SKILL.md`
 - 能解析基础元信息、包 Hash 和兼容工具字段
 - 能为 Codex、Claude、Cursor、Windsurf、opencode 或自定义目录生成目标格式
+- opencode 目标格式必须保留根目录 `SKILL.md` 作为入口文件，避免转换为 `AGENTS.md` 后被 opencode 扫描器忽略；若源文件缺少 YAML frontmatter，转换产物需补齐最小 `name` / `description`
 
 ### 结构校验
 - 根目录存在 `SKILL.md`

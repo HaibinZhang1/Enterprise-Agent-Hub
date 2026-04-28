@@ -119,7 +119,7 @@ EnterpriseAgentHub/
 - `apps/desktop/src` 承接 `docs/design-ui/layout-prototype/` 中已验证的页面结构，但生产实现需要隐藏发布、审核、管理等 后续版本 入口。
 - `apps/desktop/src-tauri` 是所有本地系统能力的唯一入口，React 只通过 `invoke` 调用命令。
 - `packages/shared-contracts` 放 API DTO、枚举和跨端类型，避免 Desktop 与 API 字段漂移。
-- `packages/tool-adapter-fixtures` 放 Codex、Claude、Cursor、Windsurf、opencode 的格式转换 golden fixture。
+- `packages/tool-adapter-fixtures` 放 Codex、Claude、Cursor、Windsurf、opencode 的格式转换 golden fixture；opencode 产物保留 `SKILL.md` 入口以匹配其 skill 扫描行为。
 - `infra` 只提供单机内网生产/预生产可用的基础设施编排，不引入微服务网关。
 
 ## 3. 前后端模块划分

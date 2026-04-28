@@ -119,11 +119,15 @@ export function useP1Workspace() {
     activePage: auth.activePage,
     authState: auth.authState,
     handleRemoteError: sessionFlow.handleRemoteError,
+    remoteMarketFilters,
     requireAuthenticatedAction: sessionFlow.requireAuthenticatedAction,
     selectedPublisherSubmissionID: publisher.selectedPublisherSubmissionID,
+    setLeaderboards: market.setLeaderboards,
     setPublisherSkills: publisher.setPublisherSkills,
+    setSelectedSkillID: market.setSelectedSkillID,
     setSelectedPublisherSubmission: publisher.setSelectedPublisherSubmission,
-    setSelectedPublisherSubmissionID: publisher.setSelectedPublisherSubmissionID
+    setSelectedPublisherSubmissionID: publisher.setSelectedPublisherSubmissionID,
+    setSkills: market.setSkills
   });
 
   const adminActions = useWorkspaceAdminReviewActions({

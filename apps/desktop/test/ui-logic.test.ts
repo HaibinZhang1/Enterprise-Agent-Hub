@@ -37,7 +37,7 @@ import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs }
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath } from "../src/utils/platformPaths.ts";
 import { sanitizePhoneNumberInput, validatePhoneNumber } from "../src/utils/phoneNumber.ts";
-import { mergeLocalInstalls } from "../src/state/p1WorkspaceHelpers.ts";
+import { isCommunityVisibleSkill, mergeLocalInstalls, removeSkillFromLeaderboards } from "../src/state/p1WorkspaceHelpers.ts";
 import { shouldCloseFromBackdropPointerDown } from "../src/ui/modalInteraction.ts";
 import { mockScanSummaries, seedLocalExtensions } from "../src/services/tauriBridge/preview.ts";
 import { appendReadOnlyExtensionScanFindings } from "../src/services/tauriBridge/scanOps.ts";
@@ -953,6 +953,61 @@ test("community leaderboards expose hot fallback plus independent download and s
     deriveCommunityLeaderboards(Array.from({ length: 11 }, (_, index) => ({ ...baseSkill, skillID: `skill-${index}`, displayName: `Skill ${index}`, starCount: index }))).stars.length,
     10
   );
+});
+
+test("community visibility and cached leaderboards exclude archived skills", () => {
+  const archivedSkill: SkillSummary = { ...baseSkill, skillID: "archived-helper", status: "archived" };
+  const delistedSkill: SkillSummary = { ...baseSkill, skillID: "delisted-helper", status: "delisted" };
+
+  assert.equal(isCommunityVisibleSkill(baseSkill), true);
+  assert.equal(isCommunityVisibleSkill(archivedSkill), false);
+  assert.equal(isCommunityVisibleSkill(delistedSkill), false);
+  assert.deepEqual(deriveMarketSkills({
+    authState: "authenticated",
+    bootstrap: {
+      connection: { status: "connected", serverTime: "2026-04-09T08:00:00Z", apiVersion: "p1.0" },
+      features: { p1Desktop: true, publishSkill: true, reviewWorkbench: false, adminManage: false, mcpManage: false, pluginManage: false },
+      user: { username: "张三", phoneNumber: "13800000000", departmentID: "dept", departmentName: "平台工程部", role: "normal_user", locale: "zh-CN" },
+      counts: {
+        installedCount: 0,
+        enabledCount: 0,
+        updateAvailableCount: 0,
+        unreadNotificationCount: 0
+      },
+      navigation: ["home", "market"],
+      menuPermissions: ["home", "market"]
+    },
+    filters: {
+      query: "helper",
+      department: "all",
+      compatibleTool: "all",
+      installed: "all",
+      enabled: "all",
+      accessScope: "include_public",
+      category: "all",
+      tags: [],
+      riskLevel: "all",
+      publishedWithin: "all",
+      updatedWithin: "all",
+      sort: "relevance"
+    },
+    skills: [baseSkill, archivedSkill, delistedSkill]
+  }).map((skill) => skill.skillID), ["review-helper"]);
+
+  const leaderboards = {
+    generatedAt: "2026-04-09T08:00:00Z",
+    windowDays: 7,
+    hot: [{ ...baseSkill, recentStarCount: 1, recentDownloadCount: 1, hotScore: 9 }, { ...archivedSkill, recentStarCount: 1, recentDownloadCount: 1, hotScore: 8 }],
+    stars: [{ ...archivedSkill, recentStarCount: 0, recentDownloadCount: 0, hotScore: 0 }],
+    downloads: [{ ...baseSkill, recentStarCount: 0, recentDownloadCount: 0, hotScore: 0 }, { ...archivedSkill, recentStarCount: 0, recentDownloadCount: 0, hotScore: 0 }]
+  };
+
+  assert.deepEqual(removeSkillFromLeaderboards(leaderboards, "archived-helper"), {
+    ...leaderboards,
+    hot: [leaderboards.hot[0]],
+    stars: [],
+    downloads: [leaderboards.downloads[0]]
+  });
 });
 
 test("community leaderboard UI stays on the home page without the Skills sidebar", () => {

@@ -122,6 +122,38 @@ mod tests {
     }
 
     #[test]
+    fn opencode_transform_preserves_skill_entry_point_and_metadata() {
+        let temp = TestTemp::new("opencode-transform");
+        let source = temp.path.join("store/example-skill/1.0.0");
+        fs::create_dir_all(source.join("assets")).unwrap();
+        fs::write(
+            source.join("SKILL.md"),
+            "# Example Skill\n\nUse this skill.\n",
+        )
+        .unwrap();
+        fs::write(source.join("assets/readme.txt"), "asset").unwrap();
+
+        let artifact = transform_skill(
+            &source,
+            temp.path.join("derived"),
+            "example-skill",
+            "1.0.0",
+            TransformStrategy::OpencodeSkill,
+        )
+        .unwrap();
+
+        assert_eq!(artifact.strategy, TransformStrategy::OpencodeSkill);
+        assert!(artifact.entry_file.ends_with("SKILL.md"));
+        assert!(artifact.artifact_path.join("SKILL.md").is_file());
+        let text = fs::read_to_string(&artifact.entry_file).unwrap();
+        assert!(text.starts_with("---\nname: example-skill\ndescription: \"Use this skill.\""));
+        assert!(text.contains("# Example Skill"));
+        assert!(artifact.artifact_path.join("assets/readme.txt").is_file());
+        assert!(!artifact.artifact_path.join("AGENTS.md").exists());
+        assert!(artifact.artifact_path.join(MANAGED_MARKER_FILE).is_file());
+    }
+
+    #[test]
     fn symlink_failure_falls_back_to_managed_copy_with_reason() {
         let temp = TestTemp::new("copy-fallback");
         let artifact = temp.path.join("artifact");

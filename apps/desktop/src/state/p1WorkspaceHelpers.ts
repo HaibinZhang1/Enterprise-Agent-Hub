@@ -7,6 +7,7 @@ import type {
   OperationProgress,
   PublisherSkillSummary,
   PublisherSubmissionDetail,
+  SkillLeaderboardsResponse,
   SkillSummary
 } from "../domain/p1.ts";
 import { guestBootstrap } from "../fixtures/p1SeedData.ts";
@@ -131,7 +132,17 @@ export function localSummaryFromInstall(install: LocalSkillInstall): SkillSummar
 }
 
 export function isCommunityVisibleSkill(skill: SkillSummary): boolean {
-  return skill.localSourceType !== "local_import";
+  return skill.status === "published" && skill.localSourceType !== "local_import";
+}
+
+export function removeSkillFromLeaderboards(leaderboards: SkillLeaderboardsResponse | null, skillID: string): SkillLeaderboardsResponse | null {
+  if (!leaderboards) return leaderboards;
+  return {
+    ...leaderboards,
+    hot: leaderboards.hot.filter((skill) => skill.skillID !== skillID),
+    stars: leaderboards.stars.filter((skill) => skill.skillID !== skillID),
+    downloads: leaderboards.downloads.filter((skill) => skill.skillID !== skillID)
+  };
 }
 
 export function mergeLocalInstalls(skills: SkillSummary[], localBootstrap: LocalBootstrap): SkillSummary[] {

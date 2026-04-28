@@ -98,17 +98,9 @@ pub fn transform_skill(
         }
         TransformStrategy::OpencodeSkill => {
             copy_supporting_files(source_skill_path, &artifact_path)?;
-            let path = artifact_path.join("AGENTS.md");
-            fs::write(
-                &path,
-                format!(
-                    "# {}\n\nThis file was generated from EnterpriseAgentHub Skill `{}` for opencode.\n\n{}",
-                    first_heading(&skill_text).unwrap_or(skill_id),
-                    skill_id,
-                    skill_text
-                ),
-            )
-            .map_err(|error| AdapterError::io(format!("write {}", path.display()), error))?;
+            let path = artifact_path.join("SKILL.md");
+            fs::write(&path, opencode_skill_text(&skill_text, skill_id))
+                .map_err(|error| AdapterError::io(format!("write {}", path.display()), error))?;
             path
         }
     };
@@ -211,8 +203,42 @@ fn first_heading(text: &str) -> Option<&str> {
         .filter(|line| !line.is_empty())
 }
 
+fn opencode_skill_text(skill_text: &str, skill_id: &str) -> String {
+    if has_yaml_frontmatter(skill_text) {
+        return skill_text.to_string();
+    }
+    let description = first_body_line(skill_text)
+        .or_else(|| first_heading(skill_text))
+        .unwrap_or(skill_id);
+    format!(
+        "---\nname: {}\ndescription: \"{}\"\n---\n\n{}",
+        skill_id,
+        escape_yaml_string(description),
+        skill_text
+    )
+}
+
+fn has_yaml_frontmatter(text: &str) -> bool {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    text.starts_with("---\n") || text.starts_with("---\r\n")
+}
+
+fn first_body_line(text: &str) -> Option<&str> {
+    text.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty() && !line.starts_with('#'))
+}
+
 fn escape_frontmatter(value: &str) -> String {
     value.replace('"', "'")
+}
+
+fn escape_yaml_string(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\r', " ")
+        .replace('\n', " ")
 }
 
 fn sanitize_file_stem(value: &str) -> String {
