@@ -16,19 +16,11 @@ Generated: 2026-04-28T12:25Z
 
 ## Integration risks found so far
 
-### P0/P1: task 12 local runtime scaffold needs path containment before integration release
+### RESOLVED follow-up: task 12 local runtime path containment
 
-Reviewed completed task 12 commit `e7a1892e` (`apps/desktop/src/electron/local/runtime.ts`, `dataMigration.ts`, tests). The runtime currently joins externally sourced IDs into filesystem paths and later removes paths recursively. In particular, `#uninstallSkill(skillID)` computes `path.join(this.#paths.centralStorePath, skillID)` and calls `rm(..., { recursive: true, force: true })`. Install/import paths also derive Central Store locations from `downloadTicket.skillID` / local import `skillID`.
+Initial review of task 12 commit `e7a1892e` found that externally sourced IDs were joined into Central Store paths and recursively removed without enough containment proof. Worker-2 followed up with `f11ec4bd` / integrated checkpoint `d438b73b`, adding `validateLocalID`, relative-path validation, Central Store containment checks, absolute/writable `validateTargetPath` behavior, and traversal regression tests.
 
-Required before final integration/release:
-
-- Validate `skillID`, `extensionID`, target IDs, and relative paths against shared slug/ID rules before using them in filesystem paths.
-- Resolve every Central Store target path and assert it remains inside the configured Central Store root before `mkdir`, `write`, `cp`, or `rm`.
-- Add regression tests for traversal inputs such as `../outside`, absolute paths, encoded separators, and nested traversal in IDs.
-
-### P1: task 12 target path validation is permissive scaffold behavior
-
-`#validateTargetPath` accepts any non-empty path, reports `writable: true`, and returns `canCreate: true` when `stat` fails. That is safe as a UI scaffold only if later Electron dialog/handler code constrains user-selected paths. Before release, it should either perform real writability/absolute-path checks or be clearly separated from privileged writes.
+Remaining note: this is sufficient for scaffold/integration readiness. Final release should still prefer shared slug/ID validators if the shared-contract package grows canonical runtime validators, but no open blocker remains from the worker-6 path-containment review.
 
 ### P1: Electron IPC security gate is pending worker-1 output
 
@@ -44,9 +36,11 @@ Reviewed completed task 11 commit `81628b03` against `verification/electron-secu
 
 Required before final release: either harden task 11 to satisfy strict policy, or record an explicit architecture exception for the generic local-command dispatcher with compensating tests.
 
-### P1: task 14 legacy-runtime scan may conflict with worker-6 audit artifacts
+### RESOLVED follow-up: task 14 no-runtime scan coordination
 
-Reviewed task 14 reported commit `54b28728` / equivalent checkpoint `2b58e877`. Its `scripts/verification/check-legacy-runtime-references.mjs` scans `verification/`, `scripts/`, and `tests/`, but only allowlists the migration map. Worker-6 intentionally added security gate files and this review report that contain historical migration terms. Integration should either switch the release scan to `scripts/checks/check-no-tauri-scan.mjs` + `verification/no-tauri-scan-allowlist.json`, or add worker-6 audit artifacts to the task 14 scanner allowlist. Otherwise the release scan will fail on the audit/gate files rather than active runtime code.
+Initial review of task 14 commit `54b28728` / equivalent checkpoint `2b58e877` found that its legacy runtime scanner could conflict with worker-6 audit artifacts. Worker-4 acknowledged and committed `221e755e` (also visible as `72a481a7` after integration), keeping the no-runtime scan aligned with transitional tests by extending the no-Tauri allowlist for the client-update flow test.
+
+Remaining note: final integration should run one canonical no-Tauri release gate. Worker-6 recommends `scripts/checks/check-no-tauri-scan.mjs --strict` because it reports historical/audit allowances separately from active transitional blockers.
 
 ### P1: strict no-Tauri release gate is intentionally blocked during parallel migration
 
