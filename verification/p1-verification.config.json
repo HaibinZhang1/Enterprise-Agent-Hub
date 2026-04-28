@@ -188,10 +188,11 @@
     {
       "id": "electron-no-legacy-runtime-scan",
       "label": "No active legacy desktop runtime references",
-      "command": "node scripts/verification/check-legacy-runtime-references.mjs",
+      "command": "node scripts/checks/check-no-tauri-scan.mjs",
       "cwd": ".",
       "whenPathExists": [
-        "scripts/verification/check-legacy-runtime-references.mjs"
+        "scripts/checks/check-no-tauri-scan.mjs",
+        "verification/no-tauri-scan-allowlist.json"
       ],
       "requiredForRelease": true
     },
@@ -347,7 +348,9 @@
         "scripts/full-closure/run-native-smoke.mjs",
         "scripts/verification/check-legacy-runtime-references.mjs",
         "apps/desktop/src-electron/main.ts",
-        "apps/desktop/src-electron/preload.ts"
+        "apps/desktop/src-electron/preload.ts",
+        "scripts/checks/check-no-tauri-scan.mjs",
+        "verification/no-tauri-scan-allowlist.json"
       ],
       "requiredForRelease": true
     },
