@@ -22,7 +22,8 @@
     "contextBridge\\.exposeInMainWorld\\s*\\(",
     "desktopBridge",
     "DESKTOP_IPC_CHANNELS",
-    "assertLocalCommandName"
+    "assert(?:Local|Desktop)CommandName",
+    "localCommands"
   ],
   "preloadForbiddenPatterns": [
     "exposeInMainWorld\\s*\\([^)]*ipcRenderer",

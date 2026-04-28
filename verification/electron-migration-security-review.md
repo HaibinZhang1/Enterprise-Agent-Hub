@@ -27,14 +27,11 @@ Remaining note: this is sufficient for scaffold/integration readiness. Final rel
 No `apps/desktop/src-electron/main.ts`, `preload.ts`, or `ipc/policy.ts` exists in this worktree yet. The security policy gate should be rerun in strict mode after worker-1 integrates the Electron shell. Required proof points: sender-frame origin validation on every handler, channel allowlist, no raw `ipcRenderer` exposure, explicit CSP, denied navigation/new-window/permission requests, and safe external URL handling.
 
 
-### P1: task 11 Electron shell needs two security-policy follow-ups
+### RESOLVED follow-up: task 11 Electron shell strict policy
 
-Reviewed completed task 11 commit `81628b03` against `verification/electron-security-policy.json` by extracting `apps/desktop/src-electron/{main,preload,ipcContract,security}.ts` into a temporary root and running `check-electron-security-policy.mjs --strict`. The strict policy correctly fails on two release follow-ups:
+Initial review of task 11 commit `81628b03` found two release follow-ups: explicit `webSecurity: true` was missing, and preload exposed a generic `desktopBridge.invoke(command, args)` dispatcher instead of an explicit approved-command wrapper surface. Worker-1 followed up with `a08760ea`, adding explicit `webSecurity: true` and replacing the generic invoke surface with `localCommands` wrappers derived from approved command names.
 
-- `BrowserWindow` `webPreferences` sets `contextIsolation`, `nodeIntegration: false`, and `sandbox`, but does not explicitly set `webSecurity: true`. Electron defaults this to true, but the migration acceptance policy requires an explicit setting so future edits cannot silently weaken it.
-- Preload exposes a generic `desktopBridge.invoke(command, args)` dispatcher. It is channel- and command-allowlisted, so it is not raw `ipcRenderer`, but the RALPLAN/PRD security boundary asks for explicit preload methods or generated per-command wrappers rather than a generic invoke surface.
-
-Required before final release: either harden task 11 to satisfy strict policy, or record an explicit architecture exception for the generic local-command dispatcher with compensating tests.
+Worker-6 extracted `apps/desktop/src-electron/{main,preload,ipcContract,security}.ts` from `a08760ea` and ran `scripts/checks/check-electron-security-policy.mjs --strict` against the policy; it passes with 0 pending files. No open blocker remains from the task 11 IPC/preload security review.
 
 ### RESOLVED follow-up: task 14 no-runtime scan coordination
 
