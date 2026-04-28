@@ -79,7 +79,7 @@ const electronPreload = readOptional('apps/desktop/src-electron/preload.ts');
 const electronSourceText = readSourceTree('apps/desktop/src-electron');
 const legacyRuntimeToken = ['ta', 'uri'].join('');
 const legacySourceToken = ['src-', legacyRuntimeToken].join('');
-const legacyGlobalToken = ['__', 'TAURI', '__'].join('');
+const legacyGlobalToken = ['__', 'TA', 'URI', '__'].join('');
 const legacyRuntimePattern = new RegExp(`${legacyRuntimeToken}|${legacySourceToken}|${legacyGlobalToken}`, 'iu');
 
 test('Desktop client defaults to the real API surface and does not auto-fallback to seed data', () => {

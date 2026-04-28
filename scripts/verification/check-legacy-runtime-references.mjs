@@ -6,7 +6,7 @@ import process from 'node:process';
 const repoRoot = process.cwd();
 const legacyRuntime = ['ta', 'uri'].join('');
 const legacySourceDir = ['src-', legacyRuntime].join('');
-const legacyGlobal = ['__', 'TAURI', '__'].join('');
+const legacyGlobal = ['__', 'TA', 'URI', '__'].join('');
 const legacyPatterns = [
   new RegExp(legacyRuntime, 'iu'),
   new RegExp(legacySourceDir, 'iu'),
