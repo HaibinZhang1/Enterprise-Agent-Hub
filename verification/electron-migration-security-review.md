@@ -61,8 +61,9 @@ Reviewed/accepted peer outputs so far:
 - Task 14: `221e755e` / `72a481a7` scan-alignment follow-up accepted.
 - Task 15: `b41ec8cf` docs/migration map reviewed; active docs scan excluding migration map has no legacy runtime hits.
 
-Still pending for task 16 terminal acceptance:
+Final acceptance blockers to carry into leader integration:
 
-- Task 13 packaging/updater lane terminal output.
-- Final integrated strict no-Tauri scan after runtime/package/test/docs lanes remove legacy references.
-- Windows installer/signature real-machine evidence, unless explicitly recorded as environment-gated Not-tested.
+1. Task 13 packaging/updater lane is still non-terminal in team state at the time of this worker-6 final review, so its final commit and evidence still need security/readiness review.
+2. Strict no-Tauri scan is expected to fail until the integration branch removes legacy runtime/package/test/doc references. Non-strict tracking currently has zero unclassified hits.
+3. Windows installer/signature real-machine evidence remains required unless the release explicitly records it as environment-gated `Not-tested`.
+4. Final integrated branch must rerun the strict Electron security policy after worker-1/worker-2/worker-3 outputs merge, because worker-6 verified the security-relevant task-11 files by extracted commit review rather than by an already-integrated branch.
