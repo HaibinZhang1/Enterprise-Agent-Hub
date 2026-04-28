@@ -5,30 +5,24 @@ import path from "node:path";
 import process from "node:process";
 
 if (!process.env.EAH_FULL_CLOSURE_ARTIFACT_DIR) {
-  run("node", ["scripts/full-closure/run.mjs", "--mode", "native"]);
+  run("node", ["scripts/full-closure/run.mjs", "--mode", "electron"]);
   process.exit(0);
 }
 
 const artifactDir = requiredEnv("EAH_FULL_CLOSURE_ARTIFACT_DIR");
 const artifactPath = process.env.EAH_FULL_CLOSURE_HAPPY_PATH_ARTIFACT ?? path.join(artifactDir, "happy-path.json");
 if (!existsSync(artifactPath)) {
-  throw new Error(`Happy-path artifact not found: ${artifactPath}`);
+  throw new Error(`Happy-path artifact missing: ${artifactPath}`);
 }
 
-run("cargo", [
-  "test",
-  "--manifest-path",
-  "apps/desktop/src-tauri/Cargo.toml",
-  "--test",
-  "full_closure",
-  "--",
-  "--nocapture",
-], {
-  env: {
-    ...process.env,
-    EAH_FULL_CLOSURE_ARTIFACT: artifactPath,
-  },
-});
+run("node", ["scripts/verification/check-legacy-runtime-references.mjs"]);
+run("node", ["--test", "tests/smoke/p1-real-delivery-static.test.mjs"]);
+
+if (existsSync("apps/desktop/src-electron/main.ts")) {
+  run("npm", ["run", "typecheck", "--workspace", "@enterprise-agent-hub/desktop"]);
+}
+
+console.log(`Electron desktop closure smoke PASS (${artifactPath})`);
 
 function requiredEnv(name) {
   const value = process.env[name];

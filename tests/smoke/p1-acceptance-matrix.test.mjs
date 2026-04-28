@@ -22,6 +22,10 @@ const requiredScenarioIds = [
   'update-publish-old-version-remains-live',
   'same-skill-market-download-install-enable',
   'notifications-read-offline-cache',
+  'electron-ipc-security-gate',
+  'electron-data-migration-preserves-local-store',
+  'electron-updater-manual-semantics',
+  'no-legacy-runtime-reference-scan',
 ];
 
 const requiredCommandIds = [
@@ -29,15 +33,17 @@ const requiredCommandIds = [
   'workspace-test',
   'api-test',
   'desktop-frontend-test',
-  'cargo-check',
-  'cargo-test',
+  'desktop-electron-typecheck',
+  'desktop-electron-smoke',
+  'electron-no-legacy-runtime-scan',
+  'p1-real-delivery-static-test',
   'fixture-transform-check',
   'docker-config-prod',
   'deploy-script-syntax',
   'w6-acceptance-matrix-test',
   'rust-exception-gate',
   'p1-ui-closure',
-  'p1-native-closure',
+  'p1-electron-closure',
   'p1-full-closure',
 ];
 

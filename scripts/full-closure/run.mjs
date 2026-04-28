@@ -52,8 +52,6 @@ try {
   ensureCommand("unzip");
   ensureCommand("docker");
   ensureCommand("npm");
-  ensureCommand("cargo");
-
   runCapture("docker", ["info"]);
 
   await startContainer({
@@ -187,7 +185,7 @@ try {
 
   const uiEnv = {
     ...harnessEnv,
-    ...(mode === "native"
+    ...(mode === "electron"
       ? { EAH_FULL_CLOSURE_PLAYWRIGHT_GREP: "happy path publishes same skill through review and exposes installable market artifact" }
       : {}),
   };
@@ -199,7 +197,7 @@ try {
   if (mode !== "ui") {
     runStreaming("node", ["scripts/full-closure/run-native-smoke.mjs"], {
       env: harnessEnv,
-      logFile: path.join(logsDir, "native-smoke.log"),
+      logFile: path.join(logsDir, "electron-smoke.log"),
     });
   }
 
@@ -235,10 +233,11 @@ function ensureCommand(command) {
 function parseMode(args) {
   const modeIndex = args.indexOf("--mode");
   const next = modeIndex >= 0 ? args[modeIndex + 1] : "full";
-  if (!["full", "ui", "native"].includes(next)) {
+  const normalized = next === "native" ? "electron" : next;
+  if (!["full", "ui", "electron"].includes(normalized)) {
     throw new Error(`Unsupported full-closure mode: ${next}`);
   }
-  return next;
+  return normalized;
 }
 
 async function startContainer({ name, image, env = {}, ports = [], command = [] }) {

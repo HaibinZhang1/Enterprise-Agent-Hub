@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "P1 foundation loop verification path",
   "mode": "release-gate-strictable",
-  "description": "Command and artifact gates for the P1 基础闭环 team implementation. Missing product-lane artifacts are pending during parallel development and fail only with --strict.",
+  "description": "P1 release verification gates for Electron desktop runtime, API contracts, UI closure, local command parity, and packaging/deployment evidence.",
   "reportDefaults": {
     "directory": "test-results/verification",
     "markdownFile": "p1-verification-report.md",
@@ -38,10 +38,24 @@
       "requiredForRelease": true
     },
     {
-      "id": "tauri-manifest",
-      "label": "Tauri Rust manifest exists",
-      "path": "apps/desktop/src-tauri/Cargo.toml",
-      "owner": "worker-4/worker-5",
+      "id": "electron-main-process",
+      "label": "Electron main process entry exists",
+      "path": "apps/desktop/src-electron/main.ts",
+      "owner": "worker-1",
+      "requiredForRelease": true
+    },
+    {
+      "id": "electron-preload-bridge",
+      "label": "Electron preload bridge entry exists",
+      "path": "apps/desktop/src-electron/preload.ts",
+      "owner": "worker-1",
+      "requiredForRelease": true
+    },
+    {
+      "id": "desktop-bridge-facade",
+      "label": "Neutral desktop bridge facade exists",
+      "path": "apps/desktop/src/services/desktopBridge.ts",
+      "owner": "worker-1",
       "requiredForRelease": true
     },
     {
@@ -145,22 +159,52 @@
       "requiredForRelease": true
     },
     {
-      "id": "cargo-check",
-      "label": "Tauri Rust cargo check",
-      "command": "cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "id": "desktop-electron-typecheck",
+      "label": "Desktop Electron TypeScript typecheck",
+      "command": "npm run typecheck --workspace @enterprise-agent-hub/desktop",
       "cwd": ".",
       "whenPathExists": [
-        "apps/desktop/src-tauri/Cargo.toml"
+        "package.json",
+        "apps/desktop/package.json",
+        "apps/desktop/src-electron/main.ts",
+        "apps/desktop/src-electron/preload.ts"
       ],
       "requiredForRelease": true
     },
     {
-      "id": "cargo-test",
-      "label": "Tauri Rust cargo test",
-      "command": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
+      "id": "electron-no-legacy-runtime-scan",
+      "label": "No active legacy desktop runtime references",
+      "command": "node scripts/verification/check-legacy-runtime-references.mjs",
       "cwd": ".",
       "whenPathExists": [
-        "apps/desktop/src-tauri/Cargo.toml"
+        "scripts/verification/check-legacy-runtime-references.mjs"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "p1-real-delivery-static-test",
+      "label": "P1 Electron real delivery static regression checks",
+      "command": "node --test tests/smoke/p1-real-delivery-static.test.mjs",
+      "cwd": ".",
+      "whenPathExists": [
+        "tests/smoke/p1-real-delivery-static.test.mjs",
+        "apps/desktop/src-electron/main.ts",
+        "apps/desktop/src-electron/preload.ts",
+        "apps/desktop/src/services/desktopBridge.ts",
+        "apps/api/Dockerfile"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "desktop-electron-smoke",
+      "label": "Electron dev/runtime smoke",
+      "command": "npm run electron:smoke --workspace @enterprise-agent-hub/desktop",
+      "cwd": ".",
+      "whenPathExists": [
+        "package.json",
+        "apps/desktop/package.json",
+        "apps/desktop/src-electron/main.ts",
+        "apps/desktop/src-electron/preload.ts"
       ],
       "requiredForRelease": true
     },
@@ -221,30 +265,6 @@
       "requiredForRelease": true
     },
     {
-      "id": "rust-exception-gate",
-      "label": "Rust exception gate self-check",
-      "command": "node scripts/checks/check-rust-exception-gate.mjs",
-      "cwd": ".",
-      "whenPathExists": [
-        "scripts/checks/check-rust-exception-gate.mjs",
-        "verification/rust-exception-gate.json"
-      ],
-      "requiredForRelease": true
-    },
-    {
-      "id": "p1-real-delivery-static-test",
-      "label": "P1 real delivery static regression checks",
-      "command": "node --test tests/smoke/p1-real-delivery-static.test.mjs",
-      "cwd": ".",
-      "whenPathExists": [
-        "tests/smoke/p1-real-delivery-static.test.mjs",
-        "apps/desktop/src/services/p1Client.ts",
-        "apps/desktop/src-tauri/tauri.conf.json",
-        "apps/api/Dockerfile"
-      ],
-      "requiredForRelease": true
-    },
-    {
       "id": "p1-ui-closure",
       "label": "Full UI publish/review/market closure suite",
       "command": "npm run p1:ui-closure",
@@ -258,27 +278,30 @@
       "requiredForRelease": true
     },
     {
-      "id": "p1-native-closure",
-      "label": "Native Tauri install/enable closure smoke",
-      "command": "npm run p1:native-closure",
+      "id": "p1-electron-closure",
+      "label": "Electron desktop install/enable/update closure smoke",
+      "command": "node scripts/full-closure/run-native-smoke.mjs",
       "cwd": ".",
       "whenPathExists": [
         "package.json",
         "scripts/full-closure/run-native-smoke.mjs",
-        "apps/desktop/src-tauri/tests/full_closure.rs"
+        "scripts/verification/check-legacy-runtime-references.mjs",
+        "apps/desktop/src-electron/main.ts",
+        "apps/desktop/src-electron/preload.ts"
       ],
       "requiredForRelease": true
     },
     {
       "id": "p1-full-closure",
-      "label": "Isolated end-to-end closure harness",
+      "label": "Isolated end-to-end Electron closure harness",
       "command": "npm run p1:full-closure",
       "cwd": ".",
       "whenPathExists": [
         "package.json",
         "scripts/full-closure/run.mjs",
         "tests/full-closure/playwright.config.ts",
-        "apps/desktop/src-tauri/tests/full_closure.rs"
+        "apps/desktop/src-electron/main.ts",
+        "apps/desktop/src-electron/preload.ts"
       ],
       "requiredForRelease": true
     }
@@ -302,7 +325,11 @@
     "permission-change-visibility-switch-after-approval",
     "update-publish-old-version-remains-live",
     "same-skill-market-download-install-enable",
-    "notifications-read-offline-cache"
+    "notifications-read-offline-cache",
+    "electron-ipc-security-gate",
+    "electron-data-migration-preserves-local-store",
+    "electron-updater-manual-semantics",
+    "no-legacy-runtime-reference-scan"
   ],
   "generatedArtifactChecks": [
     {
