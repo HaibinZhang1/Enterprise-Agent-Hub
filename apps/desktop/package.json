@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "npm run build --workspace @enterprise-agent-hub/shared-contracts && tsc --noEmit && vite build",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc --bundles nsis",
-    "typecheck": "npm run build --workspace @enterprise-agent-hub/shared-contracts && tsc --noEmit",
+    "electron:typecheck": "tsc -p tsconfig.electron.json --noEmit",
+    "electron:compile": "tsc -p tsconfig.electron.json",
+    "electron:dev": "npm run electron:compile && electron dist-electron/main.js",
+    "electron:package": "npm run build && npm run electron:compile && electron-builder --dir",
+    "electron:build:windows": "npm run build && npm run electron:compile && electron-builder --win nsis --x64",
+    "typecheck": "npm run build --workspace @enterprise-agent-hub/shared-contracts && tsc --noEmit && npm run electron:typecheck",
     "lint": "node ./scripts/p1-ui-lint.mjs",
     "test": "npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts"
   },
@@ -23,8 +25,60 @@
     "lucide-react": "1.8.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.2.7",
     "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3"
+    "@types/react-dom": "19.2.3",
+    "@types/node": "^25.6.0",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1"
+  },
+  "main": "dist-electron/main.js",
+  "build": {
+    "appId": "com.enterpriseagenthub.desktop",
+    "productName": "Enterprise Agent Hub",
+    "artifactName": "Enterprise Agent Hub-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release/electron",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "executableName": "Enterprise Agent Hub"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Enterprise Agent Hub",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "target": [
+        "dir"
+      ]
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.png"
+    }
   }
 }

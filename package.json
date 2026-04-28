@@ -20,15 +20,17 @@
     "client-update:smoke": "node scripts/verification/client-update-publish-smoke.mjs",
     "client-update:yank": "npm run client-update:yank --workspace @enterprise-agent-hub/api --",
     "desktop:dev": "npm run dev --workspace @enterprise-agent-hub/desktop",
-    "desktop:tauri:dev": "npm run tauri:dev --workspace @enterprise-agent-hub/desktop",
     "lint": "npm run lint --workspaces --if-present",
     "p1:full-closure": "node scripts/full-closure/run.mjs",
     "p1:live-smoke": "node scripts/verification/p1-live-smoke.mjs",
-    "p1:native-closure": "node scripts/full-closure/run-native-smoke.mjs",
     "p1:source-live-smoke": "bash scripts/verification/p1-source-api-live-smoke.sh",
     "p1:ui-closure": "node scripts/full-closure/run-ui-smoke.mjs",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "desktop:electron:dev": "npm run electron:dev --workspace @enterprise-agent-hub/desktop",
+    "desktop:electron:package": "npm run electron:package --workspace @enterprise-agent-hub/desktop",
+    "desktop:electron:build:windows": "npm run electron:build:windows --workspace @enterprise-agent-hub/desktop",
+    "p1:electron-closure": "node scripts/full-closure/run-electron-smoke.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
