@@ -282,11 +282,11 @@ apps/desktop/src/state/ui/useClientUpdatePrompt.ts
 apps/desktop/src/ui/ClientUpdateDialog.tsx
 ```
 
-Tauri/Rust 建议新增命令：
+Electron 本地更新适配器建议暴露命令：
 
 | Command | 说明 |
 | --- | --- |
-| `get_app_version` | 返回当前客户端版本、构建号、平台和架构。 |
+| `get_client_app_version` | 返回当前客户端版本、构建号、平台和架构。 |
 | `download_client_update` | 下载更新包到受控临时目录，支持进度事件。 |
 | `verify_client_update` | 校验 SHA-256 和 Windows 代码签名。 |
 | `launch_client_installer` | 用户确认后启动安装程序，并准备退出当前应用。 |
@@ -315,7 +315,7 @@ SQLite 建议增加 `client_update_cache`：
 
 1. 登录成功或会话恢复。
 2. 拉取 `/desktop/bootstrap`。
-3. 调用 Tauri 获取当前应用版本。
+3. 调用 Electron 本地桥接获取当前应用版本。
 4. 调用 `/client-updates/check`。
 5. 写入更新状态。
 6. 如果存在新版本，生成本地 UI 状态并触发服务端通知或拉取到通知面板。
