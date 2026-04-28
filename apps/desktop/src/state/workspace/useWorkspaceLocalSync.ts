@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { AuthState, BootstrapContext, ExtensionInstall, LocalBootstrap, LocalEvent, LocalNotification, OperationProgress, RequestedMode, ScanTargetSummary, TargetType } from "../../domain/p1";
 import { p1Client } from "../../services/p1Client.ts";
-import { desktopBridge } from "../../services/electronBridge.ts";
+import { desktopBridge } from "../../services/desktopBridge.ts";
 import { upsertNotifications } from "../p1WorkspaceHelpers.ts";
 import { scanTargetsErrorMessage, scanTargetsSummaryMessage } from "./scanProgress.ts";
 import type { HandleRemoteError } from "./workspaceTypes.ts";

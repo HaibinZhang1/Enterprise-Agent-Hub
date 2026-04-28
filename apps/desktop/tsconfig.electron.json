@@ -2,7 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -10,12 +13,24 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "types": ["node", "electron"],
+    "types": [
+      "node"
+    ],
     "rootDir": "src-electron",
     "outDir": "dist-electron",
     "noEmit": false,
     "declaration": false,
-    "sourceMap": true
+    "declarationMap": false,
+    "sourceMap": true,
+    "paths": {
+      "@enterprise-agent-hub/shared-contracts": [
+        "../../packages/shared-contracts/dist/index.d.ts"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true
   },
-  "include": ["src-electron/**/*.ts"]
+  "include": [
+    "src-electron/**/*.ts"
+  ]
 }

@@ -13,7 +13,7 @@ import type {
   TargetType
 } from "../../domain/p1";
 import { isPermissionError, isUnauthenticatedError, p1Client } from "../../services/p1Client";
-import { desktopBridge } from "../../services/electronBridge";
+import { desktopBridge } from "../../services/desktopBridge";
 import {
   applyLocalInstallToSkill,
   applySkill,

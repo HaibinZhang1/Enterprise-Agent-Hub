@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { launchPreparedClientUpdateInstall, prepareClientUpdateInstall } from "../src/services/clientUpdateFlow.ts";
-import type { ClientUpdateArtifactInput, ClientUpdateDownloadResult, ClientUpdateVerificationResult } from "../src/services/tauriBridge/clientUpdates.ts";
+import type { ClientUpdateArtifactInput, ClientUpdateDownloadResult, ClientUpdateVerificationResult } from "../src/services/desktopBridge/clientUpdates.ts";
 
 const updateInput = {
   currentVersion: "1.5.0",

@@ -116,7 +116,10 @@ function isRustArtifact(filePath) {
 
 function listRustArtifacts() {
   const files = new Set([...listGitFiles(), ...listFilesRecursively(repoRoot)]);
-  return [...files].filter(isRustArtifact).sort();
+  return [...files]
+    .filter((file) => fs.existsSync(path.resolve(repoRoot, file)))
+    .filter(isRustArtifact)
+    .sort();
 }
 
 function readIfExists(relativeFilePath) {

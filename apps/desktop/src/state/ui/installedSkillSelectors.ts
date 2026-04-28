@@ -62,7 +62,7 @@ export function buildTargetDrafts(skill: SkillSummary, workspace: P1WorkspaceSta
       disabled: false,
       statusLabel: tool.enabled ? `${targetStatusLabel(tool.adapterStatus, language)}${conflictCount > 0 ? ` · 异常 ${conflictCount}` : ""}` : targetStatusLabel("disabled", language),
       selected: enabledKeys.has(`tool:${tool.toolID}`),
-      availability: { kind: "live" as const, label: "已接入", reason: "当前可直接调用 Tauri 命令配置该目标。" }
+      availability: { kind: "live" as const, label: "已接入", reason: "当前可直接调用 Desktop 命令配置该目标。" }
     };
   });
 

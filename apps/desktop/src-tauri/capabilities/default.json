@@ -1,6 +1,0 @@
-{
-  "identifier": "default",
-  "description": "P1 Desktop command capability for Store, Adapter, and local state operations.",
-  "windows": ["main"],
-  "permissions": ["core:default"]
-}

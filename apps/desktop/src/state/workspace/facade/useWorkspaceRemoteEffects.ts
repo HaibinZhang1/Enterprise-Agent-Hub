@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { isConnectionUnavailableError, isServerUnavailableError, isUnauthenticatedError, p1Client } from "../../../services/p1Client";
-import { desktopBridge } from "../../../services/electronBridge";
+import { desktopBridge } from "../../../services/desktopBridge";
 import { buildGuestBootstrap, localSummaryFromInstall, mergeLocalInstalls } from "../../p1WorkspaceHelpers";
 import type { HandleRemoteError } from "../workspaceTypes";
 

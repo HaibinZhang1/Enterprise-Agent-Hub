@@ -35,7 +35,7 @@ import type { InstalledListFilter } from "./ui/installedSkillsTypes.ts";
 import type { DisplayLanguage } from "../ui/desktopShared.tsx";
 import { clearRemoteWriteGuardStatus, p1Client, setRemoteWriteGuardStatus } from "../services/p1Client.ts";
 import { prepareClientUpdateInstall, launchPreparedClientUpdateInstall } from "../services/clientUpdateFlow.ts";
-import { desktopBridge } from "../services/electronBridge.ts";
+import { desktopBridge } from "../services/desktopBridge.ts";
 import { themeLabel } from "../ui/themeLabels.ts";
 import { defaultFilters } from "./workspace/workspaceTypes.ts";
 

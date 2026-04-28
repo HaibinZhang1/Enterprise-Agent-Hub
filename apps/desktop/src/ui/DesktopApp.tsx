@@ -7,7 +7,7 @@ import { InitialBadge } from "./pageCommon.tsx";
 import { NotificationPopover } from "./NotificationPopover.tsx";
 import { CommunitySection, HomeSection, LocalSection, ManageSection } from "./desktopSections.tsx";
 import { DesktopOverlays, FlashToast } from "./desktopOverlays.tsx";
-import { getInvoke } from "../services/electronBridge/runtime.ts";
+import { getInvoke } from "../services/desktopBridge/runtime.ts";
 
 const sectionLabels: Record<TopLevelSection, string> = {
   home: "主页",

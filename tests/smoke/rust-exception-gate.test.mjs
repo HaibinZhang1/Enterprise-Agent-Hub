@@ -74,7 +74,7 @@ test('repository Rust exception gate config is present and currently approves no
   assert.equal(config.policyId, 'rust-exception-gate');
   assert.equal(Array.isArray(config.exceptions), true);
   assert.equal(config.exceptions.length, 0);
-  assert.ok(config.transitionalLegacyRustBlockers.some((blocker) => blocker.path === 'apps/desktop/src-tauri'));
+  assert.deepEqual(config.transitionalLegacyRustBlockers, []);
 
   const result = runGate();
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);

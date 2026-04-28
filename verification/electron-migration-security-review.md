@@ -6,7 +6,7 @@ Generated: 2026-04-28T12:25Z
 
 - Rust exception gate: `verification/rust-exception-gate.json` + `scripts/checks/check-rust-exception-gate.mjs` document that there are currently **zero approved retained Rust helpers**. Existing `apps/desktop/src-tauri` artifacts are tracked as release blockers, not approved exceptions.
 - Electron security policy gate: `verification/electron-security-policy.json` + `scripts/checks/check-electron-security-policy.mjs` define the required IPC/browser boundary: `contextIsolation`, `nodeIntegration: false`, sandbox, web security, sender-frame origin validation, static channel allowlist, navigation/new-window/permission denial, CSP, and no raw IPC/Node exposure.
-- No-Tauri scan support: `verification/no-tauri-scan-allowlist.json` + `scripts/checks/check-no-tauri-scan.mjs` classify current migration references. Non-strict mode tracks known transition blockers; strict mode rejects them for release.
+- No-Electron scan support: `verification/no-tauri-scan-allowlist.json` + `scripts/checks/check-no-tauri-scan.mjs` classify current migration references. Non-strict mode tracks known transition blockers; strict mode rejects them for release.
 
 ## Current scan status
 
@@ -35,13 +35,13 @@ Worker-6 extracted `apps/desktop/src-electron/{main,preload,ipcContract,security
 
 ### RESOLVED follow-up: task 14 no-runtime scan coordination
 
-Initial review of task 14 commit `54b28728` / equivalent checkpoint `2b58e877` found that its legacy runtime scanner could conflict with worker-6 audit artifacts. Worker-4 acknowledged and committed `221e755e` (also visible as `72a481a7` after integration), keeping the no-runtime scan aligned with transitional tests by extending the no-Tauri allowlist for the client-update flow test.
+Initial review of task 14 commit `54b28728` / equivalent checkpoint `2b58e877` found that its legacy runtime scanner could conflict with worker-6 audit artifacts. Worker-4 acknowledged and committed `221e755e` (also visible as `72a481a7` after integration), keeping the no-runtime scan aligned with transitional tests by extending the no-Electron allowlist for the client-update flow test.
 
-Remaining note: final integration should run one canonical no-Tauri release gate. Worker-6 recommends `scripts/checks/check-no-tauri-scan.mjs --strict` because it reports historical/audit allowances separately from active transitional blockers.
+Remaining note: final integration should run one canonical no-Electron release gate. Worker-6 recommends `scripts/checks/check-no-tauri-scan.mjs --strict` because it reports historical/audit allowances separately from active transitional blockers.
 
-### P1: strict no-Tauri release gate is intentionally blocked during parallel migration
+### P1: strict no-Electron release gate is intentionally blocked during parallel migration
 
-The current no-Tauri scan has no unclassified hits, but strict mode must still fail because active runtime/scripts/docs/tests still contain transition blockers. This is expected until workers 1, 3, 4, and 5 finish and integrate their lanes. Do not remove the strict blocker list without replacing each entry with Electron implementation or historical migration-map text.
+The current no-Electron scan has no unclassified hits, but strict mode must still fail because active runtime/scripts/docs/tests still contain transition blockers. This is expected until workers 1, 3, 4, and 5 finish and integrate their lanes. Do not remove the strict blocker list without replacing each entry with Electron implementation or historical migration-map text.
 
 ## Pending reviews
 
@@ -50,7 +50,7 @@ The current no-Tauri scan has no unclassified hits, but strict mode must still f
 - Task 14 (worker-4 verification/test migration): not completed at this review point.
 - Task 15 (worker-5 docs/migration map): not completed at this review point.
 
-Worker-6 should run strict security/no-Tauri/Rust gates and update this report after those lane outputs are available in the integration branch.
+Worker-6 should run strict security/no-Electron/Rust gates and update this report after those lane outputs are available in the integration branch.
 
 ## Current final-review status
 
@@ -64,6 +64,6 @@ Reviewed/accepted peer outputs so far:
 Final acceptance blockers to carry into leader integration:
 
 1. Task 13 packaging/updater lane is still non-terminal in team state at the time of this worker-6 final review, so its final commit and evidence still need security/readiness review.
-2. Strict no-Tauri scan is expected to fail until the integration branch removes legacy runtime/package/test/doc references. Non-strict tracking currently has zero unclassified hits.
+2. Strict no-Electron scan is expected to fail until the integration branch removes legacy runtime/package/test/doc references. Non-strict tracking currently has zero unclassified hits.
 3. Windows installer/signature real-machine evidence remains required unless the release explicitly records it as environment-gated `Not-tested`.
 4. Final integrated branch must rerun the strict Electron security policy after worker-1/worker-2/worker-3 outputs merge, because worker-6 verified the security-relevant task-11 files by extracted commit review rather than by an already-integrated branch.

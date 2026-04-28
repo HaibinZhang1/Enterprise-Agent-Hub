@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "policyId": "rust-exception-gate",
-  "migrationPhase": "tauri-removal-transition",
-  "description": "Rust may remain after the Electron migration only as a documented non-Tauri helper. Legacy src-tauri code is tracked here as a release blocker, not as an approved exception.",
+  "migrationPhase": "electron-runtime-complete",
+  "description": "Rust may remain after the Electron migration only as a documented non-Electron helper. The final migration retains no Rust helpers and no legacy src-tauri runtime.",
   "allowedHelperRoots": [
     "apps/desktop/native-helpers/**",
     "packages/*/native-helpers/**"
@@ -45,12 +45,5 @@
     "@tauri-apps/"
   ],
   "exceptions": [],
-  "transitionalLegacyRustBlockers": [
-    {
-      "path": "apps/desktop/src-tauri",
-      "status": "blocked_for_release",
-      "reason": "Existing legacy Tauri runtime while workers port capabilities to Electron. This is not an approved Rust helper path.",
-      "requiredResolution": "Remove or replace before final no-Tauri scan/release, or extract only an approved non-Tauri helper into one of allowedHelperRoots with a completed exception entry."
-    }
-  ]
+  "transitionalLegacyRustBlockers": []
 }

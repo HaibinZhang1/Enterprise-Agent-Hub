@@ -479,6 +479,16 @@ textarea {
   background: var(--topbar-surface);
   box-shadow: var(--shadow-xs);
   backdrop-filter: blur(14px);
+  -webkit-app-region: drag;
+}
+
+.desktop-topbar button,
+.desktop-topbar input,
+.desktop-topbar select,
+.desktop-topbar textarea,
+.desktop-topbar a,
+.desktop-topbar [role="button"] {
+  -webkit-app-region: no-drag;
 }
 
 .brand-lockup {

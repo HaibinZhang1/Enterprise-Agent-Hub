@@ -32,15 +32,15 @@ import { normalizePreferences, resolveDisplayLanguage } from "../src/state/ui/us
 import { deriveMarketSkills, deriveVisibleNavigation, deriveWorkspaceState } from "../src/state/workspace/workspaceDerivedState.ts";
 import { iconToneForLabel, iconTones } from "../src/ui/iconTone.ts";
 import { themeLabel } from "../src/ui/themeLabels.ts";
-import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "../src/services/electronBridge/localCommandArgs.ts";
-import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs } from "../src/services/electronBridge/notificationOps.ts";
+import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "../src/services/desktopBridge/localCommandArgs.ts";
+import { buildMarkLocalNotificationsReadArgs, buildMarkOfflineEventsSyncedArgs } from "../src/services/desktopBridge/notificationOps.ts";
 import { deriveDiscoveredLocalSkills } from "../src/utils/discoveredLocalSkills.ts";
 import { defaultProjectSkillsPath, defaultToolConfigPath, defaultToolSkillsPath } from "../src/utils/platformPaths.ts";
 import { sanitizePhoneNumberInput, validatePhoneNumber } from "../src/utils/phoneNumber.ts";
 import { isCommunityVisibleSkill, mergeLocalInstalls, removeSkillFromLeaderboards } from "../src/state/p1WorkspaceHelpers.ts";
 import { shouldCloseFromBackdropPointerDown } from "../src/ui/modalInteraction.ts";
-import { mockScanSummaries, seedLocalExtensions } from "../src/services/electronBridge/preview.ts";
-import { appendReadOnlyExtensionScanFindings } from "../src/services/electronBridge/scanOps.ts";
+import { mockScanSummaries, seedLocalExtensions } from "../src/services/desktopBridge/preview.ts";
+import { appendReadOnlyExtensionScanFindings } from "../src/services/desktopBridge/scanOps.ts";
 
 const baseDraft: PublishDraft = {
   submissionType: "publish",

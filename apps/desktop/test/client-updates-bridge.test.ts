@@ -7,7 +7,7 @@ import {
   launchClientInstaller,
   verifyClientUpdate,
   type ClientUpdateArtifactInput
-} from "../src/services/electronBridge/clientUpdates.ts";
+} from "../src/services/desktopBridge/clientUpdates.ts";
 
 type InvokeCall = {
   command: string;
@@ -21,10 +21,13 @@ function installWindow(
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
-      __TAURI__: {
-        core: {
-          invoke
-        }
+      desktopBridge: {
+        localCommands: new Proxy({}, {
+          get: (_target, commandName) => {
+            if (typeof commandName !== "string") return undefined;
+            return (args?: Record<string, unknown>) => invoke(commandName, args);
+          }
+        })
       },
       setTimeout,
       clearTimeout

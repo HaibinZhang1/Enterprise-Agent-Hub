@@ -469,7 +469,7 @@ export class PendingBackendError extends PendingActionError {
 }
 
 export class PendingLocalCommandError extends PendingActionError {
-  constructor(action: string, message = "本地 Tauri 命令待接入，当前前端仅保留真实交互与命令占位。") {
+  constructor(action: string, message = "本地 Desktop 命令待接入，当前前端仅保留真实交互与命令占位。") {
     super("pending_local_command", action, message);
   }
 }

@@ -3,10 +3,11 @@
   "policyId": "no-tauri-scan",
   "description": "Tracks every active Tauri-era reference during the Electron migration. Non-strict mode allows named transition blockers for parallel work; strict mode rejects them for release.",
   "terms": [
-    "tauri",
     "Tauri",
+    "tauri",
     "__TAURI__",
-    "src-tauri"
+    "src-tauri",
+    "@tauri-apps"
   ],
   "includeGlobs": [
     "package.json",
@@ -28,41 +29,11 @@
     "scripts/checks/check-rust-exception-gate.mjs",
     "tests/smoke/rust-exception-gate.test.mjs",
     "docs/DetailedDesign/tauri-to-electron-migration-map.md",
-    "verification/electron-migration-security-review.md"
-  ],
-  "transitionalBlockerGlobs": [
-    "package.json",
-    "package-lock.json",
-    "apps/desktop/package.json",
-    "apps/desktop/src-tauri/**",
-    "apps/desktop/src/services/tauriBridge.ts",
-    "apps/desktop/src/services/tauriBridge/**",
-    "apps/desktop/src/services/externalLinks.ts",
-    "apps/desktop/src/ui/DesktopApp.tsx",
-    "packages/shared-contracts/src/index.ts",
+    "verification/electron-migration-security-review.md",
     "verification/p1-verification.config.json",
-    "scripts/full-closure/**",
-    "docs/RequirementDocument/**",
-    "docs/DetailedDesign/**",
-    "docs/Architecture/**",
-    "apps/desktop/package-lock.json",
-    "packages/shared-contracts/test/**",
-    "apps/desktop/src/domain/p1.ts",
-    "apps/desktop/src/services/clientUpdateFlow.ts",
-    "apps/desktop/src/state/ui/installedSkillSelectors.ts",
-    "apps/desktop/src/state/ui/publishPrecheck.ts",
-    "apps/desktop/src/state/useDesktopUIState.ts",
-    "apps/desktop/src/state/workspace/facade/useWorkspaceBootstrap.ts",
-    "apps/desktop/src/state/workspace/facade/useWorkspaceRemoteEffects.ts",
-    "apps/desktop/src/state/workspace/facade/useWorkspaceSessionFlow.ts",
-    "apps/desktop/src/state/workspace/useWorkspaceLocalSync.ts",
-    "apps/desktop/src/state/workspace/useWorkspaceMarket.ts",
-    "apps/desktop/test/client-updates-bridge.test.ts",
-    "apps/desktop/test/ui-logic.test.ts",
     "tests/smoke/p1-acceptance-matrix.test.mjs",
-    "tests/smoke/p1-e2e-smoke-spec.json",
-    "tests/smoke/p1-real-delivery-static.test.mjs",
-    "apps/desktop/test/client-update-flow.test.ts"
+    "scripts/full-closure/run-electron-smoke.mjs"
   ],
+  "transitionalBlockerGlobs": [],
   "strictReleaseExpectation": "Run scripts/checks/check-no-tauri-scan.mjs --strict after Electron lanes integrate; strict mode must have zero transitional blockers and zero unclassified hits."
 }

@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { P1_LOCAL_COMMANDS, type DownloadTicketResponse, type LocalNotification } from "@enterprise-agent-hub/shared-contracts";
-import { getElectronLocalStatePaths, migrateLegacyUserData } from "../src/electron/local/dataMigration.ts";
-import { createElectronLocalRuntime } from "../src/electron/local/runtime.ts";
+import { getElectronLocalStatePaths, migrateLegacyUserData } from "../src-electron/local/dataMigration.ts";
+import { createElectronLocalRuntime } from "../src-electron/local/runtime.ts";
 
 async function tempDir(label: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), `eah-${label}-`));

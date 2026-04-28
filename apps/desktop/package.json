@@ -9,8 +9,10 @@
     "electron:typecheck": "tsc -p tsconfig.electron.json --noEmit",
     "electron:compile": "tsc -p tsconfig.electron.json",
     "electron:dev": "npm run electron:compile && electron dist-electron/main.js",
+    "electron:build": "npm run electron:package",
     "electron:package": "npm run build && npm run electron:compile && electron-builder --dir",
     "electron:build:windows": "npm run build && npm run electron:compile && electron-builder --win nsis --x64",
+    "electron:smoke": "npm run electron:typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/electron-*.test.ts",
     "typecheck": "npm run build --workspace @enterprise-agent-hub/shared-contracts && tsc --noEmit && npm run electron:typecheck",
     "lint": "node ./scripts/p1-ui-lint.mjs",
     "test": "npm run typecheck && node --experimental-strip-types --experimental-specifier-resolution=node --test test/*.test.ts"

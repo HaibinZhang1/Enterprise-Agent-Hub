@@ -123,7 +123,7 @@
     },
     {
       "id": "no-tauri-scan-allowlist",
-      "label": "No-Tauri scan allowlist exists",
+      "label": "No-Electron scan allowlist exists",
       "path": "verification/no-tauri-scan-allowlist.json",
       "owner": "worker-6",
       "requiredForRelease": true
@@ -292,7 +292,7 @@
     },
     {
       "id": "no-tauri-scan",
-      "label": "No-Tauri transitional scan with allowlist",
+      "label": "No-Electron transitional scan with allowlist",
       "command": "node scripts/checks/check-no-tauri-scan.mjs",
       "cwd": ".",
       "whenPathExists": [
@@ -320,7 +320,6 @@
       "whenPathExists": [
         "tests/smoke/p1-real-delivery-static.test.mjs",
         "apps/desktop/src/services/p1Client.ts",
-        "apps/desktop/src-tauri/tauri.conf.json",
         "apps/api/Dockerfile"
       ],
       "requiredForRelease": true

@@ -26,7 +26,7 @@ export function useWorkspaceSessionFlow(input: {
     setOfflineEvents: (value: LocalBootstrap["offlineEvents"]) => void;
     setExtensions: (value: LocalBootstrap["extensions"]) => void;
     setProjects: (value: LocalBootstrap["projects"]) => void;
-    setScanTargets: (value: Awaited<ReturnType<typeof import("../../../services/electronBridge").desktopBridge.scanLocalTargets>>) => void;
+    setScanTargets: (value: Awaited<ReturnType<typeof import("../../../services/desktopBridge").desktopBridge.scanLocalTargets>>) => void;
     setTools: (value: LocalBootstrap["tools"]) => void;
   };
   market: {

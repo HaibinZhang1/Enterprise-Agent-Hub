@@ -1,11 +1,11 @@
 import type { P1Client, ClientUpdateDownloadTicket } from "./p1Client.ts";
-import type { DesktopBridge } from "./electronBridge.ts";
+import type { DesktopBridge } from "./desktopBridge.ts";
 import type {
   ClientUpdateArtifactInput,
   ClientUpdateDownloadResult,
   ClientUpdateLaunchResult,
   ClientUpdateVerificationResult
-} from "./electronBridge/clientUpdates.ts";
+} from "./desktopBridge/clientUpdates.ts";
 
 export interface ClientUpdateFlowInput {
   currentVersion: string;
@@ -193,7 +193,7 @@ export async function launchPreparedClientUpdateInstall(
 
   const launchResult = await dependencies.launchClientInstaller({
     metadataPath: input.downloadResult.metadataPath,
-    userConfirmed: input.userConfirmed
+    userConfirmed: true
   });
 
   await reportClientUpdateEventSafe(dependencies, clientUpdateEvent(input, "installer_started"));
