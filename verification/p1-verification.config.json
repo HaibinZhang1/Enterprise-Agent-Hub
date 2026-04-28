@@ -92,6 +92,13 @@
       "path": "docs/Verification/p1-packaging-deployment-evidence.md",
       "owner": "worker-6",
       "requiredForRelease": true
+    },
+    {
+      "id": "rust-exception-gate-config",
+      "label": "Rust exception gate policy exists",
+      "path": "verification/rust-exception-gate.json",
+      "owner": "worker-6",
+      "requiredForRelease": true
     }
   ],
   "commands": [
@@ -210,6 +217,17 @@
         "tests/smoke/p1-acceptance-matrix.test.mjs",
         "verification/p1-verification.config.json",
         "tests/smoke/p1-e2e-smoke-spec.json"
+      ],
+      "requiredForRelease": true
+    },
+    {
+      "id": "rust-exception-gate",
+      "label": "Rust exception gate self-check",
+      "command": "node scripts/checks/check-rust-exception-gate.mjs",
+      "cwd": ".",
+      "whenPathExists": [
+        "scripts/checks/check-rust-exception-gate.mjs",
+        "verification/rust-exception-gate.json"
       ],
       "requiredForRelease": true
     },

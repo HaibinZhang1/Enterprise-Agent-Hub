@@ -35,6 +35,7 @@ const requiredCommandIds = [
   'docker-config-prod',
   'deploy-script-syntax',
   'w6-acceptance-matrix-test',
+  'rust-exception-gate',
   'p1-ui-closure',
   'p1-native-closure',
   'p1-full-closure',
