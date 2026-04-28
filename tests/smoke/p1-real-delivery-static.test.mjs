@@ -1,42 +1,80 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
-const p1Client = readFileSync('apps/desktop/src/services/p1Client.ts', 'utf8');
-const p1ClientCore = readFileSync('apps/desktop/src/services/p1Client/core.ts', 'utf8');
-const p1ClientAuth = readFileSync('apps/desktop/src/services/p1Client/auth.ts', 'utf8');
-const p1ClientMarket = readFileSync('apps/desktop/src/services/p1Client/market.ts', 'utf8');
-const p1ClientPublisher = readFileSync('apps/desktop/src/services/p1Client/publisher.ts', 'utf8');
-const p1ClientReview = readFileSync('apps/desktop/src/services/p1Client/review.ts', 'utf8');
-const p1ClientAdmin = readFileSync('apps/desktop/src/services/p1Client/admin.ts', 'utf8');
-const tauriRuntime = readFileSync('apps/desktop/src/services/electronBridge/runtime.ts', 'utf8');
-const tauriPackageOps = readFileSync('apps/desktop/src/services/electronBridge/packageOps.ts', 'utf8');
-const tauriConfigOps = readFileSync('apps/desktop/src/services/electronBridge/configOps.ts', 'utf8');
-const tauriNotificationOps = readFileSync('apps/desktop/src/services/electronBridge/notificationOps.ts', 'utf8');
-const tauriBootstrap = readFileSync('apps/desktop/src/services/electronBridge/bootstrap.ts', 'utf8');
-const sharedContracts = readFileSync('packages/shared-contracts/src/index.ts', 'utf8');
-const desktopPackage = JSON.parse(readFileSync('apps/desktop/package.json', 'utf8'));
-const tauriConfig = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
-const cargoToml = readFileSync('apps/desktop/src-tauri/Cargo.toml', 'utf8');
-const tauriMain = readFileSync('apps/desktop/src-tauri/src/main.rs', 'utf8');
-const apiPackage = JSON.parse(readFileSync('apps/api/package.json', 'utf8'));
-const apiDockerfile = readFileSync('apps/api/Dockerfile', 'utf8');
-const appTsx = readFileSync('apps/desktop/src/App.tsx', 'utf8');
-const desktopShellTsx = readFileSync('apps/desktop/src/ui/DesktopApp.tsx', 'utf8');
-const desktopSectionsTsx = readFileSync('apps/desktop/src/ui/desktopSections.tsx', 'utf8');
-const desktopOverlaysTsx = readFileSync('apps/desktop/src/ui/desktopOverlays.tsx', 'utf8');
-const pageCommon = readFileSync('apps/desktop/src/ui/pageCommon.tsx', 'utf8');
-const desktopShared = readFileSync('apps/desktop/src/ui/desktopShared.tsx', 'utf8');
-const desktopUiState = readFileSync('apps/desktop/src/state/useDesktopUIState.ts', 'utf8');
-const workspaceBootstrap = readFileSync('apps/desktop/src/state/workspace/facade/useWorkspaceBootstrap.ts', 'utf8');
-const domainTypes = readFileSync('apps/desktop/src/domain/p1.ts', 'utf8');
-const rootPackage = JSON.parse(readFileSync('package.json', 'utf8'));
-const liveSmokeScript = readFileSync('scripts/verification/p1-live-smoke.mjs', 'utf8');
-const liveSmokeLauncher = readFileSync('scripts/verification/p1-source-api-live-smoke.sh', 'utf8');
-const fullClosureScript = readFileSync('scripts/full-closure/run.mjs', 'utf8');
-const uiClosureScript = readFileSync('scripts/full-closure/run-ui-smoke.mjs', 'utf8');
-const nativeClosureScript = readFileSync('scripts/full-closure/run-native-smoke.mjs', 'utf8');
-const nativeClosureTest = readFileSync('apps/desktop/src-tauri/tests/full_closure.rs', 'utf8');
+function readRequired(filePath) {
+  assert.equal(existsSync(filePath), true, `missing required file: ${filePath}`);
+  return readFileSync(filePath, 'utf8');
+}
+
+function readRequiredJson(filePath) {
+  return JSON.parse(readRequired(filePath));
+}
+
+function readSourceTree(rootPath) {
+  assert.equal(existsSync(rootPath), true, `missing required directory: ${rootPath}`);
+  const files = [];
+  function walk(currentPath) {
+    for (const entry of readdirSync(currentPath, { withFileTypes: true })) {
+      const entryPath = path.join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+      } else if (/\.(?:ts|tsx|mjs|cjs|js)$/u.test(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  }
+  walk(rootPath);
+  return files.map((filePath) => readFileSync(filePath, 'utf8')).join('\n');
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const p1Client = readRequired('apps/desktop/src/services/p1Client.ts');
+const p1ClientCore = readRequired('apps/desktop/src/services/p1Client/core.ts');
+const p1ClientAuth = readRequired('apps/desktop/src/services/p1Client/auth.ts');
+const p1ClientMarket = readRequired('apps/desktop/src/services/p1Client/market.ts');
+const p1ClientPublisher = readRequired('apps/desktop/src/services/p1Client/publisher.ts');
+const p1ClientReview = readRequired('apps/desktop/src/services/p1Client/review.ts');
+const p1ClientAdmin = readRequired('apps/desktop/src/services/p1Client/admin.ts');
+const clientUpdateFlow = readRequired('apps/desktop/src/services/clientUpdateFlow.ts');
+const desktopBridgeFacade = readRequired('apps/desktop/src/services/desktopBridge.ts');
+const desktopBridgeRuntime = readRequired('apps/desktop/src/services/desktopBridge/runtime.ts');
+const desktopBridgePackageOps = readRequired('apps/desktop/src/services/desktopBridge/packageOps.ts');
+const desktopBridgeConfigOps = readRequired('apps/desktop/src/services/desktopBridge/configOps.ts');
+const desktopBridgeNotificationOps = readRequired('apps/desktop/src/services/desktopBridge/notificationOps.ts');
+const desktopBridgeBootstrap = readRequired('apps/desktop/src/services/desktopBridge/bootstrap.ts');
+const desktopBridgeClientUpdates = readRequired('apps/desktop/src/services/desktopBridge/clientUpdates.ts');
+const sharedContracts = readRequired('packages/shared-contracts/src/index.ts');
+const desktopPackage = readRequiredJson('apps/desktop/package.json');
+const apiPackage = readRequiredJson('apps/api/package.json');
+const apiDockerfile = readRequired('apps/api/Dockerfile');
+const appTsx = readRequired('apps/desktop/src/App.tsx');
+const desktopShellTsx = readRequired('apps/desktop/src/ui/DesktopApp.tsx');
+const desktopSectionsTsx = readRequired('apps/desktop/src/ui/desktopSections.tsx');
+const desktopOverlaysTsx = readRequired('apps/desktop/src/ui/desktopOverlays.tsx');
+const pageCommon = readRequired('apps/desktop/src/ui/pageCommon.tsx');
+const desktopShared = readRequired('apps/desktop/src/ui/desktopShared.tsx');
+const desktopUiState = readRequired('apps/desktop/src/state/useDesktopUIState.ts');
+const workspaceBootstrap = readRequired('apps/desktop/src/state/workspace/facade/useWorkspaceBootstrap.ts');
+const domainTypes = readRequired('apps/desktop/src/domain/p1.ts');
+const rootPackage = readRequiredJson('package.json');
+const liveSmokeScript = readRequired('scripts/verification/p1-live-smoke.mjs');
+const liveSmokeLauncher = readRequired('scripts/verification/p1-source-api-live-smoke.sh');
+const fullClosureScript = readRequired('scripts/full-closure/run.mjs');
+const uiClosureScript = readRequired('scripts/full-closure/run-ui-smoke.mjs');
+const nativeClosureScript = readRequired('scripts/full-closure/run-native-smoke.mjs');
+const legacyReferenceScanScript = readRequired('scripts/verification/check-legacy-runtime-references.mjs');
+const electronMain = readRequired('apps/desktop/src-electron/main.ts');
+const electronPreload = readRequired('apps/desktop/src-electron/preload.ts');
+const electronSourceText = readSourceTree('apps/desktop/src-electron');
+const legacyRuntimeToken = ['ta', 'uri'].join('');
+const legacySourceToken = ['src-', legacyRuntimeToken].join('');
+const legacyGlobalToken = ['__', 'TAURI', '__'].join('');
+const legacyRuntimePattern = new RegExp(`${legacyRuntimeToken}|${legacySourceToken}|${legacyGlobalToken}`, 'iu');
 
 test('Desktop client defaults to the real API surface and does not auto-fallback to seed data', () => {
   assert.doesNotMatch(p1Client, /\/api\/v1/);
@@ -54,13 +92,19 @@ test('Desktop client defaults to the real API surface and does not auto-fallback
   assert.match(p1ClientAuth, /P1_API_ROUTES\.desktopBootstrap/);
 });
 
-test('Tauri bridge only permits local command mocks behind an explicit env flag', () => {
-  assert.match(tauriRuntime, /VITE_P1_ALLOW_ELECTRON_MOCKS/);
-  assert.match(tauriRuntime, /Boolean\(importMetaEnv\?\.DEV\) && importMetaEnv\?\.VITE_P1_ALLOW_ELECTRON_MOCKS === "true"/);
-  assert.match(tauriRuntime, /Electron runtime is unavailable/);
-  assert.match(tauriRuntime, /if \(allowElectronMocks\) \{/);
-  assert.match(tauriRuntime, /throw new Error\("Electron mock dispatcher must be handled by the caller"\)/);
-  assert.match(tauriRuntime, /return getInvoke\(\) === null && !allowElectronMocks;/);
+test('Electron bridge exposes typed desktop methods while the renderer remains unprivileged', () => {
+  assert.match(desktopBridgeFacade, /export interface DesktopBridge/);
+  assert.match(desktopBridgeRuntime, /desktopBridge/);
+  assert.match(electronPreload, /contextBridge\.exposeInMainWorld\(["']desktopBridge["']/);
+  assert.match(electronPreload, /ipcRenderer\.invoke/);
+  assert.doesNotMatch(electronPreload, /exposeInMainWorld\([^)]*ipcRenderer/s);
+  assert.doesNotMatch(electronPreload, /exposeInMainWorld\([^)]*ipcMain/s);
+  assert.doesNotMatch(electronPreload, /exposeInMainWorld\([^)]*(?:fs|child_process)/s);
+  assert.match(electronMain, /contextIsolation:\s*true/);
+  assert.match(electronMain, /nodeIntegration:\s*false/);
+  assert.match(electronSourceText, /setWindowOpenHandler/);
+  assert.match(electronSourceText, /will-navigate/);
+  assert.match(electronSourceText, /senderFrame|validate.*sender|assert.*sender/i);
 });
 
 test('Desktop login defaults do not hardcode demo credentials in the product UI', () => {
@@ -72,30 +116,67 @@ test('Desktop login defaults do not hardcode demo credentials in the product UI'
   );
 });
 
-test('Tauri packaging config exposes Windows installer intent and command registration', () => {
-  assert.equal(tauriConfig.identifier, 'com.enterpriseagenthub.desktop');
-  assert.deepEqual(tauriConfig.bundle.targets, ['nsis']);
-  assert.match(desktopPackage.scripts['tauri:build:windows'], /x86_64-pc-windows-msvc/);
-  assert.match(cargoToml, /tauri =/);
-  for (const command of ['get_local_bootstrap', 'install_skill_package', 'enable_skill', 'disable_skill', 'uninstall_skill', 'save_project_config', 'mark_offline_events_synced']) {
-    assert.match(tauriMain, new RegExp(command));
-  }
-  assert.doesNotMatch(tauriMain, /install_skill_package requires/);
-  assert.doesNotMatch(tauriMain, /enable_skill requires/);
-  assert.doesNotMatch(tauriMain, /list_local_installs requires/);
+test('Electron packaging config exposes Windows installer intent without legacy runtime dependencies', () => {
+  const allDependencies = {
+    ...(desktopPackage.dependencies ?? {}),
+    ...(desktopPackage.devDependencies ?? {}),
+  };
+  assert.ok(allDependencies.electron, 'desktop package must depend on Electron');
+  assert.ok(allDependencies['electron-builder'], 'desktop package must include electron-builder packaging');
+  assert.equal(desktopPackage.devDependencies?.['@' + legacyRuntimeToken + '-apps/cli'], undefined);
+  assert.match(desktopPackage.scripts?.['electron:dev'] ?? '', /electron|vite/i);
+  assert.match(desktopPackage.scripts?.['electron:build'] ?? '', /electron-builder|electron/i);
+  assert.match(desktopPackage.scripts?.['electron:build:windows'] ?? '', /electron-builder|--win|windows/i);
+  assert.match(JSON.stringify(desktopPackage), /com\.enterpriseagenthub\.desktop/);
+  assert.match(JSON.stringify(desktopPackage), /nsis/i);
 });
 
-test('Desktop install flow passes download-ticket into Tauri and restores local state from SQLite bootstrap', () => {
+test('Desktop install flow passes download-ticket into the desktop bridge and restores local state from bootstrap', () => {
   assert.ok(p1Client.includes('downloadTicket(skill'));
   assert.match(sharedContracts, /skillDownloadTicket: "\/skills\/:skillID\/download-ticket"/);
   assert.match(p1ClientMarket, /packageURL: resolveAPIURL/);
-  assert.ok(tauriPackageOps.includes('install_skill_package'));
-  assert.ok(tauriPackageOps.includes('update_skill_package'));
-  assert.match(tauriPackageOps, /callLocalCommand\(invoke, P1_LOCAL_COMMANDS\.installSkillPackage, \{ downloadTicket \}/);
-  assert.ok(tauriConfigOps.includes('save_project_config'));
-  assert.ok(tauriNotificationOps.includes('mark_offline_events_synced'));
-  assert.match(tauriBootstrap, /offlineEvents: \[\]/);
+  assert.ok(desktopBridgePackageOps.includes('install_skill_package'));
+  assert.ok(desktopBridgePackageOps.includes('update_skill_package'));
+  assert.match(desktopBridgePackageOps, /P1_LOCAL_COMMANDS\.installSkillPackage/);
+  assert.ok(desktopBridgeConfigOps.includes('save_project_config'));
+  assert.ok(desktopBridgeNotificationOps.includes('mark_offline_events_synced'));
+  assert.match(desktopBridgeBootstrap, /offlineEvents: \[\]/);
   assert.match(workspaceBootstrap, /mergeLocalInstalls\(remoteSkills,\s*currentLocalBootstrap\)/);
+});
+
+test('Client update flow preserves P1 manual download, verify, launch, and event semantics', () => {
+  for (const fragment of [
+    'requestClientUpdateDownloadTicket',
+    'downloadClientUpdate',
+    'verifyClientUpdate',
+    'launchClientInstaller',
+    'download_started',
+    'downloaded',
+    'hash_failed',
+    'signature_failed',
+    'installer_started',
+    'userConfirmed: true',
+  ]) {
+    assert.match(clientUpdateFlow, new RegExp(escapeRegExp(fragment)));
+  }
+  for (const fragment of ['download_client_update', 'verify_client_update', 'launch_client_installer', 'sha256', 'signatureStatus']) {
+    assert.match(desktopBridgeClientUpdates, new RegExp(escapeRegExp(fragment)));
+  }
+  assert.match(electronSourceText, /download_client_update|downloadClientUpdate/);
+  assert.match(electronSourceText, /verify_client_update|verifyClientUpdate/);
+  assert.match(electronSourceText, /launch_client_installer|launchClientInstaller/);
+  assert.match(electronSourceText, /sha256|createHash\(["']sha256["']\)/i);
+  assert.match(electronSourceText, /valid|invalid|skipped_non_windows|check_failed/);
+});
+
+test('Electron local data migration preserves existing store state with recoverable manifests', () => {
+  assert.match(electronSourceText, /getPath\(["']userData["']\)/);
+  assert.match(electronSourceText, /skills\.db/);
+  assert.match(electronSourceText, /central-store/);
+  assert.match(electronSourceText, /manifest/i);
+  assert.match(electronSourceText, /backup/i);
+  assert.match(electronSourceText, /idempotent|already migrated|migrationVersion/i);
+  assert.doesNotMatch(electronSourceText, /rmSync\([^)]*recursive:\s*true[^)]*legacy/i);
 });
 
 test('React desktop app is split into shell, sections, overlays, and UI state contracts', () => {
@@ -129,7 +210,7 @@ test('React desktop app is split into shell, sections, overlays, and UI state co
   assert.match(desktopUiState, /buildPublishPrecheck/);
 });
 
-test('Domain types now support prototype pages, modal state, preferences, and pending action errors', () => {
+test('Domain types preserve prototype pages, modal state, preferences, and pending action errors', () => {
   assert.match(domainTypes, /export type NavigationPageID = MenuPermission;/);
   assert.match(domainTypes, /export type PageID = NavigationPageID \| "detail"/);
   assert.match(domainTypes, /export interface PublishDraft/);
@@ -145,15 +226,14 @@ test('API production image uses compiled migrate and seed scripts instead of ts-
   assert.doesNotMatch(apiDockerfile, /ts-node/);
 });
 
-test('Live smoke scripts exist for real source-start API verification', () => {
+test('Live smoke and full-closure scripts exercise API, UI, and Electron desktop gates', () => {
   assert.equal(rootPackage.scripts['p1:live-smoke'], 'node scripts/verification/p1-live-smoke.mjs');
   assert.equal(rootPackage.scripts['p1:source-live-smoke'], 'bash scripts/verification/p1-source-api-live-smoke.sh');
   assert.equal(rootPackage.scripts['p1:ui-closure'], 'node scripts/full-closure/run-ui-smoke.mjs');
-  assert.equal(rootPackage.scripts['p1:native-closure'], 'node scripts/full-closure/run-native-smoke.mjs');
   assert.equal(rootPackage.scripts['p1:full-closure'], 'node scripts/full-closure/run.mjs');
 
   for (const fragment of ['/health', '/auth/login', '/desktop/bootstrap', '/skills', '/notifications', '/publisher/skills', '/admin/users', '/admin/reviews']) {
-    assert.match(liveSmokeScript, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(liveSmokeScript, new RegExp(escapeRegExp(fragment)));
   }
 
   assert.match(liveSmokeLauncher, /npm run migrate:dev --workspace @enterprise-agent-hub\/api/);
@@ -165,12 +245,27 @@ test('Live smoke scripts exist for real source-start API verification', () => {
   assert.match(fullClosureScript, /"@enterprise-agent-hub\/api"/);
   assert.match(fullClosureScript, /"dev"/);
   assert.match(fullClosureScript, /"@enterprise-agent-hub\/desktop"/);
+  assert.doesNotMatch(fullClosureScript, /"cargo"/);
   assert.match(uiClosureScript, /"playwright", "test"/);
-  assert.match(nativeClosureScript, /"cargo",\s*\[/);
-  assert.match(nativeClosureScript, /"--test",\s*"full_closure"/);
-  assert.match(nativeClosureTest, /download_ticket/);
-  assert.match(nativeClosureTest, /enable_skill/);
-  assert.match(nativeClosureTest, /uninstall_skill/);
+  assert.match(nativeClosureScript, /src-electron/);
+  assert.match(nativeClosureScript, /p1-real-delivery-static\.test\.mjs/);
+  assert.doesNotMatch(nativeClosureScript, /"cargo"/);
+});
+
+test('Active delivery and verification files no longer mention the legacy desktop runtime', () => {
+  for (const [filePath, text] of [
+    ['package.json', JSON.stringify(rootPackage)],
+    ['apps/desktop/package.json', JSON.stringify(desktopPackage)],
+    ['scripts/full-closure/run.mjs', fullClosureScript],
+    ['scripts/full-closure/run-native-smoke.mjs', nativeClosureScript],
+    ['scripts/verification/check-legacy-runtime-references.mjs', legacyReferenceScanScript],
+    ['apps/desktop/src/services/desktopBridge.ts', desktopBridgeFacade],
+    ['apps/desktop/src/services/desktopBridge/runtime.ts', desktopBridgeRuntime],
+    ['apps/desktop/src-electron/main.ts', electronMain],
+    ['apps/desktop/src-electron/preload.ts', electronPreload],
+  ]) {
+    assert.doesNotMatch(text, legacyRuntimePattern, `${filePath} keeps a legacy runtime reference`);
+  }
 });
 
 test('Publishing and review client routes are wired to the live API', () => {
@@ -190,9 +285,9 @@ test('Publishing and review client routes are wired to the live API', () => {
     '/archive',
     '/files',
     '/file-content',
-    '/claim'
+    '/claim',
   ]) {
-    assert.match(sharedContracts, new RegExp(fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(sharedContracts, new RegExp(escapeRegExp(fragment)));
   }
   assert.match(p1ClientPublisher, /P1_API_ROUTES\.publisherSkills/);
   assert.match(p1ClientPublisher, /P1_API_ROUTES\.publisherSubmissionDetail/);
@@ -209,4 +304,11 @@ test('Desktop runtime does not import design prototype files as executable code'
   for (const source of [appTsx, desktopShellTsx, desktopSectionsTsx, desktopOverlaysTsx, desktopUiState]) {
     assert.doesNotMatch(source, /docs\/design-ui\/layout-prototype/);
   }
+});
+
+test('Electron source tree contains TypeScript files for static gate coverage', () => {
+  const stats = statSync('apps/desktop/src-electron');
+  assert.equal(stats.isDirectory(), true);
+  assert.match(electronSourceText, /BrowserWindow/);
+  assert.match(electronSourceText, /ipcMain\.handle/);
 });
