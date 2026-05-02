@@ -40,6 +40,22 @@
 | 04 | [共享契约落地对齐](04_p1_shared_contracts_alignment.md) | 共享 TypeScript 契约包、workspace 脚本、symlink-first/copy-fallback 字段和 DTO 对接规则。 |
 | 05 | Runtime migration map | former runtime 命令到 Electron IPC/Node/standalone helper 的能力映射、测试证据和删除门禁；文件位于本目录的运行时迁移映射文档。 |
 
+## Agent Harness 详细设计
+
+`docs/DetailedDesign/AgentHarnessDesign/` 承接企业内网通用型 Agent Harness 的本地 Runtime、Worker、Policy、Desktop Cockpit、Knowledge/Memory、Governance/Audit 与共享契约设计。建议阅读顺序：
+
+| 文档 | 内容 |
+| --- | --- |
+| [Runtime Contracts + Run State Machine](AgentHarnessDesign/runtime-contracts-and-run-state.md) | Run 状态机、命令/事件/快照契约、恢复、Scheduler 与审计挂接。 |
+| [Shared Contracts + Event Spine](AgentHarnessDesign/shared-contracts-and-event-spine.md) | 跨文档 canonical 状态、事件、决策、EventEnvelope、状态组合和 MVP slice。 |
+| [Agent Core / Model Orchestration](AgentHarnessDesign/agent-core-model-orchestration.md) | Agent Core 的任务理解、规划、工具意图、模型编排、Observation 解释、完成判定、结果组合与经验沉淀建议。 |
+| [Data Classification / Retention / Visibility Matrix](AgentHarnessDesign/data-classification-retention-matrix.md) | Run Journal、事件、截图、产物、凭证、ContextPackage、Citation、Memory 与 Audit Query 的敏感级、可见性和保留语义。 |
+| [Policy / Approval / Credential / Sandbox](AgentHarnessDesign/policy-approval-security.md) | L0-L5、策略判定、审批、凭证、沙箱和源系统权限边界。 |
+| [Tool Gateway + Browser/File Worker + Scheduler](AgentHarnessDesign/execution-workers-and-scheduler.md) | Tool Gateway、Tool Queue、Worker Session、Browser/File Worker、Scheduler outcome。 |
+| [Desktop Cockpit + Approval/Handoff UX](AgentHarnessDesign/desktop-cockpit-handoff-ux.md) | 桌面座舱、Run Board、审批/接管、通知、执行记录和设置入口。 |
+| [Knowledge / Memory / Context / Citation](AgentHarnessDesign/knowledge-memory-context.md) | ContextPackage、记忆、知识库、引用、权限过滤和 Citation 审计。 |
+| [Admin Governance + Skill/Workflow + Audit Query](AgentHarnessDesign/governance-skill-audit.md) | 管理端治理、Skill/Workflow 生命周期、审计查询与 audit-of-audit。 |
+
 ## P2 平台化资产
 
 - [Architecture Assets](../Architecture/index.md)：领域边界、分层规则、shared-contracts 演进规则与扩展接入面。

@@ -16,7 +16,9 @@ import {
   isLocalCommandName
 } from "../src-electron/ipcContract.ts";
 import {
+  assertAllowedSenderURL,
   buildRendererContentSecurityPolicy,
+  getPackagedRendererURL,
   isAllowedRendererURL,
   isSafeExternalURL,
   shouldBlockNavigation
@@ -61,12 +63,21 @@ test("desktop IPC payload validators reject arrays and primitives", () => {
 });
 
 test("renderer origin and navigation policy allows only packaged files or the pinned dev server", () => {
-  assert.equal(isAllowedRendererURL("file:///Applications/EnterpriseAgentHub/index.html", true), true);
+  const packagedRendererURL = getPackagedRendererURL();
+  assert.equal(isAllowedRendererURL(packagedRendererURL, true), true);
+  assert.equal(isAllowedRendererURL("file:///Applications/EnterpriseAgentHub/index.html", true), false);
   assert.equal(isAllowedRendererURL("https://example.com/app", true), false);
   assert.equal(isAllowedRendererURL("http://127.0.0.1:1420/", false), true);
   assert.equal(isAllowedRendererURL("http://localhost:1420/", false), false);
   assert.equal(isAllowedRendererURL("http://192.168.1.20:1420/", false), false);
+  assert.equal(shouldBlockNavigation("file:///tmp/rogue.html", packagedRendererURL, true), true);
   assert.equal(shouldBlockNavigation("https://example.com", "http://127.0.0.1:1420/", false), true);
+});
+
+test("packaged IPC rejects local file renderers outside the bundled app entrypoint", () => {
+  const packagedRendererURL = getPackagedRendererURL();
+  assert.doesNotThrow(() => assertAllowedSenderURL(packagedRendererURL, true));
+  assert.throws(() => assertAllowedSenderURL("file:///tmp/rogue.html", true), /Rejected desktop IPC from untrusted renderer origin/);
 });
 
 test("external URL and CSP policies stay narrow", () => {

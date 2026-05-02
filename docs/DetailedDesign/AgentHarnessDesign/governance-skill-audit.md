@@ -29,21 +29,23 @@
 - `.omx/plans/test-spec-agent-harness-design.md`：确认设计必须覆盖 Skill 建议/治理、管理端治理与审计查询、权限 L0-L5、高风险审批、Skill 权限不能超过企业策略。
 - `docs/AgentHarnessDesign/# 企业内网通用型 Agent 助手需求文档`：确认管理端需求、Skill 需求、工具权限、用户确认、沙箱、截图、审计留痕、数据保护与安全合规约束。
 - `docs/AgentHarnessDesign/客户端 Agent Harness目录`：确认 Policy/Instruction/Governance、Skill/MCP/Workflow、Security/Permission/Credential、Checkpoint/Artifact/Audit/Replay 等能力目录。
+- `docs/DetailedDesign/AgentHarnessDesign/shared-contracts-and-event-spine.md`：确认 SkillReviewState、Audit Query、Audit-of-audit、Policy/EventEnvelope 与共享契约 owner 的概念语义。
+- `docs/DetailedDesign/AgentHarnessDesign/data-classification-retention-matrix.md`：确认管理员审计查询、截图/日志/产物/Skill 记录的敏感级、可见性、导出与保留语义。
 
 ## 3. 职责划分
 
 ### 3.1 模块职责
 
-| 模块 | 在治理 / Skill / 审计中的职责 | 不负责 |
-| --- | --- | --- |
-| Desktop Cockpit | 展示用户可见的模板/Skill 候选、审批提示、执行记录摘要、个人模板管理入口 | 企业级发布审核、最终策略判定、直接修改审计事实 |
-| Local Agent Runtime/Daemon | 发现重复任务、生成 Skill 候选、执行策略复核、写入运行审计事件、在策略变更后暂停或阻断任务 | 企业策略最终治理、企业 Skill 发布、管理员审计查询授权 |
-| Enterprise Control Plane / Admin | 用户/角色/部门、策略、工具、Skill、知识库、数据保留、审计查询与发布范围治理 | 直接读取用户本地文件、直接持有本地浏览器会话、绕过 Runtime 执行工具 |
-| Policy / Approval Engine | 对工具、Skill、Workflow、定时任务给出 Allow/Ask/Deny/Mask/Redact/Limit 决策，并保留原因和策略快照 | 真实工具执行、UI 展示、长期审计查询授权本身 |
-| Tool Gateway / Worker Supervisor | 执行前强制策略检查，限制 Skill 可见工具集合，产生工具调用事件 | 让模型或 Skill 直接调用未注册工具、决定管理员审核结果 |
-| Skill / Workflow Registry | 保存个人模板、候选 Skill、企业发布 Skill 的概念状态、版本、权限声明、风险等级与审核状态 | 绕过用户确认或管理员审核自动发布可执行 Skill |
-| Artifact / Audit Spine | 记录 Skill 候选、审核、启用/禁用、执行、工具调用、审批、截图、错误与产物引用 | 保存超出保留策略的数据、向未授权管理员暴露敏感内容 |
-| Knowledge Governance | 管理企业知识库发布范围、过期标记、用户反馈与 ACL；支持审计引用 | 让 Agent 擅自修改企业知识库正式内容 |
+| 模块                               | 在治理 / Skill / 审计中的职责                                                     | 不负责                                    |
+| -------------------------------- | ------------------------------------------------------------------------ | -------------------------------------- |
+| Desktop Cockpit                  | 展示用户可见的模板/Skill 候选、审批提示、执行记录摘要、个人模板管理入口                                  | 企业级发布审核、最终策略判定、直接修改审计事实                |
+| Local Agent Runtime/Daemon       | 发现重复任务、生成 Skill 候选、执行策略复核、写入运行审计事件、在策略变更后暂停或阻断任务                         | 企业策略最终治理、企业 Skill 发布、管理员审计查询授权         |
+| Enterprise Control Plane / Admin | 用户/角色/部门、策略、工具、Skill、知识库、数据保留、审计查询与发布范围治理                                | 直接读取用户本地文件、直接持有本地浏览器会话、绕过 Runtime 执行工具 |
+| Policy / Approval Engine         | 对工具、Skill、Workflow、定时任务给出 Allow/Ask/Deny/Mask/Redact/Limit 决策，并保留原因和策略快照 | 真实工具执行、UI 展示、长期审计查询授权本身                |
+| Tool Gateway / Worker Supervisor | 执行前强制策略检查，限制 Skill 可见工具集合，产生工具调用事件                                       | 让模型或 Skill 直接调用未注册工具、决定管理员审核结果         |
+| Skill / Workflow Registry        | 保存个人模板、候选 Skill、企业发布 Skill 的概念状态、版本、权限声明、风险等级与审核状态                       | 绕过用户确认或管理员审核自动发布可执行 Skill              |
+| Artifact / Audit Spine           | 记录 Skill 候选、审核、启用/禁用、执行、工具调用、审批、截图、错误与产物引用                               | 保存超出保留策略的数据、向未授权管理员暴露敏感内容              |
+| Knowledge Governance             | 管理企业知识库发布范围、过期标记、用户反馈与 ACL；支持审计引用                                        | 让 Agent 擅自修改企业知识库正式内容                  |
 
 ### 3.2 事实源划分
 
@@ -64,7 +66,7 @@
 | Tool | 注册/禁用工具，声明权限等级、风险等级、可用范围、审批规则与审计字段 | 未注册工具不可使用；高风险工具默认禁用或需审批 |
 | Skill / Workflow | 审核、发布、下架、版本管理、权限配置、使用记录、高风险处理 | Agent 只能建议，不能自动发布企业级可执行 Skill |
 | Knowledge | 企业知识库创建、文档更新、版本、发布范围、过期标记、用户反馈处理 | Agent 使用时按用户权限检索，不擅自修改正式内容 |
-| Audit / Retention | 管理审计查询范围、导出、保留周期、截图/日志权限、脱敏规则 | 管理员查看也需要授权边界，敏感截图/日志受控 |
+| Audit / Retention | 管理审计查询范围、导出、保留周期、截图/日志权限、脱敏规则，并执行 audit-of-audit | 管理员查看也需要授权边界，敏感截图/日志受控 |
 
 ### 4.2 策略解析顺序
 
@@ -88,6 +90,15 @@
 | L3 浏览器交互 | Ask 或有限 Session Allow；截图/下载受策略控制 | 必须声明域名范围、下载目录、截图策略 |
 | L4 业务状态变更 | Explicit Ask，优先人接管 | 企业 Skill 发布需更严格审核；定时自动执行默认不允许 |
 | L5 高风险操作 | 默认 Deny 或管理员审批 + 用户确认 | MVP 不提供闭环自动化；只能保留设计 seam |
+
+### 4.4 共享契约治理
+
+管理端负责把共享契约治理落到组织流程，但不替代 Shared Contracts 的概念定义：
+
+- `shared-contracts-and-event-spine.md` 定义 canonical 状态、事件、决策、EventEnvelope、MVP/目标态子集和 breaking change 规则。
+- Enterprise Control Plane 管理策略版本、工具/Skill 发布范围、审计查看权限和数据保留策略。
+- 任何影响 PolicyDecision、ApprovalDecision、HandoffCause、Audit Projection、RetentionClass 或 SkillReviewState 的破坏性变更，都必须记录策略版本、影响范围和回滚/迁移说明。
+
 
 ## 5. Skill / Workflow 治理
 
@@ -297,7 +308,7 @@
 | 管理端治理 | 用户/角色/工具/知识库/策略/审计基础管理；L0-L5 判定 | 策略生效预览、影响分析、跨部门治理、Fleet Runtime 健康联动 |
 | Skill / Workflow | 重复任务总结、个人流程模板、企业发布审核入口或 seam | 完整 Skill 审核工作台、版本/回归/灰度/下架、模板市场式治理 |
 | 工具治理 | 注册工具、禁用工具、风险等级、审批规则、调用记录 | 连接器生态、工具质量评分、风险模型增强、自动影响分析 |
-| 审计查询 | 按用户、任务、工具、风险、Skill、错误进行基础检索；敏感内容脱敏 | 高级 Replay、浏览器操作回放、复杂导出、异常检测、审计报表 |
+| 审计查询 | 按用户、任务、工具、风险、Skill、错误进行基础检索；敏感内容脱敏；查询/查看/导出行为本身写 audit-of-audit | 高级 Replay、浏览器操作回放、复杂导出、异常检测、审计报表 |
 | 数据保留 | 日志/截图/产物基础保留与删除策略 | 分级保留、法务留存、跨系统归档、策略模拟 |
 | 高风险自动化 | L4 必须显式确认或人接管；L5 默认禁用或预留 | 在严格审批、回放、回归和隔离下开放有限企业场景 |
 
@@ -310,7 +321,7 @@
 - [ ] 文档保留 L0-L5 风险等级并说明对应治理动作。
 - [ ] 审计范围包含用户、时间、任务、工具、页面/文件、截图、知识库引用、审批、结果和错误。
 - [ ] 审计查询支持按用户、任务、时间、工具、风险等级、知识库、Skill、高风险操作、错误筛选。
-- [ ] 管理员查看与导出审计数据也受权限、脱敏、保留和二次审计控制。
+- [ ] 管理员查看与导出审计数据也受权限、脱敏、保留和二次审计控制，并产生 `audit.query.viewed/exported` 事件。
 - [ ] MVP 与目标态清晰区分，MVP 保留治理骨架但不引入富 Skill Studio 或高风险自动化闭环。
 - [ ] 文档未包含 DB schema、端点级 API、高保真原型、排期估算、SaaS 多租户扩展或代码 POC。
 

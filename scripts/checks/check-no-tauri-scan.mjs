@@ -71,6 +71,7 @@ function listFilesRecursively(startDir, results = []) {
         || entry.name === 'target'
         || entry.name === 'dist'
         || entry.name === 'build'
+        || entry.name === 'release'
         || entry.name === 'coverage'
         || entry.name === 'test-results'
       ) {

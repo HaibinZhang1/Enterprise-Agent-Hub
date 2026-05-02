@@ -30,6 +30,8 @@
 - `.omx/plans/test-spec-agent-harness-design.md`：确认设计验证必须覆盖权限 L0-L5、高风险审批、浏览器/文件/工具隔离、审计字段、Skill 权限不能越权与非目标边界。
 - `docs/AgentHarnessDesign/# 企业内网通用型 Agent 助手需求文档`：确认内网环境、无公网依赖、用户确认、沙箱运行、审计留痕、数据保护、浏览器和文件边界等原始需求。
 - `docs/AgentHarnessDesign/客户端 Agent Harness目录`：确认 Policy/Instruction/Governance、Hook/Middleware、Security/Permission/Credential、Checkpoint/Artifact/Audit 等推荐目录能力。
+- `docs/DetailedDesign/AgentHarnessDesign/shared-contracts-and-event-spine.md`：确认 RiskLevel、PolicyDecision、ApprovalDecision、HandoffCause、CredentialGrantState、SandboxSessionState 与 EventEnvelope 的共享语义。
+- `docs/DetailedDesign/AgentHarnessDesign/data-classification-retention-matrix.md`：确认凭证、截图、日志、ContextPackage、审计查询与安全事件的敏感级、可见性和保留语义。
 
 ## 3. 职责划分
 
@@ -106,7 +108,7 @@
 | Limit | 允许受限执行 | 缩小文件、URL、时间、次数、并发、截图或日志范围 |
 | Require Handoff | 动作必须由用户人工完成或接管 | Run 进入 `handoff`，Desktop 展示接管边界 |
 
-策略决策必须带原因、风险等级、策略来源、策略快照引用、适用范围和失效条件，便于审计、回放和后续争议处理。
+策略决策必须带原因、风险等级、策略来源、策略快照引用、适用范围和失效条件，便于审计、回放和后续争议处理。`Require Handoff` 既可能是 PolicyDecision，也可能是用户/管理员 ApprovalDecision；事件中必须通过 `HandoffCause` 区分 `policy_required`、`user_requested`、`credential_required` 或 `runtime_required`。
 
 ## 5. 权限确认与审批设计
 
@@ -168,7 +170,7 @@ Credential Broker 负责把凭证能力安全地授予具体 Worker 或连接器
 - **不进模型上下文**：模型只能看到凭证是否可用、需要何种接管或错误类别，不能看到凭证值。
 - **不进普通审计明文**：审计记录凭证类型、作用域、访问主体、目标、时间和结果，不记录密钥值、Cookie 值或密码。
 - **短期授予**：Worker 获取临时授权或受控句柄，任务结束、取消、超时、策略变化或 Worker 崩溃后失效。
-- **用户可控**：涉及个人账号、Cookie、Token 或 SSO 会话时，用户应能查看哪些工具获得过何种范围授权，并能撤销。
+- **用户可控**：涉及个人账号、Cookie、Token 或 SSO 会话时，用户应能在 Desktop Credential Grants 视图中查看哪些工具获得过何种范围授权、有效期、最近使用和撤销入口。
 - **管理员可治理**：企业连接器凭证由治理面注册、轮换和禁用；个人凭证与企业共享凭证必须明确区分。
 
 ### 6.3 凭证访问流程
@@ -427,7 +429,16 @@ Credential Broker 负责把凭证能力安全地授予具体 Worker 或连接器
 - 用户应能看到 Agent 访问了什么、准备做什么、记住了什么、使用了哪些凭证、产生了哪些截图或产物。
 - 高风险动作必须在执行前说明目标、影响、可撤销性和策略来源，而不是执行后解释。
 - 拒绝和限制也需要可解释：用户应知道是企业策略、权限不足、工具声明、目录/域名越界还是 Runtime 安全兜底导致。
-- 审批历史、授权范围、自动截图、个人记忆、个人知识库写入和凭证授权必须可查看和撤销。
+- 审批历史、授权范围、自动截图、个人记忆、个人知识库写入和凭证授权必须可查看和撤销；凭证授权只展示类型、范围、目标和结果，不展示 secret value。
+
+## 10.5 源系统权限与离线缓存边界
+
+Agent 侧策略只能追加限制，不能替代源业务系统权限：
+
+- 源系统 ACL、MFA、审批流和操作日志仍是硬边界；用户或管理员在 Agent 中允许，不代表源系统中无权动作可以执行。
+- Browser Worker / Connector 必须以源系统允许的用户身份、会话或托管凭证作用域访问。
+- 本地离线策略缓存只能保持或收紧既有低风险权限；策略过期、不确定或风险升高时必须 Ask、Deny 或等待刷新。
+- 审计中必须区分 Agent 侧策略/审批、用户 handoff 动作和源系统最终业务结果。
 
 ## 11. MVP vs 目标态
 
@@ -441,7 +452,7 @@ MVP 必须保留安全治理骨架，但压缩功能面：
 - 支持策略快照引用、离线缓存只读/低风险复用和执行时策略复核。
 - 支持独立 Browser Profile、内网 URL 白名单、截图策略、下载目录隔离和 MFA/验证码 handoff。
 - 支持授权目录文件访问、路径校验、清理清单预览、确认后执行、优先可恢复。
-- 支持 Credential Broker 概念 seam：凭证不进模型、不进明文日志；Worker 使用短期授权或用户接管。
+- 支持 Credential Broker 概念 seam：凭证不进模型、不进明文日志；Worker 使用短期授权或用户接管；Desktop 提供基础 Credential Grant 可见与撤销入口。
 - 支持基础审计事件：策略决策、审批、工具动作、文件/页面访问、截图/产物、凭证访问摘要、沙箱清理、错误。
 - 支持 Scheduler 查询/汇总/草稿/提醒类任务的执行时策略复核；提交、审批、状态修改、删除、批量修改不自动执行。
 - 支持 Skill 只作为个人流程模板候选或受控运行入口；企业发布与复杂审核后置。
@@ -510,4 +521,4 @@ MVP 必须保留安全治理骨架，但压缩功能面：
 7. 离线状态下允许哪些 L1/L2 动作继续执行，哪些必须等待策略刷新或凭证重新验证？
 8. 用户删除个人数据、关闭自动截图或撤销凭证授权后，历史企业审计保留与个人可控要求如何平衡？
 9. 首批内网系统主要通过 Browser Worker 访问还是已有 API/Connector 访问？这会影响凭证和沙箱边界。
-10. Policy、Approval、Credential、Sandbox 的共享语义由哪个治理流程维护，如何防止 Runtime、Desktop、API、Worker 后续语义分裂？
+10. Policy、Approval、Credential、Sandbox 的概念共享语义已由 `shared-contracts-and-event-spine.md` 收敛；后续实现仍需确定代码层契约 owner、版本发布节奏和 breaking change 评审流程。

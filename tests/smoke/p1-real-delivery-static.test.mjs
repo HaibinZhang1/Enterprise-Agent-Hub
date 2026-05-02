@@ -64,6 +64,7 @@ const desktopOverlaysTsx = readRequired('apps/desktop/src/ui/desktopOverlays.tsx
 const pageCommon = readRequired('apps/desktop/src/ui/pageCommon.tsx');
 const desktopShared = readRequired('apps/desktop/src/ui/desktopShared.tsx');
 const desktopUiState = readRequired('apps/desktop/src/state/useDesktopUIState.ts');
+const desktopViteConfig = readRequired('apps/desktop/vite.config.ts');
 const workspaceBootstrap = readRequired('apps/desktop/src/state/workspace/facade/useWorkspaceBootstrap.ts');
 const domainTypes = readRequired('apps/desktop/src/domain/p1.ts');
 const rootPackage = readRequiredJson('package.json');
@@ -310,6 +311,10 @@ test('Desktop runtime does not import design prototype files as executable code'
   for (const source of [appTsx, desktopShellTsx, desktopSectionsTsx, desktopOverlaysTsx, desktopUiState]) {
     assert.doesNotMatch(source, /docs\/design-ui\/layout-prototype/);
   }
+});
+
+test('Electron renderer build uses relative asset paths for file-based packaging', () => {
+  assert.match(desktopViteConfig, /base:\s*["']\.\/["']/);
 });
 
 test('Electron source tree contains TypeScript files for static gate coverage', { skip: !hasElectronRuntime }, () => {

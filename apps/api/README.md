@@ -45,7 +45,7 @@ For the real publish-review-market-install closure, use the repo-root harness in
 npm run p1:full-closure
 ```
 
-That path bootstraps isolated PostgreSQL/Redis/MinIO/API/Desktop services, runs browser publish/review/market automation, and then runs the native Tauri install/enable smoke against the same newly published skill.
+That path bootstraps isolated PostgreSQL/Redis/MinIO/API/Desktop services, runs browser publish/review/market automation, and then runs the native Electron install/enable smoke against the same newly published skill.
 
 ## P1 endpoints
 

@@ -18,6 +18,7 @@ import {
   isSafeExternalURL,
   shouldBlockNavigation
 } from "./security.ts";
+import { createActivateHandler, trackMainWindowLifecycle, type TrackableWindowLike } from "./windowLifecycle.ts";
 
 type BrowserWindowConstructorOptions = Record<string, unknown>;
 
@@ -33,6 +34,7 @@ type BrowserWindowLike = {
   readonly webContents: WebContentsLike;
   loadURL(url: string): Promise<void>;
   loadFile(filePath: string): Promise<void>;
+  on?(event: "closed", listener: () => void): void;
   minimize(): void;
   maximize(): void;
   unmaximize(): void;
@@ -265,6 +267,17 @@ async function createMainWindow(electron: ElectronMainModule): Promise<BrowserWi
   return window;
 }
 
+function assignMainWindow(
+  window: BrowserWindowLike,
+  setMainWindow: (window: BrowserWindowLike | null) => void
+): BrowserWindowLike {
+  trackMainWindowLifecycle(window as TrackableWindowLike, () => {
+    setMainWindow(null);
+  });
+  setMainWindow(window);
+  return window;
+}
+
 export async function bootstrapElectronDesktop(): Promise<void> {
   const electron = await loadElectron();
   electron.app.setName(ELECTRON_PRODUCT_NAME);
@@ -276,15 +289,22 @@ export async function bootstrapElectronDesktop(): Promise<void> {
   installRuntimeCommandHandlers(electron.app);
   installContentSecurityPolicy(electron.session.defaultSession, electron.app.isPackaged);
   registerDesktopIpc(electron.ipcMain, () => mainWindow, electron.shell, electron.app.isPackaged);
-  mainWindow = await createMainWindow(electron);
+  mainWindow = assignMainWindow(await createMainWindow(electron), (window) => {
+    mainWindow = window;
+  });
 
-  electron.app.on("activate", () => {
-    if (!mainWindow) {
-      void createMainWindow(electron).then((created) => {
-        mainWindow = created;
+  electron.app.on("activate", createActivateHandler(
+    () => mainWindow,
+    () => createMainWindow(electron),
+    (window) => {
+      mainWindow = window;
+    },
+    (window) => {
+      assignMainWindow(window, (next) => {
+        mainWindow = next;
       });
     }
-  });
+  ));
 
   electron.app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {

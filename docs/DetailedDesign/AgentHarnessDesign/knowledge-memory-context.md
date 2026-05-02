@@ -7,6 +7,8 @@
 - `docs/AgentHarnessDesign/# 企业内网通用型 Agent 助手需求文档` 中的个人偏好记忆、个人知识库、企业知识库、引用溯源、权限隔离和审计要求。
 - `docs/AgentHarnessDesign/客户端 Agent Harness目录` 中第 4 层“Context / Memory / Knowledge 上下文记忆知识层”。
 - `docs/Architecture/overview.md`、`docs/Architecture/domain-boundaries.md` 和 `docs/Architecture/layering-rules.md` 中对 Desktop、API、shared-contracts、PostgreSQL、MinIO、Redis/BullMQ 的边界约束。
+- `docs/DetailedDesign/AgentHarnessDesign/shared-contracts-and-event-spine.md` 中对 ContextSourceType、CitationSourceType、MemoryStatus、KnowledgeDocumentStatus、EventEnvelope 和 Runtime/Knowledge ownership 的共享语义。
+- `docs/DetailedDesign/AgentHarnessDesign/data-classification-retention-matrix.md` 中对 ContextPackage、Citation、Memory、KnowledgeDocument、Artifact 与 Audit Query 的敏感级、可见性和保留语义。
 
 目标是让 Agent 在不访问互联网、不越权、不伪造来源的前提下，能够：
 
@@ -88,7 +90,8 @@ flowchart LR
 
 - Desktop React 负责展示对话、引用卡片、记忆管理入口和知识库选择，不直接读取任意本地文件或绕过 API 修改知识库。
 - Electron 只处理用户授权的本地文件、截图和临时资料读取，并返回结构化 `ContextItem` 或文件引用，不保存企业知识库权限。
-- API 模块负责会话上下文编排、记忆、知识库、引用、权限过滤和审计。
+- Local Runtime / Context Builder 负责每次 Run 模型调用前的 ContextPackage 组装、token 预算、裁剪说明、CitationHandle 生成、模型调用审计和 Run 恢复时的上下文重建。
+- API / Knowledge / Memory 模块负责长期知识库、文档版本、检索、记忆存储、权限过滤能力和引用/记忆相关审计事件的持久化。
 - PostgreSQL 首期承担元数据、文档 chunk、全文检索、审计和记忆存储。
 - MinIO 保存原始知识文档、附件、截图和可下载产物。
 - Redis/BullMQ 承担文档解析、索引构建、过期重建和引用统计等后台任务。
@@ -101,12 +104,12 @@ flowchart LR
 
 | 能力组 | 职责 | 不应承担 |
 | --- | --- | --- |
-| Context Builder | 构建模型上下文包、分配 token 预算、生成引用句柄、记录上下文和引用审计。 | 不直接解析文件、不决定企业文档权限。 |
+| Context Builder | 在 Runtime 侧构建每次模型调用的 ContextPackage、分配 token 预算、生成引用句柄、记录上下文和引用审计。 | 不直接解析文件、不成为长期知识/记忆存储事实源、不决定企业文档权限。 |
 | User Memory | 管理用户长期记忆、记忆建议、禁用/删除、记忆使用记录。 | 不保存一次性上下文和敏感凭证。 |
 | Knowledge Management | 管理个人/企业知识库、文档版本、解析索引、检索、权限过滤、过期标记。 | 不直接调用模型生成最终回答，不绕过管理员维护企业知识库。 |
 | Identity / Admin Policy | 提供用户身份、部门、角色、知识库授权、管理员动作授权。 | 不拼装模型上下文，不替代源业务系统权限。 |
 | Skill / Workflow Governance | 后续可把稳定流程沉淀为 Skill；本能力只消费其权限和审核结论。 | 不绕过 Skill 审核自动发布。 |
-| Audit / Citation Events | 记录知识检索、上下文构建、引用生成、记忆变更和知识写入确认。 | 不保存超出保留策略的敏感原文。 |
+| Audit / Citation Events | 记录知识检索、上下文构建、引用生成、记忆变更和知识写入确认，并映射到统一 EventEnvelope。 | 不保存超出保留策略的敏感原文。 |
 
 ### 5.2 Desktop 能力边界
 
@@ -521,15 +524,15 @@ Runtime 需要调用以下能力：
 
 | 事件 | 触发时机 | 关键字段 |
 | --- | --- | --- |
-| `context_package_created` | 每次模型调用前 | runID、item counts、omitted reasons、token budget。 |
-| `knowledge_search` | 每次检索 | query hash、knowledgeBaseIDs、result count、permission filters。 |
-| `knowledge_document_accessed` | chunk 进入上下文或用户打开来源 | documentID、versionID、userID、runID。 |
-| `citation_generated` | 回答生成引用 | handle、sourceID、contentHash、stale。 |
-| `memory_suggested` | Agent 建议保存记忆 | candidate type、evidenceRef、sensitivity flags。 |
-| `memory_created/updated/disabled/deleted` | 用户管理记忆 | memoryID、operator、reason。 |
-| `knowledge_document_created/updated/archived` | 文档变更 | documentID、versionID、operator、approval state。 |
+| `context.package.built` | 每次模型调用前 | runID、item counts、omitted reasons、token budget。 |
+| `knowledge.search.requested` | 每次检索 | query hash、knowledgeBaseIDs、result count、permission filters。 |
+| `knowledge.document.viewed` | chunk 进入上下文或用户打开来源 | documentID、versionID、userID、runID。 |
+| `citation.generated` | 回答生成引用 | handle、sourceID、contentHash、stale。 |
+| `memory.suggestion.created` | Agent 建议保存记忆 | candidate type、evidenceRef、sensitivity flags。 |
+| `memory.created/updated/disabled/deleted` | 用户管理记忆 | memoryID、operator、reason。 |
+| `knowledge.document.created/updated/archived` | 文档变更 | documentID、versionID、operator、approval state。 |
 
-审计存储应优先保存结构化元数据和 hash，避免默认复制完整敏感正文。
+审计存储应优先保存结构化元数据和 hash，避免默认复制完整敏感正文。所有事件必须映射到 `shared-contracts-and-event-spine.md` 的 `EventEnvelope`，并遵守 `data-classification-retention-matrix.md` 对 ContextPackage、Citation、Memory 和 KnowledgeDocument 的分类规则。
 
 ## 13. 典型流程
 
@@ -583,7 +586,7 @@ Runtime 需要调用以下能力：
 - Knowledge base type、knowledge document status、knowledge search request/response 的概念语义。
 - Citation source type、citation card、citation stale reason。
 
-共享契约应保证 Desktop、Runtime、API 和 Audit 对同一事件、状态、权限域、引用来源使用一致语义。
+共享契约应保证 Desktop、Runtime、API 和 Audit 对同一事件、状态、权限域、引用来源使用一致语义；canonical 术语以 `shared-contracts-and-event-spine.md` 为准，本文件只解释 Knowledge / Memory / Context / Citation 如何使用这些术语。
 
 ## 16. 验收标准
 

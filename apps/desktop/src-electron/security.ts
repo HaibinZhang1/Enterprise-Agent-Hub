@@ -22,11 +22,20 @@ export function isAllowedDevRendererURL(url: string): boolean {
   return parsed.protocol === "http:" && parsed.hostname === expected.hostname && parsed.port === expected.port;
 }
 
-export function isAllowedRendererURL(url: string, isPackaged: boolean): boolean {
+export function getPackagedRendererURL(): string {
+  return new URL("../dist/index.html", import.meta.url).toString();
+}
+
+export function isAllowedPackagedRendererURL(url: string): boolean {
   const parsed = parseURL(url);
   if (!parsed) return false;
+  const expected = new URL(getPackagedRendererURL());
+  return parsed.protocol === "file:" && parsed.pathname === expected.pathname;
+}
+
+export function isAllowedRendererURL(url: string, isPackaged: boolean): boolean {
   if (isPackaged) {
-    return parsed.protocol === "file:";
+    return isAllowedPackagedRendererURL(url);
   }
   return isAllowedDevRendererURL(url);
 }

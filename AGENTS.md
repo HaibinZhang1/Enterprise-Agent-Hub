@@ -2,11 +2,11 @@
 
 ## Project Structure & Module Organization
 
-This repository currently contains product documentation, a React/Tauri desktop app, a NestJS API, shared contracts, deployment assets, and a static UI prototype.
+This repository currently contains product documentation, a React/Electron desktop app, a NestJS API, shared contracts, deployment assets, and a static UI prototype.
 
 - `docs/RequirementDocument/` holds the P1/P2/P3 requirements, page specs, data contracts, and glossary. Start with `docs/RequirementDocument/index.md`.
 - `docs/DetailedDesign/` contains implementation-oriented design notes. Start with `docs/DetailedDesign/index.md` before adding architecture or deployment code.
-- `apps/desktop/` is the real product UI and Tauri client. It is the delivery and verification entrypoint for frontend work.
+- `apps/desktop/` is the real product UI and Electron client. It is the delivery and verification entrypoint for frontend work.
 - `docs/design-ui/layout-prototype/` is a standalone design prototype: `index.html`, `app.js`, and `styles.css`. It is vanilla HTML/CSS/JavaScript and is not a delivery or integration entrypoint.
 - `.omx/` is local orchestration state and should not be treated as product source.
 - 如果本次修改涉及到需求上的变动，请同步修改'docs/RequirementDocument/'
@@ -28,16 +28,16 @@ Default frontend development entrypoint:
 
 ```sh
 npm run desktop:dev
-npm run desktop:tauri:dev
+npm run desktop:electron:dev
 ```
 
-Use `npm run desktop:tauri:dev` for real desktop integration whenever possible. Do not start `docs/design-ui/layout-prototype/` unless the user explicitly asks to inspect the archived reference prototype.
+Use `npm run desktop:electron:dev` for real desktop integration whenever possible. Do not start `docs/design-ui/layout-prototype/` unless the user explicitly asks to inspect the archived reference prototype.
 
 Canonical workspace commands are defined in the root `package.json`, for example `npm run lint`, `npm run typecheck`, `npm test`, and `npm run p1:full-closure`.
 
 ## Coding Style & Naming Conventions
 
-For `apps/desktop/`, follow the existing React/TypeScript/Tauri patterns and match the surrounding file style. 
+For `apps/desktop/`, follow the existing React/TypeScript/Electron patterns and match the surrounding file style. 
 
 ## Testing Guidelines
 
