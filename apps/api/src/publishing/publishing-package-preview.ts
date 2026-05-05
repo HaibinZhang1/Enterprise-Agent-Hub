@@ -1,6 +1,6 @@
-import { readdir, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { PackagePreviewFileType } from "../common/p1-contracts";
+import type { PackageFileContentDto, PackageFileEntryDto, PackagePreviewFileType } from "../common/p1-contracts";
 import { normalizeRelativeUploadPath } from "./publishing.utils";
 
 export interface ExtractedPackageFile {
@@ -8,6 +8,8 @@ export interface ExtractedPackageFile {
   absolutePath: string;
   sizeBytes: number;
 }
+
+const maxPreviewBytes = 256 * 1024;
 
 export function findCommonRootPrefix(paths: string[]): string {
   const firstSegments = new Set(
@@ -64,6 +66,32 @@ export function packagePreviewFileType(relativePath: string): PackagePreviewFile
 
 export function isPreviewablePackageFile(relativePath: string): boolean {
   return packagePreviewFileType(relativePath) !== "other";
+}
+
+export function packageFileEntry(file: ExtractedPackageFile): PackageFileEntryDto {
+  return {
+    relativePath: file.relativePath,
+    fileType: packagePreviewFileType(file.relativePath),
+    sizeBytes: file.sizeBytes,
+    previewable: isPreviewablePackageFile(file.relativePath)
+  };
+}
+
+export function findPackageFile(files: ExtractedPackageFile[], relativePath: string): ExtractedPackageFile | undefined {
+  return files.find((item) => item.relativePath === relativePath);
+}
+
+export async function readPackageFilePreviewContent(file: ExtractedPackageFile): Promise<PackageFileContentDto> {
+  const fileType = packagePreviewFileType(file.relativePath);
+  const buffer = await readFile(file.absolutePath);
+  const truncated = buffer.length > maxPreviewBytes;
+  const contentBuffer = truncated ? buffer.subarray(0, maxPreviewBytes) : buffer;
+  return {
+    relativePath: file.relativePath,
+    fileType,
+    content: contentBuffer.toString("utf8"),
+    truncated
+  };
 }
 
 export async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {

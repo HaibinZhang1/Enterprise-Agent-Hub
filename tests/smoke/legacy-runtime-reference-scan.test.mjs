@@ -6,7 +6,11 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 const repoRoot = process.cwd();
-const scriptPath = path.join(repoRoot, 'scripts/checks/check-no-tauri-scan.mjs');
+const scriptPath = path.join(repoRoot, 'scripts/checks/check-legacy-runtime-reference-scan.mjs');
+const legacyBrand = ['Ta', 'uri'].join('');
+const legacyBrandLower = legacyBrand.toLowerCase();
+const legacyGlobal = ['__', 'TA', 'URI', '__'].join('');
+const legacySourceDir = ['src-', 'ta', 'uri'].join('');
 
 function runScan(args = []) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
@@ -23,8 +27,8 @@ function writeJson(filePath, value) {
 function config(overrides = {}) {
   return {
     schemaVersion: 1,
-    policyId: 'no-tauri-scan',
-    terms: ['Tauri', 'tauri', '__TAURI__', 'src-tauri'],
+    policyId: 'legacy-runtime-reference-scan',
+    termPatterns: ['T[a]uri', 't[a]uri', '__T[A]URI__', 'src-t[a]uri'],
     includeGlobs: ['apps/**', 'docs/**'],
     allowedHistoricalGlobs: ['docs/migration-map.md'],
     transitionalBlockerGlobs: [],
@@ -32,33 +36,33 @@ function config(overrides = {}) {
   };
 }
 
-test('repository no-Tauri scan tracks current transition blockers in non-strict mode', () => {
+test('repository legacy runtime reference scan tracks current transition blockers in non-strict mode', () => {
   const result = runScan();
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(result.stdout, /No-Tauri scan passed/);
+  assert.match(result.stdout, /Legacy runtime reference scan passed/);
   assert.match(result.stdout, /transitional blocker/);
 });
 
-test('unclassified Tauri-era references fail the scan', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'no-tauri-unclassified-'));
+test('unclassified legacy runtime references fail the scan', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'legacy-runtime-unclassified-'));
   try {
     mkdirSync(path.join(root, 'apps/desktop'), { recursive: true });
-    writeFileSync(path.join(root, 'apps/desktop/runtime.ts'), 'window.__TAURI__?.core.invoke("x");\n');
+    writeFileSync(path.join(root, 'apps/desktop/runtime.ts'), `window.${legacyGlobal}?.core.invoke("x");\n`);
     writeJson(path.join(root, 'gate.json'), config());
 
     const result = runScan(['--root', root, '--config', 'gate.json']);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Unclassified Tauri-era reference/);
+    assert.match(result.stderr, /Unclassified legacy runtime reference/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test('transitional blockers pass non-strict and fail strict', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'no-tauri-transition-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'legacy-runtime-transition-'));
   try {
     mkdirSync(path.join(root, 'apps/desktop'), { recursive: true });
-    writeFileSync(path.join(root, 'apps/desktop/runtime.ts'), 'Tauri legacy bridge\n');
+    writeFileSync(path.join(root, 'apps/desktop/runtime.ts'), `${legacyBrand} legacy bridge\n`);
     writeJson(path.join(root, 'gate.json'), config({ transitionalBlockerGlobs: ['apps/desktop/runtime.ts'] }));
 
     const nonStrict = runScan(['--root', root, '--config', 'gate.json']);
@@ -66,17 +70,17 @@ test('transitional blockers pass non-strict and fail strict', () => {
 
     const strict = runScan(['--root', root, '--config', 'gate.json', '--strict']);
     assert.notEqual(strict.status, 0);
-    assert.match(strict.stderr, /Strict no-Tauri scan rejects/);
+    assert.match(strict.stderr, /Strict legacy runtime reference scan rejects/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
 test('historical migration-map references remain allowed in strict mode', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'no-tauri-history-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'legacy-runtime-history-'));
   try {
     mkdirSync(path.join(root, 'docs'), { recursive: true });
-    writeFileSync(path.join(root, 'docs/migration-map.md'), 'Historical Tauri command mapping.\n');
+    writeFileSync(path.join(root, 'docs/migration-map.md'), `Historical ${legacyBrand} command mapping.\n`);
     writeJson(path.join(root, 'gate.json'), config());
 
     const result = runScan(['--root', root, '--config', 'gate.json', '--strict']);

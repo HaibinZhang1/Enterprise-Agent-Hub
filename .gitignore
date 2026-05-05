@@ -13,5 +13,4 @@ test-results/
 .env.*
 infra/env/*.local
 infra/env/*.secret
-apps/desktop/src-tauri/gen/
 release/

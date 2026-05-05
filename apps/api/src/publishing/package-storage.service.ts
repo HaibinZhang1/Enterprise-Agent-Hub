@@ -15,9 +15,12 @@ import {
 } from "./publishing.utils";
 import {
   collectExtractedPackageFiles,
+  findPackageFile,
   findCommonRootPrefix,
   type ExtractedPackageFile,
   isPreviewablePackageFile,
+  packageFileEntry,
+  readPackageFilePreviewContent,
   packagePreviewFileType,
   stripCommonPrefix,
   streamToBuffer
@@ -122,36 +125,22 @@ export class PackageStorageService {
       }
       throw error;
     }
-    return files.map((file) => ({
-      relativePath: file.relativePath,
-      fileType: packagePreviewFileType(file.relativePath),
-      sizeBytes: file.sizeBytes,
-      previewable: isPreviewablePackageFile(file.relativePath)
-    }));
+    return files.map((file) => packageFileEntry(file));
   }
 
   async readPackageFileContentForReview(review: ReviewRecord, relativePath: string): Promise<PackageFileContentDto> {
     const normalizedPath = normalizeRelativeUploadPath(relativePath);
     return this.withExtractedReviewPackage(review, async (packageRoot) => {
       const files = await collectExtractedPackageFiles(packageRoot);
-      const file = files.find((item) => item.relativePath === normalizedPath);
+      const file = findPackageFile(files, normalizedPath);
       if (!file) {
         throw new NotFoundException("resource_not_found");
       }
-      const fileType = packagePreviewFileType(file.relativePath);
       if (!isPreviewablePackageFile(file.relativePath)) {
         throw new BadRequestException("validation_failed");
       }
 
-      const buffer = await readFile(file.absolutePath);
-      const truncated = buffer.length > 256 * 1024;
-      const contentBuffer = truncated ? buffer.subarray(0, 256 * 1024) : buffer;
-      return {
-        relativePath: file.relativePath,
-        fileType,
-        content: contentBuffer.toString("utf8"),
-        truncated
-      };
+      return readPackageFilePreviewContent(file);
     });
   }
 

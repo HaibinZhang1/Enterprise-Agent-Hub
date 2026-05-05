@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   AdapterStatus,
@@ -25,6 +25,7 @@ import {
   type ToolConfig
 } from "@enterprise-agent-hub/shared-contracts";
 import { getElectronLocalStatePaths, migrateLegacyUserData, type UserDataMigrationOptions } from "./dataMigration.ts";
+import { JsonStateStore } from "./jsonStateStore.ts";
 
 type MutableDeep<T> = T extends readonly (infer Item)[]
   ? MutableDeep<Item>[]
@@ -229,15 +230,6 @@ function makeEmptyState(dataRoot: string, now: string): PersistedLocalState {
   };
 }
 
-async function exists(target: string): Promise<boolean> {
-  try {
-    await stat(target);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function normalizeSaveToolInput(args: LocalCommandRequestMap["save_tool_config"]): LocalCommandRequestMap["save_tool_config"] {
   const input = args as SaveToolInput;
   return input.tool ?? args;
@@ -273,6 +265,7 @@ function emptyBootstrap(centralStorePath: string, state: PersistedLocalState): L
 export class ElectronLocalRuntime {
   readonly #options: ElectronLocalRuntimeOptions;
   readonly #paths: ReturnType<typeof getElectronLocalStatePaths> & { readonly statePath: string };
+  readonly #stateStore: JsonStateStore<PersistedLocalState>;
   #initialized = false;
 
   public readonly handlers: LocalCommandHandlerMap;
@@ -284,6 +277,10 @@ export class ElectronLocalRuntime {
       ...basePaths,
       statePath: path.join(basePaths.dataRoot, "electron-local-state.json")
     };
+    this.#stateStore = new JsonStateStore({
+      statePath: this.#paths.statePath,
+      createInitialState: () => makeEmptyState(this.#paths.dataRoot, isoNow(this.#options.now))
+    });
     this.handlers = this.#buildHandlers();
   }
 
@@ -298,10 +295,7 @@ export class ElectronLocalRuntime {
     };
     await migrateLegacyUserData(migrationOptions);
     await mkdir(this.#paths.centralStorePath, { recursive: true });
-    await mkdir(path.dirname(this.#paths.statePath), { recursive: true });
-    if (!(await exists(this.#paths.statePath))) {
-      await this.#saveState(makeEmptyState(this.#paths.dataRoot, isoNow(this.#options.now)));
-    }
+    await this.#stateStore.initialize();
     this.#initialized = true;
   }
 
@@ -315,19 +309,12 @@ export class ElectronLocalRuntime {
 
   async #loadState(): Promise<PersistedLocalState> {
     await this.initialize();
-    return JSON.parse(await readFile(this.#paths.statePath, "utf8")) as PersistedLocalState;
-  }
-
-  async #saveState(state: PersistedLocalState): Promise<void> {
-    await mkdir(path.dirname(this.#paths.statePath), { recursive: true });
-    await writeFile(this.#paths.statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+    return this.#stateStore.load();
   }
 
   async #mutateState<T>(mutator: (state: PersistedLocalState) => T | Promise<T>): Promise<T> {
-    const state = await this.#loadState();
-    const result = await mutator(state);
-    await this.#saveState(state);
-    return result;
+    await this.initialize();
+    return this.#stateStore.mutate(mutator);
   }
 
   #buildHandlers(): LocalCommandHandlerMap {

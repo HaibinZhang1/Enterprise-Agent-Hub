@@ -30,6 +30,7 @@ import { scanTargetsSummaryMessage } from "../src/state/workspace/scanProgress.t
 import { deriveAccountPresentation } from "../src/state/ui/accountPresentation.ts";
 import { normalizePreferences, resolveDisplayLanguage } from "../src/state/ui/useDesktopPreferences.ts";
 import { deriveMarketSkills, deriveVisibleNavigation, deriveWorkspaceState } from "../src/state/workspace/workspaceDerivedState.ts";
+import { resolveWorkspacePageNavigation } from "../src/state/workspace/workspaceNavigation.ts";
 import { iconToneForLabel, iconTones } from "../src/ui/iconTone.ts";
 import { themeLabel } from "../src/ui/themeLabels.ts";
 import { buildDisableSkillArgs, buildEnableSkillArgs, buildUninstallSkillArgs, normalizeUninstallSkillResult } from "../src/services/desktopBridge/localCommandArgs.ts";
@@ -223,6 +224,32 @@ test("community top-level navigation prompts login for guests before switching",
   assert.equal(shouldPromptLoginForSectionNavigation({ section: "community", loggedIn: false }), true);
   assert.equal(shouldPromptLoginForSectionNavigation({ section: "community", loggedIn: true }), false);
   assert.equal(shouldPromptLoginForSectionNavigation({ section: "home", loggedIn: false }), false);
+});
+
+test("workspace page navigation resolves auth and admin guards outside the facade hook", () => {
+  assert.deepEqual(resolveWorkspacePageNavigation({
+    page: "notifications",
+    authState: "guest",
+    visibleNavigation: ["home"]
+  }), { action: "set_page", page: "home" });
+
+  assert.deepEqual(resolveWorkspacePageNavigation({
+    page: "market",
+    authState: "guest",
+    visibleNavigation: ["home", "market"]
+  }), { action: "require_auth", page: "market" });
+
+  assert.deepEqual(resolveWorkspacePageNavigation({
+    page: "review",
+    authState: "authenticated",
+    visibleNavigation: ["home", "market"]
+  }), { action: "set_page", page: "home" });
+
+  assert.deepEqual(resolveWorkspacePageNavigation({
+    page: "review",
+    authState: "authenticated",
+    visibleNavigation: ["home", "market", "review"]
+  }), { action: "set_page", page: "review" });
 });
 
 test("legacy pages map into the new section model", () => {

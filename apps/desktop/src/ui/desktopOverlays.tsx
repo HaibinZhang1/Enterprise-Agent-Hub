@@ -18,9 +18,10 @@ import {
 } from "lucide-react";
 import type { AdminSkill, OperationProgress, PreferenceState, PublishDraft, PublisherSkillSummary, ReviewAction, ReviewDetail, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
-import { buildSettingsPanels, type DesktopUIState, type FlashMessage, type OverlayState, type PublisherPane } from "../state/useDesktopUIState.ts";
+import type { DesktopUIState, FlashMessage, OverlayState, PublisherPane } from "../state/useDesktopUIState.ts";
 import { openExternalURL } from "../services/externalLinks.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
+import { buildSettingsPanels } from "../state/ui/settingsPanels.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
 import { targetDraftSubmitLabel } from "../state/ui/installedSkillSelectors.ts";
 import { connectedServiceURL, ENTERPRISE_AGENT_HUB_GITHUB_URL } from "../state/ui/aboutInfo.ts";

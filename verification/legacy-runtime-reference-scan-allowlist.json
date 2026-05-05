@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "policyId": "legacy-runtime-reference-scan",
+  "description": "Tracks references to the former desktop runtime family during Electron verification. Non-strict mode allows named transition blockers for parallel work; strict mode rejects them for release.",
+  "termPatterns": [
+    "T[a]uri",
+    "t[a]uri",
+    "__T[A]URI__",
+    "src-t[a]uri",
+    "@t[a]uri-apps"
+  ],
+  "includeGlobs": [
+    "package.json",
+    "package-lock.json",
+    "apps/desktop/**",
+    "packages/**",
+    "verification/**",
+    "scripts/**",
+    "tests/**",
+    "docs/RequirementDocument/**",
+    "docs/DetailedDesign/**",
+    "docs/Architecture/**"
+  ],
+  "allowedHistoricalGlobs": [
+    "verification/legacy-runtime-reference-scan-allowlist.json",
+    "scripts/checks/check-legacy-runtime-reference-scan.mjs",
+    "tests/smoke/legacy-runtime-reference-scan.test.mjs",
+    "verification/rust-exception-gate.json",
+    "scripts/checks/check-rust-exception-gate.mjs",
+    "tests/smoke/rust-exception-gate.test.mjs",
+    "verification/p1-verification.config.json",
+    "tests/smoke/p1-acceptance-matrix.test.mjs",
+    "scripts/full-closure/run-electron-smoke.mjs"
+  ],
+  "transitionalBlockerGlobs": [],
+  "strictReleaseExpectation": "Run scripts/checks/check-legacy-runtime-reference-scan.mjs --strict after Electron lanes integrate; strict mode must have zero transitional blockers and zero unclassified hits."
+}

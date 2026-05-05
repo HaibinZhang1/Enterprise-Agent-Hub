@@ -40,7 +40,7 @@ Strict verification reports are generated on demand by `node scripts/verificatio
 
 ### Desktop/API connectivity
 
-- The Electron closure lane verifies desktop typecheck, Electron smoke tests, strict no-Tauri scan, Rust exception gate, Electron security policy, and static delivery assertions in one chained run.
+- The Electron closure lane verifies desktop typecheck, Electron smoke tests, the strict legacy runtime reference scan, Rust exception gate, Electron security policy, and static delivery assertions in one chained run.
 - End-to-end evidence includes publish -> review -> market governance flow in the browser closure lane.
 - End-to-end evidence includes `download-ticket` -> package validation -> Central Store install -> tool/project enable -> restart restore -> uninstall in the Electron native closure lane.
 

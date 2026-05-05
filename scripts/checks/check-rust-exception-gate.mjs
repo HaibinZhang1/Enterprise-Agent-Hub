@@ -131,6 +131,10 @@ function regexes(patterns = []) {
   return patterns.map((pattern) => new RegExp(pattern, 'i'));
 }
 
+function matchesDisallowedPathPattern(candidate, patterns = []) {
+  return regexes(patterns).some((pattern) => pattern.test(candidate));
+}
+
 function extractCargoDependencyNames(cargoToml) {
   const dependencyNames = [];
   let inDependencySection = false;
@@ -183,10 +187,8 @@ function validateException(config, exceptionEntry, index, failures, warnings) {
 
   const helperRoot = normalizePrefix(exceptionEntry.helperRoot);
   const disallowedFragments = config.disallowedPathFragments ?? [];
-  for (const fragment of disallowedFragments) {
-    if (helperRoot.toLowerCase().includes(fragment.toLowerCase())) {
-      failures.push(`exceptions[${index}] helperRoot cannot include disallowed path fragment: ${fragment}`);
-    }
+  if (matchesDisallowedPathPattern(helperRoot, disallowedFragments)) {
+    failures.push(`exceptions[${index}] helperRoot cannot include a disallowed path fragment`);
   }
 
   if (!pathInAnyPrefix(helperRoot, config.allowedHelperRoots ?? [])) {
@@ -258,10 +260,8 @@ for (const helperRoot of config.allowedHelperRoots ?? []) {
   if (!isSafeRelativePath(helperRoot.replace(/\/\*\*$/, ''))) {
     failures.push(`allowedHelperRoots entry must be repo-relative: ${helperRoot}`);
   }
-  for (const fragment of config.disallowedPathFragments ?? []) {
-    if (helperRoot.toLowerCase().includes(fragment.toLowerCase())) {
-      failures.push(`allowedHelperRoots entry cannot include ${fragment}: ${helperRoot}`);
-    }
+  if (matchesDisallowedPathPattern(helperRoot, config.disallowedPathFragments ?? [])) {
+    failures.push(`allowedHelperRoots entry cannot include a disallowed path fragment: ${helperRoot}`);
   }
 }
 

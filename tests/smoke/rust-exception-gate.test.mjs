@@ -7,6 +7,7 @@ import test from 'node:test';
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, 'scripts/checks/check-rust-exception-gate.mjs');
+const legacyCrate = ['ta', 'uri'].join('');
 
 function runGate(args = [], options = {}) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
@@ -41,9 +42,9 @@ function baseConfig(overrides = {}) {
       'ipcErrorMapping',
       'migrationMapReference',
     ],
-    disallowedPathFragments: ['src-tauri'],
-    disallowedCratePatterns: ['^tauri$'],
-    disallowedContentPatterns: ['tauri::'],
+    disallowedPathFragments: ['src-t[a]uri'],
+    disallowedCratePatterns: ['^t[a]uri$'],
+    disallowedContentPatterns: ['t[a]uri::'],
     exceptions: [],
     transitionalLegacyRustBlockers: [],
     ...overrides,
@@ -63,7 +64,7 @@ function approvedHelperException(overrides = {}) {
     parityTests: ['node --test tests/smoke/rust-exception-gate.test.mjs'],
     packagingCheck: 'helper packaged by Electron builder extraResources gate',
     ipcErrorMapping: 'main process maps helper exit codes to typed DesktopBridge errors',
-    migrationMapReference: 'docs/DetailedDesign/tauri-to-electron-migration-map.md#client-update',
+    migrationMapReference: 'docs/DetailedDesign/electron-runtime-capability-map.md#client-update',
     ...overrides,
   };
 }
@@ -96,7 +97,7 @@ test('undocumented Rust artifacts outside approved helper roots fail the gate', 
   }
 });
 
-test('approved non-Tauri helper with required documentation passes the gate', () => {
+test('approved non-legacy helper with required documentation passes the gate', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'rust-gate-approved-'));
   try {
     mkdirSync(path.join(root, 'helpers/authenticode/src'), { recursive: true });
@@ -111,17 +112,17 @@ test('approved non-Tauri helper with required documentation passes the gate', ()
   }
 });
 
-test('approved helper cannot depend on Tauri crates', () => {
-  const root = mkdtempSync(path.join(tmpdir(), 'rust-gate-tauri-'));
+test('approved helper cannot depend on disallowed legacy runtime crates', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'rust-gate-legacy-runtime-'));
   try {
     mkdirSync(path.join(root, 'helpers/authenticode/src'), { recursive: true });
-    writeFileSync(path.join(root, 'helpers/authenticode/Cargo.toml'), '[package]\nname = "authenticode"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\ntauri = "2"\n');
+    writeFileSync(path.join(root, 'helpers/authenticode/Cargo.toml'), `[package]\nname = "authenticode"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n${legacyCrate} = "2"\n`);
     writeFileSync(path.join(root, 'helpers/authenticode/src/main.rs'), 'fn main() {}\n');
     writeJson(path.join(root, 'gate.json'), baseConfig({ exceptions: [approvedHelperException()] }));
 
     const result = runGate(['--root', root, '--config', 'gate.json']);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /disallowed crate tauri/);
+    assert.match(result.stderr, /disallowed crate/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

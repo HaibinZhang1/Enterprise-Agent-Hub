@@ -14,7 +14,7 @@ function readOption(name, fallback) {
 }
 
 const repoRoot = path.resolve(readOption('--root', process.cwd()));
-const configPath = path.resolve(repoRoot, readOption('--config', 'verification/no-tauri-scan-allowlist.json'));
+const configPath = path.resolve(repoRoot, readOption('--config', 'verification/legacy-runtime-reference-scan-allowlist.json'));
 
 function toPosix(relativePath) {
   return relativePath.split(path.sep).join('/');
@@ -101,8 +101,12 @@ function readText(filePath) {
   return fs.readFileSync(path.resolve(repoRoot, filePath), 'utf8');
 }
 
-function findHits(files, terms) {
-  const termPattern = new RegExp(terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'));
+function compilePatterns(patterns = []) {
+  return patterns.map((pattern) => new RegExp(pattern, 'g'));
+}
+
+function findHits(files, patterns) {
+  const compiledPatterns = compilePatterns(patterns);
   const hits = [];
 
   for (const filePath of files) {
@@ -115,9 +119,10 @@ function findHits(files, terms) {
 
     const lines = source.split(/\r?\n/);
     lines.forEach((line, lineIndex) => {
-      if (termPattern.test(line)) {
+      if (compiledPatterns.some((pattern) => pattern.test(line))) {
         hits.push({ file: filePath, line: lineIndex + 1, text: line.trim().slice(0, 240) });
       }
+      for (const pattern of compiledPatterns) pattern.lastIndex = 0;
     });
   }
 
@@ -125,7 +130,7 @@ function findHits(files, terms) {
 }
 
 if (!fs.existsSync(configPath)) {
-  console.error(`No-Tauri scan config not found: ${path.relative(repoRoot, configPath)}`);
+  console.error(`Legacy runtime reference scan config not found: ${path.relative(repoRoot, configPath)}`);
   process.exit(2);
 }
 
@@ -133,8 +138,8 @@ const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const failures = [];
 
 if (config.schemaVersion !== 1) failures.push('schemaVersion must be 1');
-if (config.policyId !== 'no-tauri-scan') failures.push('policyId must be no-tauri-scan');
-if (!Array.isArray(config.terms) || config.terms.length === 0) failures.push('terms must be a non-empty array');
+if (config.policyId !== 'legacy-runtime-reference-scan') failures.push('policyId must be legacy-runtime-reference-scan');
+if (!Array.isArray(config.termPatterns) || config.termPatterns.length === 0) failures.push('termPatterns must be a non-empty array');
 
 for (const [field, globs] of Object.entries({
   includeGlobs: config.includeGlobs,
@@ -156,7 +161,7 @@ for (const [field, globs] of Object.entries({
 const files = [...new Set([...listGitFiles(), ...listFilesRecursively(repoRoot)])]
   .filter((filePath) => matchesAny(filePath, config.includeGlobs ?? []))
   .sort();
-const hits = findHits(files, config.terms ?? []);
+const hits = findHits(files, config.termPatterns ?? []);
 const allowedHistoricalHits = [];
 const transitionalBlockers = [];
 const unclassifiedHits = [];
@@ -172,12 +177,12 @@ for (const hit of hits) {
 }
 
 if (unclassifiedHits.length > 0) {
-  failures.push(`Unclassified Tauri-era reference(s): ${unclassifiedHits.map((hit) => `${hit.file}:${hit.line}`).join(', ')}`);
+  failures.push(`Unclassified legacy runtime reference(s): ${unclassifiedHits.map((hit) => `${hit.file}:${hit.line}`).join(', ')}`);
 }
 
 if (strict && transitionalBlockers.length > 0) {
   const uniqueFiles = [...new Set(transitionalBlockers.map((hit) => hit.file))];
-  failures.push(`Strict no-Tauri scan rejects transitional blocker file(s): ${uniqueFiles.join(', ')}`);
+  failures.push(`Strict legacy runtime reference scan rejects transitional blocker file(s): ${uniqueFiles.join(', ')}`);
 }
 
 const report = {
@@ -197,14 +202,14 @@ if (jsonOnly) {
   console.log(JSON.stringify(report, null, 2));
 } else if (failures.length === 0) {
   console.log(
-    `No-Tauri scan passed: ${hits.length} hit(s), ${allowedHistoricalHits.length} allowed historical hit(s), ${transitionalBlockers.length} transitional blocker hit(s), ${unclassifiedHits.length} unclassified hit(s).`,
+    `Legacy runtime reference scan passed: ${hits.length} hit(s), ${allowedHistoricalHits.length} allowed historical hit(s), ${transitionalBlockers.length} transitional blocker hit(s), ${unclassifiedHits.length} unclassified hit(s).`,
   );
   if (transitionalBlockers.length > 0) {
     console.log('Strict release gate still blocked by transitional files:');
     for (const file of report.transitionalBlockerFiles) console.log(`- ${file}`);
   }
 } else {
-  console.error('No-Tauri scan failed:');
+  console.error('Legacy runtime reference scan failed:');
   for (const failure of failures) console.error(`- ${failure}`);
 }
 

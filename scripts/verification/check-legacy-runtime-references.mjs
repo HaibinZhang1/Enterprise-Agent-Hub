@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
 const repoRoot = process.cwd();
-const canonicalScript = path.join('scripts', 'checks', ['check-no-', ['ta', 'uri'].join(''), '-scan.mjs'].join(''));
+const canonicalScript = path.join('scripts', 'checks', 'check-legacy-runtime-reference-scan.mjs');
 const canonicalPath = path.resolve(repoRoot, canonicalScript);
 
 if (!existsSync(canonicalPath)) {

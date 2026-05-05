@@ -23,7 +23,9 @@ import {
 import type { AdminSkill, ClientUpdateReleaseSummary, DiscoveredLocalSkill, ExtensionInstall, MarketFilters, PluginTarget, PublishDraft, PublisherSkillSummary, PublisherSubmissionDetail, PublishScopeType, ReviewDetail, RiskLevel, SkillLeaderboardItem, SkillSummary } from "../domain/p1.ts";
 import { SKILL_CATEGORIES, SKILL_TAGS } from "../domain/p1.ts";
 import { buildPublishPrecheck } from "../state/ui/publishPrecheck.ts";
-import { buildCommunityExploreFilters, canAccessClientUpdateManagement, type DesktopUIState } from "../state/useDesktopUIState.ts";
+import type { DesktopUIState } from "../state/useDesktopUIState.ts";
+import { buildCommunityExploreFilters } from "../state/ui/communityExploreFilters.ts";
+import { canAccessClientUpdateManagement } from "../state/ui/desktopNavigation.ts";
 import type { P1WorkspaceState } from "../state/useP1Workspace.ts";
 import { downloadAuthenticatedFile } from "../services/p1Client.ts";
 import { isCommunityVisibleSkill } from "../state/p1WorkspaceHelpers.ts";

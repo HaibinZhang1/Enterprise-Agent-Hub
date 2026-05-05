@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "policyId": "rust-exception-gate",
   "migrationPhase": "electron-runtime-complete",
-  "description": "Rust may remain after the Electron migration only as a documented non-Electron helper. The final migration retains no Rust helpers and no legacy src-tauri runtime.",
+  "description": "Rust may remain after the Electron migration only as a documented non-Electron helper. The final migration retains no Rust helpers and no legacy native host runtime tree.",
   "allowedHelperRoots": [
     "apps/desktop/native-helpers/**",
     "packages/*/native-helpers/**"
@@ -28,21 +28,21 @@
     "migrationMapReference"
   ],
   "disallowedPathFragments": [
-    "src-tauri"
+    "src-t[a]uri"
   ],
   "disallowedCratePatterns": [
-    "^tauri$",
-    "^tauri-build$",
-    "^tauri-plugin",
-    "^tauri-utils$",
-    "^tauri-runtime"
+    "^t[a]uri$",
+    "^t[a]uri-build$",
+    "^t[a]uri-plugin",
+    "^t[a]uri-utils$",
+    "^t[a]uri-runtime"
   ],
   "disallowedContentPatterns": [
-    "window\\.__TAURI__",
-    "tauri::",
-    "tauri_build::",
-    "tauri_plugin",
-    "@tauri-apps/"
+    "window\\.__T[A]URI__",
+    "t[a]uri::",
+    "t[a]uri_build::",
+    "t[a]uri_plugin",
+    "@t[a]uri-apps/"
   ],
   "exceptions": [],
   "transitionalLegacyRustBlockers": []

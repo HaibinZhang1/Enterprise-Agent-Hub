@@ -122,9 +122,9 @@
       "requiredForRelease": true
     },
     {
-      "id": "no-tauri-scan-allowlist",
-      "label": "No-Electron scan allowlist exists",
-      "path": "verification/no-tauri-scan-allowlist.json",
+      "id": "legacy-runtime-reference-scan-allowlist",
+      "label": "Legacy runtime reference scan allowlist exists",
+      "path": "verification/legacy-runtime-reference-scan-allowlist.json",
       "owner": "worker-6",
       "requiredForRelease": true
     }
@@ -188,11 +188,11 @@
     {
       "id": "electron-no-legacy-runtime-scan",
       "label": "No active legacy desktop runtime references",
-      "command": "node scripts/checks/check-no-tauri-scan.mjs",
+      "command": "node scripts/checks/check-legacy-runtime-reference-scan.mjs",
       "cwd": ".",
       "whenPathExists": [
-        "scripts/checks/check-no-tauri-scan.mjs",
-        "verification/no-tauri-scan-allowlist.json"
+        "scripts/checks/check-legacy-runtime-reference-scan.mjs",
+        "verification/legacy-runtime-reference-scan-allowlist.json"
       ],
       "requiredForRelease": true
     },
@@ -291,13 +291,13 @@
       "requiredForRelease": true
     },
     {
-      "id": "no-tauri-scan",
-      "label": "No-Electron transitional scan with allowlist",
-      "command": "node scripts/checks/check-no-tauri-scan.mjs",
+      "id": "legacy-runtime-reference-scan",
+      "label": "Legacy runtime transitional scan with allowlist",
+      "command": "node scripts/checks/check-legacy-runtime-reference-scan.mjs",
       "cwd": ".",
       "whenPathExists": [
-        "scripts/checks/check-no-tauri-scan.mjs",
-        "verification/no-tauri-scan-allowlist.json"
+        "scripts/checks/check-legacy-runtime-reference-scan.mjs",
+        "verification/legacy-runtime-reference-scan-allowlist.json"
       ],
       "requiredForRelease": true
     },
@@ -348,8 +348,8 @@
         "scripts/verification/check-legacy-runtime-references.mjs",
         "apps/desktop/src-electron/main.ts",
         "apps/desktop/src-electron/preload.ts",
-        "scripts/checks/check-no-tauri-scan.mjs",
-        "verification/no-tauri-scan-allowlist.json"
+        "scripts/checks/check-legacy-runtime-reference-scan.mjs",
+        "verification/legacy-runtime-reference-scan-allowlist.json"
       ],
       "requiredForRelease": true
     },

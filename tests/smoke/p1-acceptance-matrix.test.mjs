@@ -42,7 +42,7 @@ const requiredCommandIds = [
   'deploy-script-syntax',
   'w6-acceptance-matrix-test',
   'rust-exception-gate',
-  'no-tauri-scan',
+  'legacy-runtime-reference-scan',
   'electron-security-policy',
   'p1-ui-closure',
   'p1-electron-closure',

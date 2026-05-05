@@ -168,6 +168,33 @@ test("Electron local runtime preserves local command contracts for bootstrap, co
   assert.deepEqual(await runtime.invoke(P1_LOCAL_COMMANDS.pickProjectDirectory, undefined), { projectPath: "/workspace/project-a" });
 });
 
+test("Electron local runtime persists local state across runtime instances", async () => {
+  const electronUserData = await tempDir("runtime-persistence");
+  const firstRuntime = createElectronLocalRuntime({
+    electronUserDataDir: electronUserData,
+    appVersion: "0.1.0",
+    now: fixedNow
+  });
+
+  await firstRuntime.invoke(P1_LOCAL_COMMANDS.saveToolConfig, {
+    toolID: "codex",
+    name: "Codex Persisted",
+    configPath: "/tmp/codex/config.toml",
+    skillsPath: "/tmp/codex/persisted-skills",
+    enabled: true
+  });
+
+  const secondRuntime = createElectronLocalRuntime({
+    electronUserDataDir: electronUserData,
+    appVersion: "0.1.0",
+    now: fixedNow
+  });
+
+  const bootstrap = await secondRuntime.invoke(P1_LOCAL_COMMANDS.getLocalBootstrap, undefined);
+  assert.equal(bootstrap.tools.find((tool) => tool.toolID === "codex")?.displayName, "Codex Persisted");
+  assert.equal(bootstrap.tools.find((tool) => tool.toolID === "codex")?.skillsPath, "/tmp/codex/persisted-skills");
+});
+
 test("Electron local runtime rejects path traversal IDs and relative target paths", async () => {
   const electronUserData = await tempDir("runtime-security");
   const runtime = createElectronLocalRuntime({

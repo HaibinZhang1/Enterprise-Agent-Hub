@@ -8,9 +8,8 @@ import { useWorkspaceSessionFlow } from "./workspace/facade/useWorkspaceSessionF
 import { useWorkspaceLocalSyncActions, useWorkspaceLocalSyncState } from "./workspace/useWorkspaceLocalSync";
 import { useWorkspaceMarketActions, useWorkspaceMarketState } from "./workspace/useWorkspaceMarket";
 import { useWorkspacePublisherActions, useWorkspacePublisherState } from "./workspace/useWorkspacePublisher";
+import { resolveWorkspacePageNavigation } from "./workspace/workspaceNavigation";
 import { deriveWorkspaceState } from "./workspace/workspaceDerivedState";
-
-const adminPages: PageID[] = ["review", "admin_departments", "admin_users", "admin_skills"];
 
 export function useP1Workspace() {
   const auth = useWorkspaceAuthState();
@@ -61,25 +60,16 @@ export function useP1Workspace() {
 
   const openPage = useCallback(
     (page: PageID) => {
-      if (page === "notifications") {
-        auth.setActivePageState("home");
+      const resolution = resolveWorkspacePageNavigation({
+        page,
+        authState: auth.authState,
+        visibleNavigation: derived.visibleNavigation
+      });
+      if (resolution.action === "require_auth") {
+        sessionFlow.requireAuth(resolution.page);
         return;
       }
-      if (page === "market" && auth.authState !== "authenticated") {
-        sessionFlow.requireAuth(page);
-        return;
-      }
-      if (adminPages.includes(page)) {
-        if (auth.authState !== "authenticated") {
-          sessionFlow.requireAuth(page);
-          return;
-        }
-        if (!derived.visibleNavigation.includes(page)) {
-          auth.setActivePageState("home");
-          return;
-        }
-      }
-      auth.setActivePageState(page);
+      auth.setActivePageState(resolution.page);
     },
     [auth.authState, auth.setActivePageState, derived.visibleNavigation, sessionFlow]
   );
