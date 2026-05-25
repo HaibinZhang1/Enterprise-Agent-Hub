@@ -53,7 +53,7 @@ export function shouldBlockNavigation(targetURL: string, currentURL: string | un
 
 export function buildRendererContentSecurityPolicy(isPackaged: boolean): string {
   const connectSrc = isPackaged ? "'self' https: http://127.0.0.1:*" : "'self' http://127.0.0.1:* ws://127.0.0.1:*";
-  const scriptSrc = isPackaged ? "'self'" : "'self' 'unsafe-eval'";
+  const scriptSrc = isPackaged ? "'self'" : "'self' 'unsafe-eval' 'unsafe-inline'";
   return [
     "default-src 'self'",
     `${scriptSrc ? `script-src ${scriptSrc}` : "script-src 'self'"}`,

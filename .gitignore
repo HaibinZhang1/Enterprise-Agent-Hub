@@ -5,6 +5,7 @@ node_modules/
 packages/*/dist/
 *.tsbuildinfo
 apps/*/dist/
+apps/*/dist-electron/
 coverage/
 target/
 *.log

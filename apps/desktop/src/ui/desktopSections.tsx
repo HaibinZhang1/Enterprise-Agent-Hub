@@ -669,7 +669,6 @@ function HomeHero({ workspace, ui }: SectionProps) {
           <div className="home-copy-block">
             <h1 className="home-title">
               <span className="home-title-text">Agent 探索</span>
-              <span className="home-title-status">（功能开发中）</span>
             </h1>
           </div>
           <form className="prompt-composer">

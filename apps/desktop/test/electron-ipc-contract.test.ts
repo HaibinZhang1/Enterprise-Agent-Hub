@@ -86,10 +86,15 @@ test("external URL and CSP policies stay narrow", () => {
   assert.equal(isSafeExternalURL("file:///etc/passwd"), false);
   assert.equal(isSafeExternalURL("javascript:alert(1)"), false);
 
-  const csp = buildRendererContentSecurityPolicy(true);
-  assert.match(csp, /object-src 'none'/);
-  assert.match(csp, /frame-ancestors 'none'/);
-  assert.doesNotMatch(csp, /default-src \*/);
+  const packagedCsp = buildRendererContentSecurityPolicy(true);
+  assert.match(packagedCsp, /object-src 'none'/);
+  assert.match(packagedCsp, /frame-ancestors 'none'/);
+  assert.doesNotMatch(packagedCsp, /default-src \*/);
+  assert.match(packagedCsp, /script-src 'self'(?:;|$)/);
+
+  const devCsp = buildRendererContentSecurityPolicy(false);
+  assert.match(devCsp, /script-src 'self' 'unsafe-eval' 'unsafe-inline'/);
+  assert.match(devCsp, /connect-src 'self' http:\/\/127\.0\.0\.1:\* ws:\/\/127\.0\.0\.1:\*/);
 });
 
 test("preload source exposes explicit local command wrappers without raw Electron APIs", () => {
